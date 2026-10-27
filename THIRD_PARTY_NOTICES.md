@@ -4,7 +4,7 @@ Exo Browser's own code is proprietary (see [LICENSE](LICENSE)). The installer al
 
 ## Exo Shield (a separate program)
 
-Exo Shield is Exo Browser's built-in blocker, installed in `app\extensions\exo-shield`. It is free software under the GNU General Public License version 3; its full text is in `LICENSE.txt` there, and what was changed is in `NOTICE.txt`. Its source, with the script that builds it: <https://github.com/ImAvgErix/exo-shield>.
+Exo Shield is Exo Browser's built-in blocker, installed in `app\extensions\exo-shield`. It is free software under the GNU General Public License version 3; its full text is in `LICENSE.txt` there, and what was changed is in `NOTICE.txt`. Its source, with the script that builds it: <https://github.com/UhhErix/exo-shield>.
 
 | Component | Version | License | Source |
 | --- | --- | --- | --- |

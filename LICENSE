@@ -1,12 +1,12 @@
 Exo Browser usage terms
 
-Copyright (c) 2026 Erix (ImAvgErix). All rights reserved, subject to the exceptions below.
+Copyright (c) 2026 Erix (UhhErix). All rights reserved, subject to the exceptions below.
 
 Exo Browser is available free of charge for personal use. You may download the official application, install and run it on your devices, and make copies necessary for your own installation or backup.
 
-Except as required by applicable law or permitted by a separate applicable license, you may not copy, fork, mirror, redistribute, sell, sublicense, rebrand or republish the source code of Exo Browser, in whole or in part, or create, publish or distribute modified versions or derivative works of it, without written permission from the copyright holder. To ask, open an issue at https://github.com/ImAvgErix/ExoBrowser/issues.
+Except as required by applicable law or permitted by a separate applicable license, you may not copy, fork, mirror, redistribute, sell, sublicense, rebrand or republish the source code of Exo Browser, in whole or in part, or create, publish or distribute modified versions or derivative works of it, without written permission from the copyright holder. To ask, open an issue at https://github.com/UhhErix/ExoBrowser/issues.
 
-The source code is published at https://github.com/ImAvgErix/ExoBrowser so anyone can read it and see what Exo Browser does. It is source-available, not open source. You may read it, and build and run it on your own devices to check it against the official release. Publishing the source grants no other right. GitHub's Terms of Service let GitHub users view and fork public repositories on GitHub; a fork made that way grants no right to use, change or distribute the code beyond these terms.
+The source code is published at https://github.com/UhhErix/ExoBrowser so anyone can read it and see what Exo Browser does. It is source-available, not open source. You may read it, and build and run it on your own devices to check it against the official release. Publishing the source grants no other right. GitHub's Terms of Service let GitHub users view and fork public repositories on GitHub; a fork made that way grants no right to use, change or distribute the code beyond these terms.
 
 If you send a contribution, such as a pull request or a patch, you grant the copyright holder a perpetual, worldwide, royalty-free and irrevocable license to use, change and distribute it as part of Exo Browser under any terms.
 
@@ -14,7 +14,7 @@ Exo Browser's interface uses the design of Exo Launcher, by the same copyright h
 
 Third-party components, fonts, libraries, and other materials remain governed by their own licenses. These terms do not restrict rights granted by those licenses or replace their required notices.
 
-The installer also carries Exo Shield, a separate program under the GNU General Public License version 3, made from uBlock Origin Lite, HaGeZi's DNS blocklists and TTV LOL PRO (all GPL-3.0); its source is at https://github.com/ImAvgErix/exo-shield. Its license, not these terms, governs Exo Shield, and nothing here limits the rights that license gives you. See THIRD_PARTY_NOTICES.md.
+The installer also carries Exo Shield, a separate program under the GNU General Public License version 3, made from uBlock Origin Lite, HaGeZi's DNS blocklists and TTV LOL PRO (all GPL-3.0); its source is at https://github.com/UhhErix/exo-shield. Its license, not these terms, governs Exo Shield, and nothing here limits the rights that license gives you. See THIRD_PARTY_NOTICES.md.
 
 Exo Browser is an independent product, not affiliated with or endorsed by Microsoft, Google, Cloudflare, the websites it opens, the password managers it imports from, or any other company whose names or services it works with. Their names and marks belong to their owners. Using those sites and services through Exo Browser remains subject to each one's own terms, which you accept with them, not with these terms.
 

@@ -131,7 +131,7 @@ console.log(`Exo Shield ${manifest.version}: ${domains.length} HaGeZi domains in
 function NOTICE(ubol, ttv, sites) {
   return `Exo Shield, Exo Browser's built-in blocker
 Copyright (C) Raymond Hill and contributors (uBlock Origin Lite), Younes Aassila and contributors (TTV LOL PRO),
-HaGeZi (HaGeZi DNS blocklists), and Erix (ImAvgErix) for the changes below.
+HaGeZi (HaGeZi DNS blocklists), and Erix (UhhErix) for the changes below.
 
 Exo Shield is a modified version of uBlock Origin Lite ${ubol}, combined with TTV LOL PRO ${ttv} and HaGeZi's
 Multi PRO list (${sites} sites). It is free software under the GNU General Public License version 3 (LICENSE.txt),
@@ -146,7 +146,7 @@ Changes, made by tools/build-shield.mjs (October 2026 and later):
 - TTV LOL PRO merged in (ttv/), with ad reports off and no first-run page; one service worker runs both
   (exo-background.js).
 
-Source for this build, with the script that makes it: https://github.com/ImAvgErix/exo-shield
+Source for this build, with the script that makes it: https://github.com/UhhErix/exo-shield
 uBlock Origin Lite: https://github.com/uBlockOrigin/uBOL-home  TTV LOL PRO: https://github.com/younesaassila/ttv-lol-pro
 HaGeZi: https://github.com/hagezi/dns-blocklists
 `;

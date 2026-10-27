@@ -71,10 +71,10 @@ Exo Shield's filter lists are built into each release. It downloads no lists and
 
 ## Updates
 
-When Exo Browser starts, and every twelve hours while it runs, it asks GitHub which release is the newest (`github.com/ImAvgErix/ExoBrowser/releases/latest`). Settings > About > Check for updates asks the same at once, and **Check for updates automatically** turns the automatic check off. GitHub sees your IP address and "ExoBrowser/" with the version you run; nothing else is sent.
+When Exo Browser starts, and every twelve hours while it runs, it asks GitHub which release is the newest (`github.com/UhhErix/ExoBrowser/releases/latest`). Settings > About > Check for updates asks the same at once, and **Check for updates automatically** turns the automatic check off. GitHub sees your IP address and "ExoBrowser/" with the version you run; nothing else is sent.
 
 When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from GitHub (`github.com`, which hands the files over from its own download host), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
 
 ## Questions
 
-Open an issue at <https://github.com/ImAvgErix/ExoBrowser/issues>. Issues are public: leave out anything personal.
+Open an issue at <https://github.com/UhhErix/ExoBrowser/issues>. Issues are public: leave out anything personal.

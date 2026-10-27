@@ -14,11 +14,11 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "CompanyName", "Erix (ImAvgErix)"
+      VALUE "CompanyName", "Erix (UhhErix)"
       VALUE "FileDescription", "Exo Browser"
       VALUE "FileVersion", EXO_VERSION_TEXT
       VALUE "InternalName", "ExoBrowser"
-      VALUE "LegalCopyright", "Copyright (c) 2026 Erix (ImAvgErix)"
+      VALUE "LegalCopyright", "Copyright (c) 2026 Erix (UhhErix)"
       VALUE "OriginalFilename", "ExoBrowser.exe"
       VALUE "ProductName", "Exo Browser"
       VALUE "ProductVersion", EXO_VERSION_TEXT

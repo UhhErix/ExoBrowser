@@ -4759,7 +4759,7 @@ static void OnNewTabMessage(int id, const std::wstring& msg) {
 // release publishes beside it, then run silently: it closes this window (which saves your tabs), swaps the app and
 // opens it again. GitHub sees the address it's asked from and "ExoBrowser/<version>"; nothing else is sent.
 
-static const wchar_t kReleases[] = L"https://github.com/ImAvgErix/ExoBrowser/releases";
+static const wchar_t kReleases[] = L"https://github.com/UhhErix/ExoBrowser/releases";
 static const UINT WM_APP_UPDATE = WM_APP + 6;  // lParam: new UpdateNews*
 static const UINT kTimerUpdate = 12;
 static const UINT kUpdateEveryMs = 12 * 60 * 60 * 1000;
