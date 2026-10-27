@@ -17,8 +17,8 @@
 !define ICON "..\src\app.ico"
 
 !define PRODUCT_NAME "Exo Browser"
-!define PRODUCT_PUBLISHER "Erix (ImAvgErix)"
-!define PRODUCT_WEB "https://github.com/ImAvgErix/ExoBrowser"
+!define PRODUCT_PUBLISHER "Erix (UhhErix)"
+!define PRODUCT_WEB "https://github.com/UhhErix/ExoBrowser"
 !ifdef EXO_TEST_ROOT
   ; A walk-through build (/DEXO_TEST_ROOT=<folder>): installs under that folder with its own registry entries,
   ; shortcut names and browser listing, never over the real Exo Browser.

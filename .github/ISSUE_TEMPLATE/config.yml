@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Getting started and help
-    url: https://github.com/ImAvgErix/ExoBrowser/blob/main/docs/HELP.md
+    url: https://github.com/UhhErix/ExoBrowser/blob/main/docs/HELP.md
     about: Installing, the Bar, Exo Shield, Exo Vault, importing and extensions.
   - name: Report a security problem privately
-    url: https://github.com/ImAvgErix/ExoBrowser/security/advisories/new
+    url: https://github.com/UhhErix/ExoBrowser/security/advisories/new
     about: Please don't post security problems in a public issue.

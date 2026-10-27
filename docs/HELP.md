@@ -2,11 +2,11 @@
 
 ## Install and update
 
-1. Download **ExoBrowser-Setup.exe** from the [latest release](https://github.com/ImAvgErix/ExoBrowser/releases/latest).
+1. Download **ExoBrowser-Setup.exe** from the [latest release](https://github.com/UhhErix/ExoBrowser/releases/latest).
 2. Run it, choose Install, then Launch Exo Browser. **Options** under Install has the desktop shortcut switch.
 3. First run walks you through Exo Vault, bringing your things from your other browsers, your look and your default browser. Every step can be skipped and found later in Settings.
 
-Exo Browser looks for a new version when it starts and twice a day, and tells you when one is ready. **Settings > About** shows your version with **Check for updates**; when a new one is out, **Install update** downloads it, checks it, then closes Exo Browser, installs it and opens it again with your tabs, history, sign-ins and vault as they were. **Check for updates automatically** turns the automatic check off. New versions are also on the [releases page](https://github.com/ImAvgErix/ExoBrowser/releases): running a newer Setup does the same.
+Exo Browser looks for a new version when it starts and twice a day, and tells you when one is ready. **Settings > About** shows your version with **Check for updates**; when a new one is out, **Install update** downloads it, checks it, then closes Exo Browser, installs it and opens it again with your tabs, history, sign-ins and vault as they were. **Check for updates automatically** turns the automatic check off. New versions are also on the [releases page](https://github.com/UhhErix/ExoBrowser/releases): running a newer Setup does the same.
 
 Exo Browser needs **Windows 11 x64** and installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`. The installer isn't code-signed yet, so SmartScreen may warn the first time: choose **More info**, then **Run anyway**. Each release lists the installer's SHA-256.
 
@@ -50,7 +50,7 @@ Your bookmarks as glass cards (drag one to rearrange them) and, under them, the 
 
 ## Exo Shield
 
-Exo Shield is always on, at its strongest, on every site, and has no settings. If a site misbehaves, reload it; if it still does, [report it](https://github.com/ImAvgErix/ExoBrowser/issues/new/choose) with the site's address. **Settings > About** lists Exo Shield's parts and when its lists were built.
+Exo Shield is always on, at its strongest, on every site, and has no settings. If a site misbehaves, reload it; if it still does, [report it](https://github.com/UhhErix/ExoBrowser/issues/new/choose) with the site's address. **Settings > About** lists Exo Shield's parts and when its lists were built.
 
 Twitch: a stream can take a second longer to start, since its playlist comes through another country. The video itself comes straight from Twitch.
 
@@ -89,4 +89,4 @@ Exo Browser has no account and sends nothing to Exo. **Settings > Privacy > Cook
 
 ## Something wrong?
 
-[Report a problem or suggest a feature](https://github.com/ImAvgErix/ExoBrowser/issues/new/choose). Issues are public: leave out passwords, addresses you'd rather keep private and personal details.
+[Report a problem or suggest a feature](https://github.com/UhhErix/ExoBrowser/issues/new/choose). Issues are public: leave out passwords, addresses you'd rather keep private and personal details.

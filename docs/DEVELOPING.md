@@ -7,7 +7,7 @@ Reading the source is welcome; see the [terms](../LICENSE) for what else is allo
 | `src/` | The C++ host: the window, tabs, glass, Exo Shield's setup, and Exo Vault's file and keys (`vault.cpp`). |
 | `ui/` | The interface (React, Vite): the Bar, new tab page, Settings, Exo Vault and first run in `ui/src/browser`, Setup's screens in `ui/src/setup`. |
 | `ui/src/` (outside `browser/` and `setup/`) | Exo Launcher's design, copied. `ui/scripts/sync-exo.mjs` refreshes it from `..\ExoLauncher` before each build when that is on the PC; `ui/exo-sync.json` lists the files and the Exo commit. |
-| `extensions/exo-shield` | Exo Shield, built by `tools/build-shield.mjs` ([its own repository](https://github.com/ImAvgErix/exo-shield), GPL-3.0). |
+| `extensions/exo-shield` | Exo Shield, built by `tools/build-shield.mjs` ([its own repository](https://github.com/UhhErix/exo-shield), GPL-3.0). |
 | `vendor/` | Third-party code, unmodified: uBlock Origin Lite, TTV LOL PRO and Argon2. |
 | `setup/` | Exo Browser Setup's window (`setup/src/main.cpp`), which runs the install engine `tools/ExoBrowser.nsi`. |
 | `brand/`, `tools/` | Icons, and the scripts that build Exo Shield, the installer and the release, fetch extensions and capture the window for checks. |

@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Check the [help guide](https://github.com/ImAvgErix/ExoBrowser/blob/main/docs/HELP.md) and existing issues first. This report is public: remove passwords, sign-ins, email addresses and personal file paths from anything you attach. Security problems go [here, privately](https://github.com/ImAvgErix/ExoBrowser/security/advisories/new).
+        Check the [help guide](https://github.com/UhhErix/ExoBrowser/blob/main/docs/HELP.md) and existing issues first. This report is public: remove passwords, sign-ins, email addresses and personal file paths from anything you attach. Security problems go [here, privately](https://github.com/UhhErix/ExoBrowser/security/advisories/new).
   - type: input
     id: version
     attributes:
