@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.7 — October 28, 2026
+
+Install update works again, and the release build now catches the slip that broke it.
+
+- **Install update starts Setup again.** Since 1.1.3, Install update downloaded the new version and checked it, then said Setup couldn't be started. The folder it starts Setup in was written with a single backslash, which the compiler drops, so it asked Windows for a folder that doesn't exist. Now Setup starts and installs. On any version before 1.1.7, install this one once from the download; after that, Settings › About › Install update brings each new version in. _Verified: a build with this fix, labelled 1.1.5, updated itself from this page's previous release on this PC. It downloaded and checked Setup, started it, and Setup installed 1.1.6 and opened it again._
+- **The slip can't come back.** The release build now refuses a C++ string whose backslash the compiler would drop (`tools/escape-check.mjs`). _Checked: it flags the old line and passes the fixed code._
+- **Built on Node 26.13.0**, the newest; every other part was still at its newest. _Built and checked on it._
+
 ## 1.1.6 — October 28, 2026
 
 Exo Vault stays out of screen shares and recordings, every result in Search gets its own actions, and everything Exo Browser is built from is at its newest.

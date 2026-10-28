@@ -20,6 +20,9 @@ if (-not $whatsNew) { throw "ui\src\browser\whatsNew.json has no entry for $vers
 # What leaves the PC is what PRIVACY.md says: every request the browser makes itself asks its one checkpoint first.
 node (Join-Path $repo 'tools\privacy-check.mjs')
 if ($LASTEXITCODE) { throw 'PRIVACY.md and the places Exo Browser connects to disagree (tools\privacy-check.mjs).' }
+# Every backslash in a C++ string is an escape: the compiler drops one that isn't, without a word.
+node (Join-Path $repo 'tools\escape-check.mjs')
+if ($LASTEXITCODE) { throw 'A C++ string has a backslash the compiler would drop (tools\escape-check.mjs).' }
 & (Join-Path $repo 'build.cmd')
 if ($LASTEXITCODE) { throw "Browser build failed ($LASTEXITCODE)." }
 

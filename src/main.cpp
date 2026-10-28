@@ -5244,7 +5244,9 @@ static void OnUpdateNews(UpdateNews* raw) {
         STARTUPINFOW si{sizeof si};
         PROCESS_INFORMATION pi{};
         std::wstring line = L"\"" + news->file + L"\" /S";
-        std::wstring updates = g.dataDir + L"\Updates";
+        // Started in Updates, not the app folder it replaces (that would hold it in use). Written with two backslashes:
+        // the compiler drops a lone one, and 1.1.3 to 1.1.6 asked for a folder that doesn't exist, so Setup never ran.
+        std::wstring updates = g.dataDir + L"\\Updates";
         if (CreateProcessW(news->file.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, updates.c_str(), &si, &pi)) {
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);

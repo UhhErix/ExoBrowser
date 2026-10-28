@@ -36,4 +36,6 @@ With that port open, `node tools/layout-check.mjs --port <port>` walks first run
 
 `node tools/privacy-check.mjs` (run by each release build) holds PRIVACY.md to where the browser connects of its own accord: every such request asks one checkpoint (`EgressAllowed` in `src/main.cpp`) for what it is for, and each fixed host in its list is named in PRIVACY.md.
 
+`node tools/escape-check.mjs` (also run by each release build) finds a backslash in a C++ string that isn't an escape. The compiler drops such a backslash without a warning, which is how `L"\Updates"` broke Install update in 1.1.3 to 1.1.6. Write `\\` for a path.
+
 `npm --prefix ui run check` also runs `ui/scripts/browser-design.mjs` over the browser's own CSS: colors only from Exo's theme tokens, font weights on Exo's scale, and no custom property read that nothing defines. At build, `ui/scripts/prune-css.mjs` drops the rules of Exo's copied styles that can't match anything the shipped code draws, and names each stylesheet after what's left.

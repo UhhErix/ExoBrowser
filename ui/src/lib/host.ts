@@ -520,6 +520,8 @@ export type GpuProfile = {
   lowLatency?: IntelLowLatency | null
   /** Radeon and Intel: what the profile does, in one line. */
   summary?: string | null
+  /** NVIDIA: each game Optimize gave its own profile on top of the global one, and what it holds. */
+  games?: { title: string; profile?: string | null; values: { label: string; words: string }[] }[] | null
 }
 
 export type RadeonAntiLag = 'games' | 'always' | 'off'
