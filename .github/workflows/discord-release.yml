@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PRODUCT: ExoBrowser
+  PRODUCT: Exo Browser
   AVATAR_FILE: exo-browser-avatar.png
   ASSET_DIR: .github/discord
   STATE_ARTIFACT: discord-last-release-message
