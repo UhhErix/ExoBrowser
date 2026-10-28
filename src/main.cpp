@@ -38,6 +38,7 @@
 #include <unordered_map>
 #include <vector>
 #include <wtsapi32.h>
+#include <sddl.h>
 #include <wincodec.h>
 #include <winhttp.h>
 #include <deque>
@@ -5481,6 +5482,138 @@ static void VaultTick() {
     if (minutes > 0 && GetTickCount64() - g_vaultActive > (ULONGLONG)minutes * 60000) VaultLock();
 }
 
+// ---------------------------------------------------------------------------------------
+// Exo Vault across a close. Closing Exo Browser (or an update restarting it) doesn't lock the vault: open at the close,
+// its key goes to a keeper, which holds it until Windows locks, the PC sleeps, you sign out or the Lock after time runs
+// out, and hands it to the next start, which opens the vault without asking. The keeper is this exe, copied beside the
+// vault (one running from the app folder would hold it in use, and an update couldn't swap it), with nothing else to
+// do. It keeps the key encrypted in its own memory, and its pipe answers only this Windows user, on this PC and in this
+// sign-in (not even this user's sandboxed page processes), and only a copy of Exo Browser.
+
+struct KeptVault {
+    uint32_t version = 1;
+    char key[32] = {};
+    long long leftMs = -1;  // the Lock after time still to run; -1: none ("Only when Windows locks")
+    wchar_t browser[MAX_PATH] = {};  // the Exo Browser that left it, which may ask for it back
+};
+
+static std::wstring KeeperExe() { return g.dataDir + L"\\Keeper\\ExoVaultKeeper.exe"; }
+
+// One per profile and sign-in.
+static std::wstring KeeperPipe() {
+    std::wstring dir = g.dataDir;
+    CharLowerBuffW(dir.data(), (DWORD)dir.size());
+    uint64_t h = 1469598103934665603ull;
+    for (wchar_t c : dir) { h ^= (uint64_t)c; h *= 1099511628211ull; }
+    DWORD session = 0;
+    ProcessIdToSessionId(GetCurrentProcessId(), &session);
+    wchar_t name[96];
+    swprintf_s(name, L"\\\\.\\pipe\\ExoBrowser.VaultKeeper.%lu.%016llx", session, (unsigned long long)h);
+    return name;
+}
+
+static std::wstring ImageOf(DWORD pid) {
+    HANDLE p = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!p) return L"";
+    wchar_t path[MAX_PATH];
+    DWORD n = MAX_PATH;
+    bool ok = QueryFullProcessImageNameW(p, 0, path, &n);
+    CloseHandle(p);
+    return ok ? std::wstring(path, n) : L"";
+}
+
+// Asks a waiting keeper for its key, which ends it: the key and the Lock after time it had left.
+static bool TakeKeptKey(std::string& key, long long& leftMs) {
+    std::wstring name = KeeperPipe();
+    auto open = [&] { return CreateFileW(name.c_str(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION, nullptr); };
+    HANDLE pipe = open();
+    if (pipe == INVALID_HANDLE_VALUE && GetLastError() == ERROR_PIPE_BUSY && WaitNamedPipeW(name.c_str(), 1000)) pipe = open();
+    if (pipe == INVALID_HANDLE_VALUE) return false;
+    // A pipe of that name made by anything else isn't believed.
+    ULONG server = 0;
+    bool keeper = GetNamedPipeServerProcessId(pipe, &server) && _wcsicmp(ImageOf(server).c_str(), KeeperExe().c_str()) == 0;
+    KeptVault k;
+    DWORD got = 0;
+    bool ok = keeper && ReadFile(pipe, &k, sizeof k, &got, nullptr) && got == sizeof k && k.version == 1;
+    CloseHandle(pipe);
+    if (ok) { key.assign(k.key, sizeof k.key); leftMs = k.leftMs; }
+    SecureZeroMemory(&k, sizeof k);
+    return ok;
+}
+
+// The first time the vault's state is asked: a key kept across the close opens it, its Lock after time going on.
+static bool g_keptAsked = false;
+static void TakeKeptVault() {
+    if (g_keptAsked || vault::Unlocked() || g_vaultOpening) return;
+    g_keptAsked = true;
+    std::string key;
+    long long left = -1;
+    if (!TakeKeptKey(key, left)) return;
+    vault::Opened o = vault::UnlockWithKey(VaultFile(), key);
+    vault::Wipe(key);
+    if (o.result != vault::Ok) { vault::Wipe(o.key); vault::Wipe(o.json); return; }
+    VaultOpened(o);
+    long long limit = (long long)_wtoi(Setting(L"vaultLock", L"15").c_str()) * 60000;
+    if (limit > 0 && left >= 0) g_vaultActive = GetTickCount64() - (ULONGLONG)std::clamp(limit - left, 0LL, limit);
+}
+
+static bool SameFile(const std::wstring& a, const std::wstring& b) {
+    WIN32_FILE_ATTRIBUTE_DATA x, y;
+    return GetFileAttributesExW(a.c_str(), GetFileExInfoStandard, &x) && GetFileAttributesExW(b.c_str(), GetFileExInfoStandard, &y) &&
+           x.nFileSizeLow == y.nFileSizeLow && x.nFileSizeHigh == y.nFileSizeHigh && CompareFileTime(&x.ftLastWriteTime, &y.ftLastWriteTime) == 0;
+}
+
+// At the close, with the vault open and time left on its Lock after: the key goes to a new keeper, through a pipe only
+// it inherits.
+static void KeepVault() {
+    if (!vault::Unlocked()) return;
+    long long limit = (long long)_wtoi(Setting(L"vaultLock", L"15").c_str()) * 60000, left = -1;
+    if (limit > 0 && (left = limit - (long long)(GetTickCount64() - g_vaultActive)) <= 0) return;
+    // One keeper at a time: one still waiting (a start that never asked it) lets go first.
+    std::string old;
+    long long unused = 0;
+    if (TakeKeptKey(old, unused)) vault::Wipe(old);
+    wchar_t self[MAX_PATH];
+    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    std::wstring exe = KeeperExe();
+    CreateDirectoryW((g.dataDir + L"\\Keeper").c_str(), nullptr);
+    for (int i = 0; i < 10 && !SameFile(self, exe) && !CopyFileW(self, exe.c_str(), FALSE); i++) Sleep(50);
+    if (!SameFile(self, exe)) return;
+    SECURITY_ATTRIBUTES sa{sizeof sa, nullptr, TRUE};
+    HANDLE readEnd = nullptr, writeEnd = nullptr;
+    if (!CreatePipe(&readEnd, &writeEnd, &sa, 0)) return;
+    SetHandleInformation(writeEnd, HANDLE_FLAG_INHERIT, 0);
+    SIZE_T size = 0;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
+    std::vector<char> attributes(size);
+    auto* list = (LPPROC_THREAD_ATTRIBUTE_LIST)attributes.data();
+    bool listed = InitializeProcThreadAttributeList(list, 1, 0, &size) &&
+                  UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &readEnd, sizeof readEnd, nullptr, nullptr);
+    STARTUPINFOEXW si{};
+    si.StartupInfo.cb = sizeof si;
+    si.lpAttributeList = list;
+    PROCESS_INFORMATION pi{};
+    std::wstring line = L"\"" + exe + L"\" --vault-keeper " + std::to_wstring((unsigned long long)(ULONG_PTR)readEnd);
+    bool started = listed && CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, TRUE, EXTENDED_STARTUPINFO_PRESENT, nullptr,
+                                            g.dataDir.c_str(), &si.StartupInfo, &pi);
+    if (listed) DeleteProcThreadAttributeList(list);
+    CloseHandle(readEnd);
+    if (started) {
+        KeptVault k;
+        std::string key = vault::Key();
+        memcpy(k.key, key.data(), sizeof k.key);
+        vault::Wipe(key);
+        k.leftMs = left;
+        wcscpy_s(k.browser, self);
+        DWORD wrote = 0;
+        WriteFile(writeEnd, &k, sizeof k, &wrote, nullptr);
+        SecureZeroMemory(&k, sizeof k);
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    }
+    CloseHandle(writeEnd);
+}
+
 // Copied secrets stay out of Windows' clipboard history and cloud clipboard, and are cleared after 30 seconds
 // unless something else was copied since.
 static void VaultCopy(const std::string& utf8) {
@@ -5784,6 +5917,7 @@ static void OnVaultMessage(const std::vector<std::wstring>& p) {
     auto arg = [&](size_t i) { return i < p.size() ? p[i] : std::wstring(); };
     if (v != L"vaultState") VaultTouch();
     if (v == L"vaultState") {
+        TakeKeptVault();
         VaultState();
     } else if (v == L"vaultCreate" || v == L"vaultUnlock") {
         bool create = v == L"vaultCreate";
@@ -6927,6 +7061,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CLOSE:
+        KeepVault();  // open, it stays open for the next start
         vault::Lock();
         VaultClearClipboard();
         SavePlacement();
@@ -6965,9 +7100,134 @@ static std::wstring DataDir() {
     return dir;
 }
 
+// The keeper (KeepVault): a window never shown, to hear Windows lock, sleep and sign out; the pipe; and the key.
+static bool g_keeperDone = false;
+
+static LRESULT CALLBACK KeeperProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+    switch (msg) {
+    case WM_WTSSESSION_CHANGE:
+        if (wp == WTS_SESSION_LOCK || wp == WTS_SESSION_LOGOFF) g_keeperDone = true;
+        return 0;
+    case WM_POWERBROADCAST:
+        if (wp == PBT_APMSUSPEND) g_keeperDone = true;
+        return TRUE;
+    case WM_QUERYENDSESSION:
+        return TRUE;
+    case WM_ENDSESSION:
+        if (wp) g_keeperDone = true;
+        return 0;
+    }
+    return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// This Windows user only, at medium integrity or above: the same user's sandboxed processes (a page's) are refused.
+static PSECURITY_DESCRIPTOR OwnerOnly() {
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return nullptr;
+    BYTE buf[256];
+    DWORD n = 0;
+    bool ok = GetTokenInformation(token, TokenUser, buf, sizeof buf, &n);
+    CloseHandle(token);
+    LPWSTR sid = nullptr;
+    if (!ok || !ConvertSidToStringSidW(((TOKEN_USER*)buf)->User.Sid, &sid)) return nullptr;
+    std::wstring sddl = L"D:P(A;;GA;;;" + std::wstring(sid) + L")S:(ML;;NWNR;;;ME)";
+    LocalFree(sid);
+    PSECURITY_DESCRIPTOR sd = nullptr;
+    return ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &sd, nullptr) ? sd : nullptr;
+}
+
+// Only a copy of Exo Browser in this sign-in: the one that left the key, or the installed one (an update's).
+static bool KeeperAsker(HANDLE pipe, const wchar_t* browser) {
+    ULONG pid = 0;
+    DWORD theirs = 0, mine = 0;
+    if (!GetNamedPipeClientProcessId(pipe, &pid) || !ProcessIdToSessionId(pid, &theirs) || !ProcessIdToSessionId(GetCurrentProcessId(), &mine) ||
+        theirs != mine)
+        return false;
+    std::wstring image = ImageOf(pid), installed = KnownFolder(FOLDERID_LocalAppData) + L"\\ExoBrowser\\app\\ExoBrowser.exe";
+    return !image.empty() && (_wcsicmp(image.c_str(), browser) == 0 || _wcsicmp(image.c_str(), installed.c_str()) == 0);
+}
+
+static int KeeperMain(HANDLE in) {
+    g.dataDir = DataDir();
+    KeptVault k;
+    DWORD got = 0;
+    bool ok = ReadFile(in, &k, sizeof k, &got, nullptr) && got == sizeof k && k.version == 1;
+    CloseHandle(in);
+    // Encrypted while it waits, readable only inside this process.
+    if (!ok || !CryptProtectMemory(k.key, sizeof k.key, CRYPTPROTECTMEMORY_SAME_PROCESS)) { SecureZeroMemory(&k, sizeof k); return 1; }
+    ULONGLONG until = k.leftMs < 0 ? 0 : GetTickCount64() + (ULONGLONG)k.leftMs;
+    PSECURITY_DESCRIPTOR sd = OwnerOnly();
+    SECURITY_ATTRIBUTES sa{sizeof sa, sd, FALSE};
+    // FIRST_PIPE_INSTANCE: if anything else holds the name, there is no keeper (and the vault stays locked).
+    HANDLE pipe = sd ? CreateNamedPipeW(KeeperPipe().c_str(), PIPE_ACCESS_OUTBOUND | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED,
+                                        PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, sizeof k, 0, 0, &sa)
+                     : INVALID_HANDLE_VALUE;
+    if (sd) LocalFree(sd);
+    if (pipe == INVALID_HANDLE_VALUE) { SecureZeroMemory(&k, sizeof k); return 1; }
+    WNDCLASSW wc{};
+    wc.lpfnWndProc = KeeperProc;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = L"ExoVaultKeeper";
+    RegisterClassW(&wc);
+    HWND hwnd = CreateWindowExW(WS_EX_TOOLWINDOW, wc.lpszClassName, L"", WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, nullptr);
+    WTSRegisterSessionNotification(hwnd, NOTIFY_FOR_THIS_SESSION);
+    OVERLAPPED ov{};
+    ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    auto listen = [&] {
+        ResetEvent(ov.hEvent);
+        if (!ConnectNamedPipe(pipe, &ov) && GetLastError() == ERROR_PIPE_CONNECTED) SetEvent(ov.hEvent);
+    };
+    listen();
+    while (!g_keeperDone) {
+        DWORD wait = 2000;
+        if (until) {
+            ULONGLONG now = GetTickCount64();
+            if (now >= until) break;
+            wait = (DWORD)std::min<ULONGLONG>(wait, until - now);
+        }
+        DWORD r = MsgWaitForMultipleObjects(1, &ov.hEvent, FALSE, wait, QS_ALLINPUT);
+        if (r == WAIT_OBJECT_0) {
+            bool handed = false;
+            if (KeeperAsker(pipe, k.browser)) {
+                KeptVault out = k;
+                CryptUnprotectMemory(out.key, sizeof out.key, CRYPTPROTECTMEMORY_SAME_PROCESS);
+                out.leftMs = until ? (long long)(until - std::min(until, GetTickCount64())) : -1;
+                OVERLAPPED wov{};
+                wov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+                DWORD wrote = 0;
+                handed = (WriteFile(pipe, &out, sizeof out, nullptr, &wov) || GetLastError() == ERROR_IO_PENDING) &&
+                         GetOverlappedResult(pipe, &wov, &wrote, TRUE) && wrote == sizeof out;
+                CloseHandle(wov.hEvent);
+                SecureZeroMemory(&out, sizeof out);
+                if (handed) FlushFileBuffers(pipe);
+            }
+            if (handed) break;
+            DisconnectNamedPipe(pipe);
+            listen();
+        } else if (r == WAIT_OBJECT_0 + 1) {
+            MSG m;
+            while (PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&m); DispatchMessageW(&m); }
+        } else if (!vault::Exists(VaultFile())) {
+            break;  // the vault went (removed with Exo Browser's data)
+        }
+    }
+    SecureZeroMemory(&k, sizeof k);
+    WTSUnRegisterSessionNotification(hwnd);
+    DestroyWindow(hwnd);
+    CloseHandle(pipe);
+    CloseHandle(ov.hEvent);
+    return 0;
+}
+
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     int argc = 0;
     LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+    // The vault's keeper: nothing but that.
+    if (argc == 3 && wcscmp(argv[1], L"--vault-keeper") == 0) {
+        HANDLE in = (HANDLE)(ULONG_PTR)_wcstoui64(argv[2], nullptr, 10);
+        LocalFree(argv);
+        return KeeperMain(in);
+    }
     for (int i = 1; i < argc; i++)
         if (argv[i][0] != L'-') g.startupUrls.push_back(OpenArgument(argv[i]));
     LocalFree(argv);

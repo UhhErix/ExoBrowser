@@ -1956,7 +1956,8 @@ export const host = {
   log: (entry: AppLogEntry) => rawCall<{ ok: boolean }>('app.log', entry, 10_000),
   openLogs: () => rawCall<{ ok: boolean; message?: string }>('app.openLogs'),
   /** What an error's Copy logs copies: Exo's version, the error, where (a room's name) and the log entries behind it. */
-  logsFor: (error: string, area: string) => rawCall<{ ok: boolean; text?: string }>('app.logsFor', { error, area }, 15_000),
+  /** The report for an error's Copy logs, already on Windows' clipboard when copied is true. */
+  logsFor: (error: string, area: string) => rawCall<{ ok: boolean; text?: string; copied?: boolean }>('app.logsFor', { error, area }, 15_000),
   repairCache: (scope: 'sizes' | 'upscalers') => rawCall<{ ok: boolean; message?: string }>('app.repairCache', { scope }),
   dlssStatus: (id: string, refresh = false) =>
     rawCall<DlssStatus>('dlss.status', { id, ...(refresh ? { refresh: true } : {}) }, refresh ? 120_000 : 60_000),

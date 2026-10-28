@@ -30,7 +30,8 @@ export function CopyLogs({ error }: { error: string }) {
     try {
       const result = await host.logsFor(error, area)
       if (!result.ok || !result.text) throw new Error('No report')
-      await navigator.clipboard.writeText(result.text)
+      // The host puts it on the clipboard itself; the page's own write is the fallback for an older host.
+      if (!result.copied) await navigator.clipboard.writeText(result.text)
       setSaid('Copied')
     } catch {
       setSaid('Couldn’t copy')

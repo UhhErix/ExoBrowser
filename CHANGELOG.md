@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.8 — October 28, 2026
+
+Exo Vault no longer asks for your master password every time you open Exo Browser.
+
+- **Closing Exo Browser doesn't lock Exo Vault.** Open when you close the browser (or when an update restarts it), the vault opens again by itself at the next start. It still locks when Windows locks, the PC sleeps, you sign out, your Lock after time runs out or you press Lock. While the browser is closed, a small keeper holds the vault's key, encrypted in its own memory, and hands it only to Exo Browser, for your Windows account on this PC. It's gone the moment any of those happen. _Verified on a throwaway profile: the vault opened again with its items after a close; a stand-in for Windows locking, and one for the PC sleeping, each ended the keeper and left the next start locked; Lock before closing left no keeper; a 1-minute Lock after ran on across a close and reopen (locked 63 s after unlocking) and ended the keeper while closed; another program asking the keeper got nothing._
+
 ## 1.1.7 — October 28, 2026
 
 Install update works again, and the release build now catches the slip that broke it.

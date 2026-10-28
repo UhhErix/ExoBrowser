@@ -64,7 +64,7 @@ Twitch: a stream can take a second longer to start, since its playlist comes thr
 - **2FA codes:** add a site's setup key (or its otpauth link) to a login, and Exo Vault shows its current code.
 - **Bring your passwords in:** **Import and export** brings them from the browsers on this PC (close that browser first), or from a file: an export from Proton Pass, Bitwarden, 1Password, LastPass, Dashlane, KeePass, Safari or any browser (CSV or JSON), or an Exo Vault export. Proton Pass: in Proton Pass, **Settings > Export**, choose CSV, then import that file.
 - **Moving to another PC:** **Import and export > Encrypted export** saves everything as one file locked with a password you choose; import it in Exo Vault on the other PC.
-- **Locking:** after the time you set in **Vault settings**, when Windows locks and when the PC sleeps, or with **Lock**.
+- **Locking:** closing Exo Browser doesn't lock the vault: it opens again by itself at the next start. It locks after the time you set in **Vault settings**, when Windows locks and when the PC sleeps, or with **Lock**.
 - **Off your stream:** while the vault shows what's in it (its window, the menu beside a sign-in field, the offer to save a login), Exo Browser is left out of screen shares, recordings and screenshots, and shows as always on your screen. Locked, it shows nothing of yours, so it stays in them.
 
 ## Bringing your things from another browser

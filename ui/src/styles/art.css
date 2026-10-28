@@ -51,7 +51,6 @@
   font-weight: 600;
 }
 
-
 .exo-primary-action.is-active .exo-action-idle,
 .exo-update-action.is-active .exo-action-idle {
   opacity: 0;
@@ -67,10 +66,6 @@
 .exo-primary-action.is-active:disabled,
 .exo-update-action.is-active:disabled {
   opacity: 1;
-}
-
-.exo-update-action {
-  min-width: 116px;
 }
 
 .exo-boot {

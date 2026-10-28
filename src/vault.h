@@ -22,6 +22,8 @@ struct Opened {
 Opened Create(const std::wstring& file, const std::string& password, const std::string& json);
 Opened Unlock(const std::wstring& file, const std::string& password);
 Opened UnlockWithHelloKey(const std::wstring& file, const std::string& helloKey);
+// With the vault key itself (the one Exo Browser's keeper held across a close): no Argon2id, so at once.
+Opened UnlockWithKey(const std::wstring& file, const std::string& key);
 // Reads any vault or export with its password (an import), leaving this vault as it is.
 Opened Open(const std::wstring& file, const std::string& password);
 Result Export(const std::wstring& file, const std::string& password, const std::string& json);

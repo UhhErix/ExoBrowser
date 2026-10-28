@@ -220,6 +220,19 @@ Opened UnlockWithHelloKey(const std::wstring& file, const std::string& helloKey)
     return o;
 }
 
+Opened UnlockWithKey(const std::wstring& file, const std::string& key) {
+    Envelope e;
+    {
+        std::lock_guard<std::mutex> lock(g_io);
+        if (Result r = Read(file, e); r != Ok) { Opened o; o.result = r; return o; }
+    }
+    Opened o;
+    if (key.size() != 32 || !Unseal(key, e.data, kDataAad, o.json)) { o.result = WrongPassword; return o; }
+    o.key = key;
+    o.result = Ok;
+    return o;
+}
+
 Result Export(const std::wstring& file, const std::string& password, const std::string& json) {
     Opened o = Create(file, password, json);
     Wipe(o.key);
