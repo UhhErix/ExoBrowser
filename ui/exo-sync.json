@@ -1,6 +1,6 @@
 {
   "note": "Written by scripts/sync-exo.mjs: these files are Exo Launcher's, copied; change them in Exo.",
-  "exo": "3b4f6f74",
+  "exo": "af5067c3",
   "files": [
     "css-design.config.mjs",
     "eslint.config.js",

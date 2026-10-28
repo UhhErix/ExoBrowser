@@ -6184,13 +6184,14 @@ button.exo-dc-gifv {
   background: var(--exo-float);
   box-shadow: inset 0 0 0 1px var(--exo-float-line);
   outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline-offset: -2px;
   transition: box-shadow var(--dur-quick) var(--ease-out), outline-color var(--dur-quick) var(--ease-out);
 }
 
 /* A tile with art (their light, a camera) has nothing under it and no line on its edge: a fill and a hairline
    under the same rounded clip antialias the corner twice and show through as a light rim. The speaking ring
-   is an outline outside the tile, on every tile alike. */
+   is an outline on the tile's own edge, on every tile alike, as the call's members wear theirs: 2px outside it,
+   the page's black showed between the ring and the tile as a second, dark line. */
 .exo-dc-voice-tile:has(> .exo-dc-voice-backdrop, > .exo-dc-voice-video:not([hidden])) {
   background: transparent;
   box-shadow: none;
@@ -6214,19 +6215,14 @@ button.exo-dc-gifv {
   pointer-events: none;
 }
 
+/* Speaking lights the tile's own ring only, not their picture as well. */
 .exo-dc-voice-face,
 .exo-dc-voice-tile-initial {
   position: relative;
   width: clamp(56px, calc(var(--tile-w, 480px) * 0.17), 128px);
   height: clamp(56px, calc(var(--tile-w, 480px) * 0.17), 128px);
   border-radius: 999px;
-  box-shadow: 0 0 0 0 transparent, 0 8px 24px rgb(0 0 0 / 0.45);
-  transition: box-shadow var(--dur-quick) var(--ease-out);
-}
-
-.exo-dc-voice-tile.is-speaking .exo-dc-voice-face,
-.exo-dc-voice-tile.is-speaking .exo-dc-voice-tile-initial {
-  box-shadow: 0 0 0 3px var(--color-good), 0 8px 24px rgb(0 0 0 / 0.45);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
 }
 
 /* Nobody in the channel yet, or still connecting: the channel, quietly, in the middle. */

@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.1.2",
+    "items": [
+      {
+        "icon": "LockOpen",
+        "title": "Unlock Exo Vault where you are",
+        "detail": "Type your master password right in the menu beside a sign-in field, or in the offer to save one."
+      },
+      {
+        "icon": "Vault",
+        "title": "Unlock and save in one go",
+        "detail": "A sign-in offered while the vault is locked is saved as soon as you unlock it."
+      },
+      {
+        "icon": "Brush",
+        "title": "Boost this site opens on the site",
+        "detail": "A tab's Boost this site goes straight to that site's own style and zaps."
+      }
+    ]
+  },
+  {
     "version": "1.1.1",
     "items": [
       {

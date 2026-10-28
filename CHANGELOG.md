@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.2 — October 27, 2026
+
+Exo Vault unlocks right where it's asked for, in the menu beside a sign-in field and in the offer to save one, and two things the build broke work again.
+
+- **Unlock Exo Vault where you are.** With the vault locked, the menu beside a sign-in field and the offer to save a sign-in have the master password right in them (and Windows Hello beside it when it's on): Unlock opened Exo Vault's sheet over the page. Unlock and save saves the sign-in as the vault opens, and the page's field has the keyboard back. _Verified: on a test sign-in page, with clicks sent through the window: unlocked from the menu, a wrong password said so in place, and Unlock and save saved the login._
+- **Unlock to save no longer blanks the window.** Opening the vault from the offer to save a sign-in emptied the whole Bar: the build's React Compiler read the waiting sign-in after clearing it. _Verified: the chrome page stays up and the login is saved._
+- **Boost this site opens on the site.** A tab's Boost this site opened Settings › Boosts without the site's editor, for the same reason. _Verified: it opens on the site._
+- **Saving a sign-in says so.** Save, Update and Unlock and save show a notice; the vault's own note showed only on its sheet. _Verified: on screen._
+
 ## 1.1.1 — October 27, 2026
 
 Exo Vault takes clicks again, Exo Browser wears Exo Launcher's newest glass, notices and icons down to the menu a page opens, and every link opens without its trackers.

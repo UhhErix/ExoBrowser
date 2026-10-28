@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
 import * as I from '../icons'
-import { onHost, send, useBrowserValue } from '../host'
-import { b64, helloUnlock, loginsFor, neverSave, openVault, saveItem, newItem, setVault, useVault, vaultNow, type FillTarget, type Item, type Prompt } from './store'
+import { local, onHost, send, useBrowserValue } from '../host'
+import { b64, helloUnlock, loginsFor, neverSave, openVault, saveItem, newItem, setVault, unlock, useVault, vaultNow, type FillTarget, type Item, type Prompt } from './store'
 import { Avatar, summary, useOtp } from './parts'
 import { generate } from './generate'
 import { useRecipe } from './Editor'
@@ -23,10 +23,13 @@ const text = (v: unknown) => (typeof v === 'string' ? v.slice(0, 1024) : '')
 let hideTimer = 0
 let overMenu = false  // a click in the menu takes focus from the page's field: that blur doesn't close it
 let pending: Prompt | null = null  // a sign-in to save once the vault opens
+let saveOnOpen = false  // and saved then, not offered again: Unlock and save was pressed
+let refocusTab = 0  // the page whose field the menu unlocked the vault for: it has the keyboard back once it opens
 
 function hideFill() {
   clearTimeout(hideTimer)
   overMenu = false
+  refocusTab = 0
   if (vaultNow().fill) setVault({ fill: null })
 }
 
@@ -50,7 +53,8 @@ function onFocus(m: Record<string, unknown>, p: PageEvent) {
   if (!KINDS.has(kind) || vaultNow().state === 'none' || vaultNow().state === 'unknown') return
   const zoom = num(m.zoom) || 1, dx = num(m.dx), dy = num(m.dy)
   clearTimeout(hideTimer)
-  setVault({ fill: { tab: num(m.tab), origin: text(m.origin), kind, x: dx + num(p.x) * zoom, y: dy + num(p.y) * zoom, w: num(p.w) * zoom, h: num(p.h) * zoom, signup: !!p.signup, pw: !!p.pw } })
+  // A new field starts clean: a wrong master password typed for another stays with that one.
+  setVault({ error: vaultNow().state === 'unlocked' ? vaultNow().error : '', fill: { tab: num(m.tab), origin: text(m.origin), kind, x: dx + num(p.x) * zoom, y: dy + num(p.y) * zoom, w: num(p.w) * zoom, h: num(p.h) * zoom, signup: !!p.signup, pw: !!p.pw } })
 }
 
 /** After a sign-in: offer to save it, or to update the saved password when it changed. */
@@ -58,7 +62,7 @@ function onSubmit(origin: string, p: PageEvent) {
   const username = text(p.username), password = text(p.password)
   const v = vaultNow()
   if (!password || v.state === 'none' || v.state === 'unknown' || (v.data?.never ?? []).includes(siteOfUrl(origin))) return
-  if (v.state !== 'unlocked') { setVault({ prompt: { origin, username, password } }); return }
+  if (v.state !== 'unlocked') { setVault({ prompt: { origin, username, password }, error: '' }); return }
   const same = loginsFor(origin).filter(i => (i.username ?? '') === username)
   if (same.some(i => i.password === password)) return
   setVault({ prompt: { origin, username, password, update: same[0]?.id } })
@@ -69,7 +73,12 @@ export function startFill() {
     let p: PageEvent
     try { p = JSON.parse(m.page as string) as PageEvent } catch { return }
     if (p.e === 'focus') onFocus(m, p)
-    else if (p.e === 'blur') { clearTimeout(hideTimer); if (!overMenu) hideTimer = window.setTimeout(hideFill, 180) }
+    // The field let go: the menu goes, unless the pointer is on it or its own field has the keyboard (the master
+    // password being typed into it, the pointer since moved off).
+    else if (p.e === 'blur') {
+      clearTimeout(hideTimer)
+      if (!overMenu) hideTimer = window.setTimeout(() => { if (!document.querySelector('.exb-vault-fill')?.contains(document.activeElement)) hideFill() }, 180)
+    }
     else if (p.e === 'typing') hideFill()
     else if (p.e === 'submit') onSubmit(text(m.origin), p)
   })
@@ -79,6 +88,38 @@ function fillWith(target: FillTarget, payload: Record<string, unknown>) {
   send('vaultFill', target.tab, target.origin, b64(JSON.stringify(payload)))
   send('vaultFocusTab', target.tab)
   hideFill()
+}
+
+/**
+ * The master password where the vault was asked for (the menu beside a sign-in field, the offer to save one), with
+ * Windows Hello beside it when it's on: Unlock opened Exo Vault's sheet over the page to type it there. The words go
+ * to the host the moment Unlock is pressed and leave the field.
+ */
+function UnlockHere({ action, onUnlock, beside }: { action: string; onUnlock: () => void; beside?: ReactNode }) {
+  const v = useVault()
+  const [password, setPassword] = useState('')
+  const go = () => {
+    if (!password || v.busy) return
+    onUnlock()
+    unlock(password)
+    setPassword('')
+  }
+  return (
+    <>
+      <div className="exb-vault-unlock">
+        {v.hello ? (
+          <Button size="sm" isIconOnly className="exo-set-btn is-compact" aria-label="Unlock with Windows Hello" isDisabled={v.busy} onPress={() => { onUnlock(); helloUnlock() }}>
+            <I.Fingerprint size={14} />
+          </Button>
+        ) : null}
+        <input className="exo-field exb-vault-unlock-field" type="password" autoComplete="off" aria-label="Master password" placeholder="Master password"
+          value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); go() } }} />
+        {beside}
+        <Button className="exo-set-btn is-compact is-primary" isDisabled={!password || v.busy} onPress={go}>{v.busy ? 'Opening…' : action}</Button>
+      </div>
+      {v.error ? <p className="exo-set-error exb-vault-unlock-error" role="alert">{v.error}</p> : null}
+    </>
+  )
 }
 
 function OtpChoice({ item, target }: { item: Item; target: FillTarget }) {
@@ -95,11 +136,7 @@ function Choices({ target }: { target: FillTarget }) {
   const v = useVault()
   const recipe = useRecipe()
   const [fresh] = useState(() => generate(recipe))
-  if (v.state !== 'unlocked') return (
-    <button type="button" role="menuitem" className="exo-menu-item" onClick={() => (v.hello ? helloUnlock() : openVault())}>
-      {v.hello ? <I.Fingerprint /> : <I.Lock />}Unlock Exo Vault
-    </button>
-  )
+  if (v.state !== 'unlocked') return <UnlockHere action="Unlock" onUnlock={() => { refocusTab = target.tab }} />
   const logins = loginsFor(target.origin)
   if (target.kind === 'otp') return <>{logins.filter(i => i.totp).map(i => <OtpChoice key={i.id} item={i} target={target} />)}</>
   if (target.kind === 'card') return <>{(v.data?.items ?? []).filter(i => i.type === 'card' && !i.trashed).map(i => (
@@ -154,6 +191,8 @@ function FillMenu({ target }: { target: FillTarget }) {
   return (
     <div ref={ref} className="exo-shelf-sort-menu exb-menu exb-vault-fill" role="menu" aria-label="Exo Vault" style={style}
       onAnimationEnd={reportHot}
+      // Typing the master password here gives this page the keyboard: Esc puts the menu away and hands it back.
+      onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); hideFill(); send('vaultFocusTab', target.tab) } }}
       onPointerEnter={() => { overMenu = true; clearTimeout(hideTimer) }} onPointerLeave={() => { overMenu = false }}>
       <Choices target={target} />
       <button type="button" role="menuitem" className="exo-menu-item exb-vault-pick is-quiet" onClick={() => { hideFill(); openVault('login') }}>
@@ -165,16 +204,20 @@ function FillMenu({ target }: { target: FillTarget }) {
 
 function SavePrompt({ prompt }: { prompt: Prompt }) {
   const v = useVault()
-  const close = () => setVault({ prompt: null })
+  // Gone without saving: nothing waits for the vault to open any more.
+  const close = () => { pending = null; saveOnOpen = false; setVault({ prompt: null }) }
   const save = () => {
     const existing = prompt.update ? v.data?.items.find(i => i.id === prompt.update) : undefined
     if (existing) saveItem({ ...existing, password: prompt.password })
     else saveItem(newItem('login', { name: siteName(prompt.origin), urls: [prompt.origin], username: prompt.username, password: prompt.password }))
-    setVault({ prompt: null, note: existing ? 'Password updated' : 'Login saved' })
+    setVault({ prompt: null })
+    // A notice, as the window's own: the vault's notes show only on its sheet, so saving here said nothing.
+    local({ t: 'toast', text: existing ? 'Password updated' : 'Login saved' })
   }
-  // Locked: open it first (Windows Hello when it's on), then this offer comes back.
-  const unlockFirst = () => { pending = prompt; if (v.hello) helloUnlock(); else openVault() }
-  const action = v.state !== 'unlocked' ? 'Unlock to save' : prompt.update ? 'Update' : 'Save'
+  // Locked: the master password right here (or Windows Hello), and the login is saved as the vault opens.
+  const locked = v.state !== 'unlocked'
+  const unlockFirst = () => { pending = prompt; saveOnOpen = true }
+  const action = prompt.update ? 'Update' : 'Save'
   useLayoutEffect(reportHot)
   useEffect(() => reportHot, [])
   // Exo's notice (its NoticeStack): the question and the login, the choices under them at the right.
@@ -190,11 +233,17 @@ function SavePrompt({ prompt }: { prompt: Prompt }) {
             <span className="exo-notice-where">{prompt.username || 'No username'}</span>
           </span>
         </div>
-        <div className="exo-notice-actions">
-          <Button className="exo-set-btn is-compact" onPress={() => { neverSave(prompt.origin); close() }} isDisabled={v.state !== 'unlocked'}>Never here</Button>
-          <Button className="exo-set-btn is-compact" onPress={close}>Not now</Button>
-          <Button className="exo-set-btn is-compact is-primary" onPress={() => (v.state === 'unlocked' ? save() : unlockFirst())}>{action}</Button>
-        </div>
+        {locked ? (
+          <div className="exo-notice-actions exb-vault-prompt-unlock">
+            <UnlockHere action="Unlock and save" onUnlock={unlockFirst} beside={<Button className="exo-set-btn is-compact" onPress={close}>Not now</Button>} />
+          </div>
+        ) : (
+          <div className="exo-notice-actions">
+            <Button className="exo-set-btn is-compact" onPress={() => { neverSave(prompt.origin); close() }}>Never here</Button>
+            <Button className="exo-set-btn is-compact" onPress={close}>Not now</Button>
+            <Button className="exo-set-btn is-compact is-primary" onPress={save}>{action}</Button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -206,6 +255,27 @@ export function VaultPrompt() {
   return v.prompt && !v.open ? <SavePrompt prompt={v.prompt} /> : null
 }
 
+/**
+ * Once the vault opens: the page the menu unlocked it for has the keyboard back, and a sign-in waiting on it is saved
+ * (Unlock and save) or offered again. Out here, not in the component: inside it the React Compiler read
+ * `const p = pending` as pending itself, cleared it, then read it, and the chrome page went blank.
+ */
+function vaultOpened() {
+  if (refocusTab) { send('vaultFocusTab', refocusTab); refocusTab = 0 }
+  const p = pending, now = saveOnOpen
+  pending = null
+  saveOnOpen = false
+  if (!p) return
+  const same = loginsFor(p.origin).filter(i => (i.username ?? '') === p.username)
+  if (p.username && same.some(i => i.password === p.password)) { setVault({ prompt: null }); if (now) local({ t: 'toast', text: 'Already in Exo Vault' }); return }
+  const update = p.username ? same[0] : undefined
+  if (!now) { setVault({ prompt: { ...p, update: update?.id } }); return }
+  if (update) saveItem({ ...update, password: p.password })
+  else saveItem(newItem('login', { name: siteName(p.origin), urls: [p.origin], username: p.username, password: p.password }))
+  setVault({ prompt: null })
+  local({ t: 'toast', text: update ? 'Password updated' : 'Login saved' })
+}
+
 export function VaultFill() {
   const v = useVault()
   const active = useBrowserValue(b => b.active)
@@ -213,14 +283,7 @@ export function VaultFill() {
   // Another tab, or the page moving on, puts the menu away.
   useEffect(() => { hideFill() }, [active, url])
   // A sign-in waiting on the vault: once it opens, offer it again, now as save or update.
-  useEffect(() => {
-    if (v.state !== 'unlocked' || !pending) return
-    const p = pending
-    pending = null
-    const same = loginsFor(p.origin).filter(i => (i.username ?? '') === p.username)
-    if (p.username && same.some(i => i.password === p.password)) return
-    setVault({ prompt: { ...p, update: p.username ? same[0]?.id : undefined } })
-  }, [v.state])
+  useEffect(() => { if (v.state === 'unlocked') vaultOpened() }, [v.state])
   const target = v.fill && v.fill.tab === active && sameSite(url, v.fill.origin) ? v.fill : null
   return (
     <>

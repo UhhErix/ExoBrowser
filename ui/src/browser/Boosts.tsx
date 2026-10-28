@@ -38,6 +38,13 @@ export function boostSite(site: string) {
   focusSite = site
   send('openSettings', 'boosts')
 }
+/** The site to open on, once: out here, not in the component. Inside it the React Compiler read `const s = focusSite`
+ *  as focusSite itself, cleared it, then returned it, so Boost this site never opened on the site. */
+function takeFocusSite() {
+  const s = focusSite
+  focusSite = ''
+  return s
+}
 
 /** Zap's bar while it's on: what to do, Undo for the last thing taken off, Done. */
 export function ZapBar() {
@@ -84,7 +91,7 @@ function BoostEditor({ site, boost }: { site: string; boost: Boost }) {
 export function BoostsSection() {
   const all = boostsOf(useBrowserValue(b => b.settings.boosts))
   const active = useBrowserValue(b => b.tabs.find(t => t.id === b.active))
-  const [open, setOpen] = useState(() => { const s = focusSite; focusSite = ''; return s })
+  const [open, setOpen] = useState(takeFocusSite)
   const sites = [...new Set([...Object.keys(all), ...(open && !all[open] ? [open] : [])])].sort()
   return (
     <Section id="boosts" title="Boosts">
