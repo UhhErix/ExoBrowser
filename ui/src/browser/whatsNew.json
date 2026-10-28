@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.1.5",
+    "items": [
+      {
+        "icon": "Gamepad",
+        "title": "Out of your game's way",
+        "detail": "While Exo Launcher runs a game, tabs you aren't looking at give their memory back and background checks wait."
+      },
+      {
+        "icon": "Download",
+        "title": "Always up to date",
+        "detail": "Exo Browser always looks for updates, as Exo Launcher does; nothing installs until you choose Install update."
+      }
+    ]
+  },
+  {
     "version": "1.1.4",
     "items": [
       {

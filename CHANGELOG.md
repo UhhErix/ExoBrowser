@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.5 — October 28, 2026
+
+Exo Browser steps aside while you play, working with Exo Launcher, and keeps itself up to date without a switch to forget.
+
+- **Out of your game's way.** When Exo Launcher says a game is running, the tabs you aren't looking at lower their memory within a minute and freeze within two, and live folders and the update check wait until the game ends; what's on screen, what plays sound and what you keep goes on, so a stream or a call isn't cut. It works with Exo Launcher's next release, which sends that signal. _Verified: with a stand-in for Exo Launcher's signal, two background tabs froze two minutes after they were left, and the tab on screen stayed awake._
+- **Always looks for updates.** Settings › About's Check for updates automatically is gone: Exo Browser always looks, quietly, twice a day, as Exo Launcher does, and nothing installs until you choose Install update. _Checked in code._
+
 ## 1.1.4 — October 28, 2026
 
 The archive grows into a tab manager of its own, with Keep this tab, shorter times and a list in Settings, and everything Exo Browser fetches on its own now passes one checkpoint.

@@ -6,7 +6,7 @@
 2. Run it, choose Install, then Launch Exo Browser. **Options** under Install has the desktop shortcut switch.
 3. First run walks you through Exo Vault, bringing your things from your other browsers, your look and your default browser. Every step can be skipped and found later in Settings.
 
-Exo Browser looks for a new version when it starts and twice a day, and tells you when one is ready. **Settings > About** shows your version with **Check for updates**; when a new one is out, **Install update** downloads it, checks it, then closes Exo Browser, installs it and opens it again with your tabs, history, sign-ins and vault as they were. **Check for updates automatically** turns the automatic check off. New versions are also on the [releases page](https://github.com/UhhErix/ExoBrowser/releases): running a newer Setup does the same.
+Exo Browser looks for a new version when it starts and twice a day, and tells you when one is ready. **Settings > About** shows your version with **Check for updates**; when a new one is out, **Install update** downloads it, checks it, then closes Exo Browser, installs it and opens it again with your tabs, history, sign-ins and vault as they were. New versions are also on the [releases page](https://github.com/UhhErix/ExoBrowser/releases): running a newer Setup does the same.
 
 Exo Browser needs **Windows 11 x64** and installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`. The installer isn't code-signed yet, so SmartScreen may warn the first time: choose **More info**, then **Run anyway**. Each release lists the installer's SHA-256.
 

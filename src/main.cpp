@@ -3807,14 +3807,32 @@ static bool SleepWork() {
 // tighter memory gets the sooner they step down, so the PC never pages. Fixed steps (lower memory after a minute,
 // frozen after five, closed after thirty) made a tab left a few minutes ago slow to come back on every PC.
 struct SleepSteps { ULONGLONG low, freeze, discard; };
+
+// Exo Launcher's sign that a game is running (Local\ExoLauncher.GameRunning: set while one runs, and absent while Exo
+// Launcher isn't, which reads as no game). While it's set Exo Browser keeps out of the game's way: tabs off screen step
+// down within a couple of minutes, and live folders and the update check wait. What's on screen, what plays sound and
+// what you keep are left as they are, so a stream or a call goes on.
+static bool GameRunning() {
+    HANDLE e = OpenEventW(SYNCHRONIZE, FALSE, L"Local\\ExoLauncher.GameRunning");
+    if (!e) return false;
+    bool on = WaitForSingleObject(e, 0) == WAIT_OBJECT_0;
+    CloseHandle(e);
+    return on;
+}
+
 static SleepSteps SleepStepsNow() {
     const ULONGLONG minute = 60 * 1000;
     MEMORYSTATUSEX m{sizeof m};
-    if (!GlobalMemoryStatusEx(&m) || m.dwMemoryLoad >= 90) return {1 * minute, 5 * minute, 20 * minute};
-    ULONGLONG gb = (m.ullTotalPhys + (1ull << 29)) >> 30;  // 15.9 GB of usable memory is a 16 GB PC
-    ULONGLONG discard = gb >= 32 ? 240 * minute : gb >= 16 ? 120 * minute : gb >= 8 ? 60 * minute : 30 * minute;
-    if (m.dwMemoryLoad >= 80) return {5 * minute, 10 * minute, std::max(30 * minute, discard / 2)};
-    return {10 * minute, 15 * minute, discard};
+    SleepSteps s;
+    if (!GlobalMemoryStatusEx(&m) || m.dwMemoryLoad >= 90) s = {1 * minute, 5 * minute, 20 * minute};
+    else {
+        ULONGLONG gb = (m.ullTotalPhys + (1ull << 29)) >> 30;  // 15.9 GB of usable memory is a 16 GB PC
+        ULONGLONG discard = gb >= 32 ? 240 * minute : gb >= 16 ? 120 * minute : gb >= 8 ? 60 * minute : 30 * minute;
+        s = m.dwMemoryLoad >= 80 ? SleepSteps{5 * minute, 10 * minute, std::max(30 * minute, discard / 2)} : SleepSteps{10 * minute, 15 * minute, discard};
+    }
+    // A game running: memory and processor time to the game, from tabs nobody is looking at. None closes for it.
+    if (GameRunning()) { s.low = std::min(s.low, 1 * minute); s.freeze = std::min(s.freeze, 2 * minute); }
+    return s;
 }
 
 // Background tabs step down: lower memory priority, then frozen, then closed (title, icon and address kept), on the
@@ -4973,8 +4991,8 @@ static void OnNewTabMessage(int id, const std::wstring& msg) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Updates: the newest release of Exo Browser on GitHub, asked when the browser starts and twice a day (unless turned
-// off in Settings > About), and installed when you choose. Its Setup is downloaded, checked against the SHA-256 the
+// Updates: the newest release of Exo Browser on GitHub, asked when the browser starts and twice a day, and installed
+// when you choose. Its Setup is downloaded, checked against the SHA-256 the
 // release publishes beside it, then run silently: it closes this window (which saves your tabs), swaps the app and
 // opens it again. GitHub sees the address it's asked from and "ExoBrowser/<version>"; nothing else is sent.
 
@@ -5233,10 +5251,14 @@ static void OnUpdateNews(UpdateNews* raw) {
     SendUpdate();
 }
 
-// The automatic check, unless turned off: shortly after start, then every twelve hours.
+// The automatic check: shortly after start, then every twelve hours.
 static void UpdateTick() {
+    // A game running (GameRunning): asked again in half an hour, not now.
+    if (GameRunning()) { SetTimer(g.hwnd, kTimerUpdate, 30 * 60 * 1000, nullptr); return; }
     SetTimer(g.hwnd, kTimerUpdate, kUpdateEveryMs, nullptr);
-    if (Setting(L"updates", L"auto") != L"off") UpdateCheck(true);
+    // Always, as Exo Launcher looks for its own: only a benefit, since nothing installs until you choose Install update
+    // (a switch to stop it was removed in 1.1.5).
+    UpdateCheck(true);
 }
 
 // Earlier updates' Setups, once they're done with (a Setup still running is in use and stays).
@@ -5301,6 +5323,8 @@ static void FetchFeed(const TabFolder& f) {
 }
 
 static void FeedsTick() {
+    // A game running (GameRunning): live folders look again in five minutes.
+    if (GameRunning()) { SetTimer(g.hwnd, kTimerFeeds, 5 * 60 * 1000, nullptr); return; }
     SetTimer(g.hwnd, kTimerFeeds, 30 * 60 * 1000, nullptr);
     for (auto& f : g.folders) if (!f.feed.empty()) FetchFeed(f);
 }

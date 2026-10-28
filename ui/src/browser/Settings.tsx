@@ -668,7 +668,6 @@ function Sheet({ open, section, onClose }: { open: boolean; section: string; onC
               <Import sources={data.state?.sources ?? []} />
               <Section id="about" title="About">
                 <UpdateRow />
-                {toggle('updates', 'Check for updates automatically', 'When Exo Browser starts and twice a day, it asks GitHub for the newest version', 'auto', 'auto', 'off')}
                 <Row label="Engine" detail={`Microsoft Edge WebView2 ${data.state?.engine ?? ''}`} />
                 <Row label="Exo Shield" detail={shield
                   ? `uBlock Origin Lite ${shield.ubol} by Raymond Hill, HaGeZi's Multi PRO (${shield.hagezi.toLocaleString()} sites), TTV LOL PRO ${shield.ttv} by Younes Aassila (all GPL-3.0). Lists from ${new Date(shield.built).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`
