@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.8">What's new in 1.1.8</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.2.0">What's new in 1.2.0</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.8/ExoBrowser-Setup.exe) | 1.1.8 | `5ecaa1179ac7c380448c791a157b798364c980634bee783e3d25584e67846b64` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.2.0/ExoBrowser-Setup.exe) | 1.2.0 | `2f9b271ccac8be1b546229d75c0d512fc563990da469942a029f804d8fb3b2b2` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.8):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.2.0):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -79,7 +79,7 @@ A password manager in the browser, with everything kept on this PC:
 
 ## Tabs your way
 
-![A new tab in the Work space: your bookmarks as glass cards, your favorites and spaces in the Bar](docs/media/newtab.jpg)
+![A new tab: your bookmarks as glass cards, your favorites and spaces in the Bar](docs/media/newtab.jpg)
 
 - **Spaces:** each with its own tabs, icon, color and appearance. Alt+1 to 9 switch them, a tab dragged onto one moves there, and a site's links from your other apps can open in the space you pick for it.
 - **Favorites and pinned tabs:** favorites show in every space. A pinned tab remembers its page, its icon takes it back when it wanders, and closing it only puts it to sleep.
@@ -105,7 +105,7 @@ One field for everything: an address opens, anything else goes to your search en
 
 ## Make it yours
 
-![Settings > Mods: the Midnight theme, small tweaks and your own CSS](docs/media/mods.jpg)
+![Settings > Mods: themes, small tweaks and your own CSS](docs/media/mods.jpg)
 
 - **Look:** Light, Dark or Void, Liquid Glass or solid, an accent color, a compact Bar, tab size, text size and reduced motion.
 - **Mods:** eight one-click themes, small tweaks (tab numbers, calm icons, no new tab button, square corners, the accent on the Bar) and your own CSS for Exo Browser itself.
@@ -151,11 +151,6 @@ To ask for permission, [open an issue](https://github.com/UhhErix/ExoBrowser/iss
 Every bundled library, font and tool is listed in [Third-party notices](THIRD_PARTY_NOTICES.md).
 
 **Not affiliated.** Exo Browser is independent and not affiliated with or endorsed by Microsoft, Google, Cloudflare, Twitch, YouTube, The Browser Company (Arc), the uBlock Origin, HaGeZi or TTV LOL PRO projects, or any password manager or website it works with. Their names and logos belong to their owners, as do the pages of NASA, Wikipedia and GitHub in the pictures above. Your use of each site and service stays under its own terms.
-
-## Also from Exo
-
-- **[Exo Launcher](https://github.com/UhhErix/ExoLauncher)** — every game store, Discord, music, captures and mouse in one app
-- **[Exo Cinema](https://github.com/UhhErix/ExoCinema)** — Jellyfin library with a native mpv player (HDR / Dolby Vision)
 
 ---
 

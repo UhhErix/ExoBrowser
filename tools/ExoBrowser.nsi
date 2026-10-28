@@ -306,6 +306,25 @@ Section "Exo Browser" SecApp
     RMDir /r "$R5"
   ${EndIf}
 
+  ; Exo Shield's copy beside your data (Builtin), refreshed here while the browser is closed: the browser did it on its
+  ; first start after an update, on its main thread, 51 MB before anything showed. Staged and swapped in whole; if the
+  ; old one is still in use the browser refreshes it itself.
+  !insertmacro Status "Getting Exo Shield ready"
+  RMDir /r "$R8\Builtin\exo-shield.incoming"
+  CreateDirectory "$R8\Builtin\exo-shield.incoming"
+  ClearErrors
+  CopyFiles /SILENT "$INSTDIR\extensions\exo-shield\*.*" "$R8\Builtin\exo-shield.incoming"
+  ${If} ${Errors}
+    RMDir /r "$R8\Builtin\exo-shield.incoming"
+  ${Else}
+    RMDir /r "$R8\Builtin\exo-shield"
+    ClearErrors
+    Rename "$R8\Builtin\exo-shield.incoming" "$R8\Builtin\exo-shield"
+    ${If} ${Errors}
+      RMDir /r "$R8\Builtin\exo-shield.incoming"
+    ${EndIf}
+  ${EndIf}
+
   !insertmacro Status "Finishing"
   ; Shortcuts start in the app folder, not setup's.
   SetOutPath "$INSTDIR"

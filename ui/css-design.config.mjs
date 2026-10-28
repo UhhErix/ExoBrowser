@@ -6,6 +6,8 @@ export default {
   sizes: [20, 13, 12],
   // Exo's one slider (components/ui/Slider.tsx); tokens.css only adds its forced-colors fallback.
   sliderFiles: ['src/styles/chrome.css', 'src/tokens.css'],
+  // Discord's Nitro name and profile effects keep Discord's own timings and curves (DESIGN.md › Motion › In the background).
+  motionExempt: ['src/styles/discord-collectibles.css'],
   // Each exception is one selector on one surface, at one exact value.
   exceptions: [
     { selector: ':root', value: scaled(16), why: 'The rem base Tailwind spacing is measured in, not a text size on a surface' },

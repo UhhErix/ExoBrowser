@@ -7,7 +7,7 @@
   display: inline-block;
   flex: none;
   vertical-align: -0.125em;
-  animation: exo-wait-in 160ms var(--ease-out) 300ms backwards, exo-spin 0.8s linear infinite;
+  animation: exo-wait-in var(--dur-base) var(--ease-out) 300ms backwards, exo-spin 0.8s linear infinite;
 }
 
 /* A control's own glyph turns while it works (Refresh, Retry, Sync). */
@@ -26,7 +26,8 @@
 
 /* Shine: a soft band of light slides across what is on its way (a skeleton card, the Store's banner) or being refreshed
    (Library's covers on Refresh). A layer two and a half times as wide that moves on a transform, so the art under it
-   never repaints; what holds it clips it. Glass light, not a gray wash: the ink at a low alpha. */
+   never repaints; what holds it clips it. Glass light, not a gray wash: the ink at a low alpha. Linear, as the bar's
+   sheen is: both are a wait's band of light every 1.6s. */
 .exo-shine {
   position: relative;
   overflow: hidden;
@@ -41,7 +42,7 @@
   width: 250%;
   background: linear-gradient(110deg, transparent 32%, rgb(var(--exo-ink-rgb) / 0.07) 44%, rgb(var(--exo-ink-rgb) / 0.16) 50%,
     rgb(var(--exo-ink-rgb) / 0.07) 56%, transparent 68%);
-  animation: exo-shine 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite, exo-wait-in 200ms var(--ease-out) 300ms backwards;
+  animation: exo-shine 1.6s linear infinite, exo-wait-in var(--dur-base) var(--ease-out) 300ms backwards;
   pointer-events: none;
 }
 

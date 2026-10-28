@@ -61,7 +61,7 @@
   font-size: calc(13px * var(--exo-scale, 1));
   animation: exb-vault-in var(--dur-base) var(--ease-out);
 }
-@keyframes exb-vault-in { from { opacity: 0; translate: -50% 6px; } }
+@keyframes exb-vault-in { from { opacity: 0; translate: -50% 8px; } }
 
 /* The menu beside a sign-in field. */
 .exb-vault-fill.exo-shelf-sort-menu {
@@ -74,11 +74,18 @@
   max-height: 320px;
   overflow-y: auto;
   scrollbar-width: none;
-  animation: exb-vault-drop var(--dur-base) var(--ease-out);
+  /* Large glass from its trigger's side (Exo's Appear): it grows from the field's edge, 0.96 to 1 on the base time, and
+     leaves by fading on the quick time. */
+  transform-origin: top left;
+  animation: exb-vault-grow var(--dur-base) var(--ease-out);
 }
+.exb-vault-fill.is-above { transform-origin: bottom left; }
+.exb-vault-fill.is-leaving { pointer-events: none; animation: exb-vault-leave var(--dur-quick) var(--ease-out) forwards; }
 /* Exo's menus are popovers, invisible until open; this one is shown by being there. */
 .exb-vault-fill.exo-shelf-sort-menu:not(:popover-open) { opacity: 1; }
-@keyframes exb-vault-drop { from { opacity: 0; translate: 0 -4px; } }
+@keyframes exb-vault-grow { from { opacity: 0; scale: 0.96; } }
+/* Both ends written out: the window reads which way a piece fades from its first and last frames (Chrome.tsx › fades). */
+@keyframes exb-vault-leave { from { opacity: 1; } to { opacity: 0; } }
 .exb-vault-pick { display: flex; align-items: center; gap: 10px; min-height: 44px; text-align: left; }
 .exb-vault-pick.is-quiet { min-height: 36px; color: var(--color-muted); }
 .exb-vault-pick-copy { min-width: 0; display: flex; flex-direction: column; }

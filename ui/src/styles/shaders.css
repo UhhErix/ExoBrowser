@@ -5,20 +5,6 @@
   max-height: min(1040px, 100%);
 }
 
-/* System > Display: the screen and its output on the left, scaling, video and color on the right. */
-.exo-display-cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 40px;
-  align-items: start;
-}
-
-@media (max-width: 1100px) {
-  .exo-display-cols {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 .exo-hub {
   display: flex;
   flex-direction: column;
@@ -71,7 +57,6 @@
 }
 
 /* System: one tab's content fills the hub under its tabs. */
-.exo-gpu-panel,
 .exo-gpu-pane {
   flex: 1 1 auto;
   min-height: 0;
@@ -119,7 +104,7 @@
   flex-direction: column;
   gap: 10px;
   min-width: 0;
-  transition: border-color 160ms var(--ease-out), opacity 160ms var(--ease-out);
+  transition: border-color var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
 }
 
 .exo-upscalers-card.is-blocked {
@@ -151,7 +136,7 @@
   font-size: calc(12px * var(--exo-scale, 1));
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-upscalers-card-update:disabled {
@@ -289,7 +274,7 @@
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   /* The ring draws on Done's time (DESIGN.md › Motion), and the check follows before it ends: done within half a second. */
-  animation: exo-upscalers-draw-ring 380ms var(--ease-out) forwards;
+  animation: exo-check-hold var(--dur-flight) var(--ease-out) forwards;
 }
 
 .exo-upscalers-clear-mark path {
@@ -298,7 +283,7 @@
   stroke-linecap: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: exo-upscalers-draw var(--dur-flight) var(--ease-out) 160ms forwards;
+  animation: exo-check-hold var(--dur-flight) var(--ease-out) var(--dur-base) forwards;
 }
 
 .exo-upscalers-clear-title {
@@ -314,14 +299,6 @@
 
 .exo-upscalers .exo-upscaler-btn.is-primary:disabled {
   opacity: 0.5;
-}
-
-@keyframes exo-upscalers-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes exo-upscalers-draw-ring {
-  to { stroke-dashoffset: 0; }
 }
 
 /* Exo's Reduce motion, or Windows' (useShellLayout sets data-exo-motion for both). */

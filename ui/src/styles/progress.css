@@ -12,7 +12,7 @@
   height: var(--exo-progress-h);
   flex: none;
   /* It shows only once a wait is real: what finishes within 300ms never flashes a bar. */
-  animation: exo-progress-in 160ms var(--ease-out) 300ms backwards;
+  animation: exo-progress-in var(--dur-base) var(--ease-out) 300ms backwards;
 }
 
 @keyframes exo-progress-in {
@@ -46,25 +46,27 @@
 }
 
 /* The fill is the track's full width, slid in from the left by the amount done: its rounded end never stretches.
-   From a softer ink at its start to full ink, lit at its very end (the head), all inside the track that clips it. */
+   From a softer ink at its start to full ink, lit at its very end (the head), all inside the track that clips it.
+   It clips its own sheen, so the light never runs on past the fill into the empty track. */
 .exo-progress-fill {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   border-radius: inherit;
   background: linear-gradient(90deg, color-mix(in srgb, var(--exo-progress-ink) 55%, transparent),
     var(--exo-progress-ink) calc(100% - 10px), color-mix(in srgb, var(--exo-progress-ink) 60%, white) 100%);
   transform: translateX(calc((var(--exo-progress) - 1) * 100%));
-  transition: transform 240ms linear, background-color 160ms var(--ease-out);
+  transition: transform var(--dur-move) linear, background-color var(--dur-base) var(--ease-out);
 }
 
-/* The sheen: a band of light that runs through the fill, the bar's liquid. */
+/* The sheen: a band of light, two fifths of the fill, that runs through it, the bar's liquid. It moves on a transform,
+   so the compositor runs it and the fill never repaints (a moving background-position painted it every frame). */
 .exo-progress-fill::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 0 auto 0 0;
+  width: 40%;
   background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.55) 50%, transparent 100%);
-  background-size: 40% 100%;
-  background-repeat: no-repeat;
   mix-blend-mode: soft-light;
   animation: exo-progress-sheen 1600ms linear infinite;
 }
@@ -90,9 +92,11 @@
   animation: none;
 }
 
+/* In the band's own widths, the run the moving background-position made: from its last tenth at the fill's start to
+   its first tenth at the fill's end. */
 @keyframes exo-progress-sheen {
-  from { background-position: -60% 0; }
-  to { background-position: 160% 0; }
+  from { translate: -90% 0; }
+  to { translate: 240% 0; }
 }
 
 @keyframes exo-progress-glide {
@@ -140,7 +144,7 @@
 
 /* Reduce motion: nothing glides or runs. A known amount still moves to its new place at once; an unknown
    one holds a still half-lit track. */
-:root[data-exo-motion="reduce"] :is(.exo-progress-fill, .exo-progress-head) {
+:root[data-exo-motion="reduce"] .exo-progress-fill {
   transition: none;
 }
 
@@ -148,14 +152,10 @@
   animation: none;
 }
 
-:root[data-exo-motion="reduce"] .exo-progress.is-unknown :is(.exo-progress-fill, .exo-progress-head) {
+:root[data-exo-motion="reduce"] .exo-progress.is-unknown .exo-progress-fill {
   width: 100%;
   animation: none;
   opacity: 0.45;
-}
-
-:root[data-exo-motion="reduce"] .exo-progress.is-unknown .exo-progress-head {
-  opacity: 0;
 }
 
 /* A word for work with no measure (ui/WorkingWord.tsx): its three dots light in turn, then rest. */
@@ -188,8 +188,7 @@
     background: Highlight;
   }
 
-  .exo-progress-fill::after,
-  .exo-progress-head {
+  .exo-progress-fill::after {
     display: none;
   }
 }

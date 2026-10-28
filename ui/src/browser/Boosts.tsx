@@ -95,7 +95,7 @@ export function BoostsSection() {
   const sites = [...new Set([...Object.keys(all), ...(open && !all[open] ? [open] : [])])].sort()
   return (
     <Section id="boosts" title="Boosts">
-      <Row label="Sites your way" detail="Zap takes things off a site's pages for good; a style of your own changes how it looks. Right-click a tab to start" />
+      {sites.length ? null : <Row label="No boosted sites yet" />}
       {sites.map(site => {
         const x = all[site] ?? {}
         const n = x.zap?.length ?? 0

@@ -140,7 +140,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--color-muted);
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-mini-controls button svg {

@@ -104,7 +104,10 @@ export function loadCommands(channelId: string) {
   const result = host.discordApps(channelId, 'commands')
     .then(r => ({ commands: r.commands ?? [], apps: r.applications ?? [], message: r.ok ? null : r.message ?? 'Discord did not list the commands.' }))
     .catch(() => ({ commands: [], apps: [], message: 'Discord did not list the commands.' }))
+  loaded.delete(channelId)
   loaded.set(channelId, { at: Date.now(), result })
+  // The latest 30 conversations' lists, as the message cache keeps them; older ones are asked for again.
+  while (loaded.size > 30) loaded.delete(loaded.keys().next().value!)
   void result.then(r => { if (r.message) loaded.delete(channelId) })
   return result
 }

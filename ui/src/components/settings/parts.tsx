@@ -1,5 +1,5 @@
 import { ErrorNote } from '../ui/ErrorNote'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Switch } from '../Switch'
 
 /** One settings panel: a heading, optional header action, then rows. */
@@ -70,7 +70,11 @@ export function State({ on, children }: { on?: boolean; children: ReactNode }) {
   return <span className={`exo-set-state${on ? ' is-on' : ''}`}>{children}</span>
 }
 
-/** A switch row that saves on change; a failed save shows its error under the row. */
+/**
+ * A switch row that saves on change; a failed save shows its error under the row. The knob moves on the press and holds
+ * there until the newest save answers, when `checked` (which the caller has updated by then) takes over again, so a
+ * refusal puts it back.
+ */
 export function SwitchRow({ id, label, detail, checked, disabled, onChange }: {
   id: string
   label: string
@@ -80,9 +84,19 @@ export function SwitchRow({ id, label, detail, checked, disabled, onChange }: {
   onChange: (value: boolean) => Promise<string | null>
 }) {
   const [error, setError] = useState<string | null>(null)
+  const [pending, setPending] = useState<boolean | null>(null)
+  const newest = useRef(0)
+  function change(value: boolean) {
+    const mine = ++newest.current
+    setError(null)
+    setPending(value)
+    void onChange(value)
+      .then(setError, () => setError('The change could not be saved. Try again.'))
+      .finally(() => { if (mine === newest.current) setPending(null) })
+  }
   return (
     <Row label={label} labelId={id} detail={detail} error={error}>
-      <Switch checked={checked} disabled={disabled} labelledBy={id} onChange={value => { setError(null); void onChange(value).then(setError) }} />
+      <Switch checked={pending ?? checked} disabled={disabled} labelledBy={id} onChange={change} />
     </Row>
   )
 }

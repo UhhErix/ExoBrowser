@@ -101,9 +101,7 @@ export function ModsSection() {
         <textarea className="exo-field exb-field exb-boost-css" spellCheck={false} aria-label="Your own CSS for Exo Browser" value={css}
           placeholder={'.exb-tab { font-weight: 600; }'}
           onChange={e => setCss(e.target.value)} onBlur={() => { if (css !== (s.chromeCss ?? '')) setSetting('chromeCss', css) }} />
-        <span className="exo-set-item-detail exb-css-note">{balanced(css)
-          ? 'Changes how Exo Browser itself looks. It never reaches Settings, so you can always undo it here'
-          : 'A { without its } (or the other way round): it applies once every rule is whole'}</span>
+        {balanced(css) ? null : <span className="exo-set-item-detail exb-css-note">A {'{'} without its {'}'} (or the other way round): it applies once every rule is whole</span>}
       </div>
     </Section>
   )

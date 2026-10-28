@@ -1,8 +1,6 @@
 import {
-  useCallback,
   useEffect,
   useId,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
@@ -27,6 +25,8 @@ export type Command = {
   disabled?: boolean;
   /** Listed only once something is typed (every Discord channel would bury the rest). */
   searchOnly?: boolean;
+  /** More words it is found by, never shown (a PC section by what it holds: "driver", "refresh rate"). */
+  keywords?: readonly string[];
 };
 
 export type CommandMenuProps = {
@@ -40,9 +40,11 @@ export type CommandMenuProps = {
   className?: string;
 };
 
-/** The library group is capped so navigation and actions always stay reachable. */
-const GAME_GROUP = "Library";
-const GAME_CAP = 50;
+/**
+ * Each group shows at most this many rows (the Library's games, Discord's DMs, servers and channels), so navigation
+ * and actions always stay reachable and a key typed draws a few hundred rows at most, never thousands of channels.
+ */
+const GROUP_CAP = 50;
 
 /** The close fade (the quick time, 120ms), and a frame to spare. */
 const EXIT_MS = 140;
@@ -50,17 +52,44 @@ const EXIT_MS = 140;
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-function matches(command: Command, query: string) {
+/** A command with the words search reads, lowercased once per list rather than on every key. */
+type Searchable = { command: Command; words: string };
+
+/** The commands of each group, in their order, with their words. */
+function byGroup(commands: Command[]): Map<string, Searchable[]> {
+  const groups = new Map<string, Searchable[]>();
+  for (const command of commands) {
+    const words = `${command.title} ${command.detail ?? ""} ${command.group} ${command.keywords?.join(" ") ?? ""}`.toLowerCase();
+    const list = groups.get(command.group);
+    if (list) list.push({ command, words });
+    else groups.set(command.group, [{ command, words }]);
+  }
+  return groups;
+}
+
+/** A group's rows for the query, and where its first sits in the whole list (the arrow keys walk it top to bottom). */
+type Section = { group: string; start: number; rows: Command[] };
+
+function sectionsFor(groups: Map<string, Searchable[]>, groupOrder: string[], query: string): { sections: Section[]; filtered: Command[] } {
   const q = query.trim().toLowerCase();
-  if (!q) return !command.searchOnly;
-  return `${command.title} ${command.detail ?? ""} ${command.group}`
-    .toLowerCase()
-    .includes(q);
+  const sections: Section[] = [];
+  const filtered: Command[] = [];
+  for (const group of groupOrder) {
+    const rows: Command[] = [];
+    for (const { command, words } of groups.get(group) ?? []) {
+      if (rows.length >= GROUP_CAP) break;
+      if (q ? words.includes(q) : !command.searchOnly) rows.push(command);
+    }
+    if (rows.length === 0) continue;
+    sections.push({ group, start: filtered.length, rows });
+    filtered.push(...rows);
+  }
+  return { sections, filtered };
 }
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[10px] border border-[#242424] px-1.5 text-[length:calc(12px*var(--exo-scale,1))] text-muted tabular-nums">
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-[10px] border border-[color:rgb(var(--exo-ink-rgb)/0.14)] px-1.5 text-[length:calc(12px*var(--exo-scale,1))] text-muted tabular-nums">
       {children}
     </kbd>
   );
@@ -89,26 +118,18 @@ export default function CommandMenu({
   const [activeIndex, setActiveIndex] = useState(0);
 
   const listboxId = `${uid}-listbox`;
-  const filtered = useMemo(
-    () => {
-      let games = 0;
-      // In the order the list shows them, so the arrow keys walk it top to bottom.
-      return groupOrder.flatMap((group) => commands.filter((command) => {
-        if (command.group !== group || !matches(command, query)) return false;
-        return group !== GAME_GROUP || ++games <= GAME_CAP;
-      }));
-    },
-    [commands, query, groupOrder],
-  );
+  // Kept by the compiler: the words are lowercased when the commands change, the rows found again on each key.
+  const groups = byGroup(commands);
+  const { sections, filtered } = sectionsFor(groups, groupOrder, query);
   const activeCommand = filtered[activeIndex];
   const activeId = activeCommand ? `${uid}-${activeCommand.id}` : undefined;
 
-  const close = useCallback(() => {
+  const close = () => {
     cancelAnimationFrame(frameRef.current ?? 0);
     setShown(false);
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => onOpenChange(false), EXIT_MS);
-  }, [onOpenChange]);
+  };
 
   // A press outside the panel closes it; while it fades out, presses go to the page.
   useDismiss(dialogRef, close, { modal: true, on: isOpen && shown });
@@ -158,13 +179,13 @@ export default function CommandMenu({
     [],
   );
 
-  const run = useCallback((command = activeCommand) => {
+  const run = (command = activeCommand) => {
     if (!command || command.disabled) return;
     onSelect(command);
     setQuery("");
     setActiveIndex(0);
     close();
-  }, [activeCommand, close, onSelect]);
+  };
 
   const move = (delta: number) => {
     setActiveIndex((i) => {
@@ -298,9 +319,7 @@ export default function CommandMenu({
               >
                 {filtered.length > 0 ? (
                   <div id={listboxId} role="listbox" aria-label="Commands">
-                    {groupOrder.map((group) => {
-                      const rows = filtered.filter((c) => c.group === group);
-                      if (rows.length === 0) return null;
+                    {sections.map(({ group, start, rows }) => {
                       const groupId = `${uid}-${group}`;
                       return (
                         <div
@@ -315,8 +334,8 @@ export default function CommandMenu({
                           >
                             {group}
                           </p>
-                          {rows.map((command) => {
-                            const index = filtered.indexOf(command);
+                          {rows.map((command, at) => {
+                            const index = start + at;
                             const Icon = command.icon;
                             const selected = index === activeIndex;
                             return (
@@ -335,10 +354,11 @@ export default function CommandMenu({
                                   setActiveIndex(index);
                                   run(command);
                                 }}
+                                // DESIGN.md › Hover: a menu row lights at once and lets go on the quick time.
                                 className={cx(
-                                  "flex min-h-11 w-full items-center gap-3 rounded-(--exo-row-radius) px-2.5 py-2 text-left transition-colors duration-[120ms]",
+                                  "flex min-h-11 w-full items-center gap-3 rounded-(--exo-row-radius) px-2.5 py-2 text-left transition-colors ease-(--ease-out)",
                                   command.disabled ? "cursor-default opacity-30" : "cursor-pointer",
-                                  selected && !command.disabled && "bg-(--hover-fill)",
+                                  selected && !command.disabled ? "bg-(--hover-fill) duration-0" : "duration-(--dur-quick)",
                                 )}
                               >
                                 {Icon && <Icon size={16} className="h-4 w-4 shrink-0 text-muted" />}

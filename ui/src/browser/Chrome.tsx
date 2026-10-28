@@ -26,13 +26,14 @@ export const widthOf = (s: Settings) => Math.min(420, Math.max(180, Number(s.sid
 const autohide = () => setting('autohide', 'off') === 'on'
 export const tabTitle = (t: Tab) => isNewTab(t.url) ? 'New tab' : t.title || hostOf(t.url) || 'New tab'
 
-/** The site's icon, a spinner while it loads, the grid for a new tab; a private tab's mark for a private one. */
+/** The site's icon, the grid for a new tab; a private tab's mark for a private one. While it loads, a ring takes the
+ *  icon's place once the wait passes 300ms (browser.css), as Exo's waits do. */
 export function Favicon({ tab }: { tab: Tab }) {
   const fav = useBrowserValue(b => b.favicons[tab.id])
-  if (tab.loading) return <span className="exb-spin" aria-hidden="true" />
-  if (tab.priv) return <I.Private className="exb-fav-blank" />
-  if (isNewTab(tab.url)) return <I.Grid className="exb-fav-blank" />
-  return fav ? <img className="exb-fav" src={fav} alt="" onLoad={e => markInk(e.currentTarget)} /> : <I.Globe className="exb-fav-blank" />
+  const icon = tab.priv ? <I.Private className="exb-fav-blank" />
+    : isNewTab(tab.url) ? <I.Grid className="exb-fav-blank" />
+    : fav ? <img className="exb-fav" src={fav} alt="" onLoad={e => markInk(e.currentTarget)} /> : <I.Globe className="exb-fav-blank" />
+  return tab.loading ? <span className="exb-fav-wait">{icon}<span className="exb-spin" aria-hidden="true" /></span> : icon
 }
 
 /*
@@ -158,8 +159,10 @@ export const queueGlass = () => {
 if (typeof document !== 'undefined') {
   new MutationObserver(queueGlass).observe(document.documentElement, { subtree: true, childList: true, attributes: true,
     attributeFilter: ['class', 'style', 'hidden', 'data-exo-theme', 'data-exo-glass'] })
-  // A menu anchored in a scrolling list (Settings' choices) moves with it.
-  for (const type of ['toggle', 'animationend', 'transitionend', 'scroll']) document.addEventListener(type, queueGlass, true)
+  for (const type of ['toggle', 'animationend', 'transitionend']) document.addEventListener(type, queueGlass, true)
+  // A menu anchored in a scrolling list (Settings' choices) moves with it; with none open, a scroll moves no glass
+  // (measuring every piece on each scroll of Settings or Search was most of what scrolling them cost).
+  document.addEventListener('scroll', () => { if (document.querySelector(':popover-open')) queueGlass() }, true)
   addEventListener('resize', queueGlass)
 }
 
@@ -181,6 +184,9 @@ export function useLayoutReport() {
   }, [])
 }
 
+/** --dur-flight: the landing glow's fade in browser.css. */
+const LAND_MS = 300
+
 // The address's mark: a private tab's, a search on a blank tab, the lock over HTTPS, else the globe.
 const leadOf = (priv: boolean, blank: boolean, secure: boolean) => priv ? I.Private : blank ? I.Search : secure ? I.Lock : I.Globe
 
@@ -194,12 +200,18 @@ function Address({ onEdit }: { onEdit: () => void }) {
   const marked = useBrowserValue(b => b.bookmarks.some(m => m[0] === url))
   const engine = useBrowserValue(b => b.settings.engine)
   const priv = useBrowserValue(b => !!activeTab(b)?.priv)
-  // The field carries the page's loading: a light travels along it, then lands as a short glow.
+  // The field carries the page's loading: a light travels along it, then lands as a short glow that fades on the
+  // flight time (browser.css). A page in within 300ms showed no light, so it lands with none either.
   const [landed, setLanded] = useState(false)
-  const was = useRef(loading)
+  const since = useRef(0)
   useEffect(() => {
-    if (was.current && !loading) { setLanded(true); const t = setTimeout(() => setLanded(false), 420); was.current = loading; return () => clearTimeout(t) }
-    was.current = loading
+    if (loading) { since.current = Date.now(); return }
+    const waited = since.current && Date.now() - since.current >= 300
+    since.current = 0
+    if (!waited) return
+    setLanded(true)
+    const t = setTimeout(() => setLanded(false), LAND_MS)
+    return () => clearTimeout(t)
   }, [loading])
   let host = '', rest = '', secure = false
   if (!blank) {
@@ -220,14 +232,14 @@ function Address({ onEdit }: { onEdit: () => void }) {
           ? <span className="exb-address-placeholder">Search {engineOf(engine).short} or type an address</span>
           : <span className="exb-address-url"><span className="exb-address-host">{host}</span><span className="exb-address-path">{rest}</span></span>}
       </button>
-      {store ? <Button size="sm" className="exo-set-btn is-primary is-compact exb-store-add" onPress={() => send('extInstall', store[1])}>Add to Exo</Button> : null}
+      {store ? <Button size="sm" className="exo-set-btn is-primary is-compact exb-store-add" onPress={() => send('extInstall', store[1])}>Install</Button> : null}
       {blank ? null : (
         <Button variant="ghost" size="sm" isIconOnly className={`exo-titlebar-button exb-star${marked ? ' is-on' : ''}`} aria-label="Bookmark" aria-pressed={marked}
           aria-keyshortcuts="Control+D" onPress={() => send('bookmark')}>
           <I.Star filled={marked} />
         </Button>
       )}
-      <span className={`exb-load${loading ? ' is-loading' : ''}${landed ? ' is-landed' : ''}`} aria-hidden="true" />
+      <span className={`exb-load${loading ? ' is-loading' : landed ? ' is-landed' : ''}`} aria-hidden="true" />
     </>
   )
 }
@@ -412,6 +424,24 @@ function useStripRoom() {
   return room
 }
 
+// A sideways swipe (or Shift+wheel) over the spaces moves one space: its deltas add up until they make a step, then
+// the wheel rests until it pauses (each event while resting pushes the rest on), so one trackpad swipe, its glide
+// included, is one space, not every space it has deltas for.
+const swipe = { sum: 0, until: 0, at: 0 }
+function swipeStep(d: number) {
+  const now = performance.now()
+  if (now < swipe.until) { swipe.until = Math.max(swipe.until, now + 150); swipe.sum = 0; return 0 }
+  // What's left of an earlier swipe too small to step doesn't add to the next one.
+  if (now - swipe.at > 300) swipe.sum = 0
+  swipe.at = now
+  swipe.sum += d
+  if (Math.abs(swipe.sum) < 50) return 0
+  const step = Math.sign(swipe.sum)
+  swipe.sum = 0
+  swipe.until = now + 300
+  return step
+}
+
 /** The spaces, once there are two or more: each one's icon in its color, the one on screen with its name. A tab dragged
  *  onto one moves there; right click for more. Alt+1 to Alt+9 switch to them. */
 function SpaceSwitcher({ side }: { side?: boolean }) {
@@ -422,11 +452,9 @@ function SpaceSwitcher({ side }: { side?: boolean }) {
   return (
     <div className={`exb-spaces${side ? '' : ' exo-glass'}`} role="tablist" aria-label="Spaces"
       onWheel={e => {
-        // A sideways swipe (or Shift+wheel) over the spaces moves to the next or previous one.
-        const d = e.deltaX || (e.shiftKey ? e.deltaY : 0)
-        if (Math.abs(d) < 20) return
-        const i = spaces.findIndex(s => s.id === current) + (d > 0 ? 1 : -1)
-        if (spaces[i]) send('space', spaces[i].id)
+        const step = swipeStep(e.deltaX || (e.shiftKey ? e.deltaY : 0))
+        const i = spaces.findIndex(s => s.id === current) + step
+        if (step && spaces[i]) send('space', spaces[i].id)
       }}>
       {spaces.map((s, i) => {
         const Icon = spaceIcon(s.icon)

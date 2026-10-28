@@ -37,10 +37,12 @@ export const contrast = (a: Rgb, b: Rgb) => { const [x, y] = [luminance(a), lumi
 
 /** A site's icon that is all but black or white on a clear ground (what's opaque of it, under nine tenths of it): the
  * chrome draws it inverted where it would vanish, a black logo on Dark or Void, a white one on Light (browser.css). */
+// Keyed by the icon's address (a whole data URL, often): cleared once it holds 256, so a long session's icons don't pile up.
 const inks = new Map<string, string>()
 export function markInk(img: HTMLImageElement) {
   let ink = inks.get(img.src)
   if (ink === undefined) {
+    if (inks.size >= 256) inks.clear()
     ink = ''
     try {
       const g = Object.assign(document.createElement('canvas'), { width: 16, height: 16 }).getContext('2d', { willReadFrequently: true })!

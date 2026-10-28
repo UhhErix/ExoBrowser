@@ -1,31 +1,40 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type InputHTMLAttributes } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Row, Section } from '../../components/settings/parts'
 import * as I from '../icons'
-import { useBrowserValue } from '../host'
 import { saveItem, setVault, useVault, type Field, type Item } from './store'
 import { Act } from './parts'
-import { DEFAULT_RECIPE, generate, strength } from './generate'
+import { generate, strength } from './generate'
+import { useRecipe } from './recipe'
 import { parseOtp } from './totp'
 import { siteName } from './sites'
 
 type Edit = (patch: Partial<Item>) => void
 type Key = keyof Item
 
-/** A text field for one of the item's values. */
-function Input({ item, edit, field, label, type = 'text', placeholder, wide }: { item: Item; edit: Edit; field: Key; label: string; type?: string; placeholder?: string; wide?: boolean }) {
-  return (
-    <Row label={label}>
-      <input className={`exo-field exb-field${wide ? ' is-wide' : ''}`} type={type} aria-label={label} placeholder={placeholder} spellCheck={false} autoComplete="off"
-        value={(item[field] as string | undefined) ?? ''} onChange={e => edit({ [field]: e.target.value })} />
-    </Row>
-  )
+/** A secret's field (a password, a card's number, a code, a 2FA key, a hidden field): its value goes in through the
+ *  input's DOM property only. Controlled, React also wrote every key typed into the value attribute, where anything
+ *  reading the page's markup saw it. */
+function SecretField({ value, onValue, ...rest }: { value: string; onValue: (value: string) => void } & Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue' | 'onChange'>) {
+  const ref = useRef<HTMLInputElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el && el.value !== value) el.value = value
+  }, [value])
+  return <input ref={ref} {...rest} onChange={e => onValue(e.target.value)} />
 }
 
-/** Generated passwords follow Vault settings: their length, and whether they use symbols. */
-export function useRecipe() {
-  const length = useBrowserValue(b => b.settings.vaultLength), symbols = useBrowserValue(b => b.settings.vaultSymbols)
-  return { ...DEFAULT_RECIPE, length: Number(length || DEFAULT_RECIPE.length), symbols: (symbols || 'on') === 'on' }
+/** A text field for one of the item's values; a password-type one is a secret's field. */
+function Input({ item, edit, field, label, type = 'text', placeholder, wide }: { item: Item; edit: Edit; field: Key; label: string; type?: string; placeholder?: string; wide?: boolean }) {
+  const value = (item[field] as string | undefined) ?? ''
+  const props = { className: `exo-field exb-field${wide ? ' is-wide' : ''}`, type, 'aria-label': label, placeholder, spellCheck: false, autoComplete: 'off' }
+  return (
+    <Row label={label}>
+      {type === 'password'
+        ? <SecretField {...props} value={value} onValue={v => edit({ [field]: v })} />
+        : <input {...props} value={value} onChange={e => edit({ [field]: e.target.value })} />}
+    </Row>
+  )
 }
 
 function PasswordInput({ item, edit }: { item: Item; edit: Edit }) {
@@ -34,8 +43,8 @@ function PasswordInput({ item, edit }: { item: Item; edit: Edit }) {
   const s = strength(item.password ?? '')
   return (
     <Row label="Password" detail={item.password ? `${s.label} · ${s.bits} bits` : 'Make one with the dice'}>
-      <input className="exo-field exb-field is-wide exb-vault-mono" type={shown ? 'text' : 'password'} aria-label="Password" spellCheck={false} autoComplete="off"
-        value={item.password ?? ''} onChange={e => edit({ password: e.target.value })} />
+      <SecretField className="exo-field exb-field is-wide exb-vault-mono" type={shown ? 'text' : 'password'} aria-label="Password" spellCheck={false} autoComplete="off"
+        value={item.password ?? ''} onValue={v => edit({ password: v })} />
       <Act label={shown ? 'Hide password' : 'Show password'} onPress={() => setShown(v => !v)}>{shown ? <I.EyeOff /> : <I.Eye />}</Act>
       <Act label="Generate a strong password" onPress={() => { edit({ password: generate(recipe) }); setShown(true) }}><I.Dice /></Act>
     </Row>
@@ -54,9 +63,10 @@ function LoginFields({ item, edit }: { item: Item; edit: Edit }) {
         <input className="exo-field exb-field is-wide" aria-label="Websites" placeholder="example.com" spellCheck={false} value={sites}
           onChange={e => { setSites(e.target.value); edit({ urls: e.target.value.split(',').map(u => u.trim()).filter(Boolean) }) }} />
       </Row>
+      {/* The setup key makes every code: a secret like the password. */}
       <Row label="2FA setup key" detail={otpBad ? "That isn't a setup key or an otpauth:// link" : 'The key or otpauth:// link a site shows when you turn on an authenticator app'}>
-        <input className="exo-field exb-field is-wide exb-vault-mono" aria-label="2FA setup key" spellCheck={false} autoComplete="off" value={item.totp ?? ''}
-          onChange={e => edit({ totp: e.target.value })} />
+        <SecretField className="exo-field exb-field is-wide exb-vault-mono" aria-label="2FA setup key" spellCheck={false} autoComplete="off" value={item.totp ?? ''}
+          onValue={v => edit({ totp: v })} />
       </Row>
     </>
   )
@@ -102,8 +112,9 @@ function CustomFields({ item, edit }: { item: Item; edit: Edit }) {
       {fields.map((f, n) => (
         <Row key={n} label={f.name || 'Field'}>
           <input className="exo-field exb-field" aria-label="Field name" placeholder="Name" value={f.name} onChange={e => set(n, { name: e.target.value })} />
-          <input className="exo-field exb-field" aria-label="Field value" placeholder="Value" type={f.hidden ? 'password' : 'text'} value={f.value}
-            onChange={e => set(n, { value: e.target.value })} />
+          {/* Always a secret's field, so hiding or showing it never swaps how React holds its value. */}
+          <SecretField className="exo-field exb-field" aria-label="Field value" placeholder="Value" type={f.hidden ? 'password' : 'text'} value={f.value}
+            onValue={v => set(n, { value: v })} />
           <Act label={f.hidden ? 'Show this field' : 'Hide this field'} onPress={() => set(n, { hidden: !f.hidden })}>{f.hidden ? <I.EyeOff /> : <I.Eye />}</Act>
           <Act label="Remove this field" onPress={() => edit({ fields: fields.filter((_, i) => i !== n) })}><I.Trash /></Act>
         </Row>

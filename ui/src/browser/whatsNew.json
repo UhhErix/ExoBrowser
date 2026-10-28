@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.2.0",
+    "items": [
+      {
+        "icon": "Zap",
+        "title": "Faster where you feel it",
+        "detail": "A new tab in 34 ms, Settings at once the first time, Search with no dropped frames, Exo Vault open sooner."
+      },
+      {
+        "icon": "Gamepad",
+        "title": "Lighter while you play",
+        "detail": "Less memory for the graphics, quiet loops while a game is in front, and nothing written to disk for no reason."
+      },
+      {
+        "icon": "Vault",
+        "title": "Exo Vault, harder to read",
+        "detail": "What you type into it stays out of the page, and an old master password opens nothing left behind."
+      },
+      {
+        "icon": "Trash",
+        "title": "Asks before it cannot be undone",
+        "detail": "Clearing history or cookies, deleting a space, or emptying the vault’s trash asks first."
+      },
+      {
+        "icon": "Download",
+        "title": "Updates from Exo",
+        "detail": "Exo Browser looks for updates at Exo’s own address, with GitHub behind it, so they always find you."
+      }
+    ]
+  },
+  {
     "version": "1.1.8",
     "items": [
       {
@@ -233,7 +263,7 @@
         "detail": "Every download shows when it's done, and no extra download bubble pops up."
       },
       {
-        "icon": "Bolt",
+        "icon": "Zap",
         "title": "Lighter on every page",
         "detail": "Scrolling costs a page nothing extra, the Bar and Settings draw only what changed, and a window left alone stays still."
       }

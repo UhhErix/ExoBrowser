@@ -62,7 +62,7 @@
   font-size: calc(12px * var(--exo-scale, 1));
   font-weight: 500;
   white-space: nowrap;
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-shelf-chip[aria-pressed="true"] {
@@ -135,7 +135,9 @@
 }
 
 /* A sheet or dialog settles in from the middle, where it stays (DESIGN.md › Motion › Appear). */
-/* By its size alone: a dialog fading whole would hide the room from the glass on its buttons until it landed. */
+/* By its size alone: a dialog fading whole would hide the room from the glass on its buttons until it landed. The same
+   move as exo-sheet-in under its own name: a room coming back finishes its entrances, exo-float-in among them
+   (BootGate.tsx › ENTRANCES), while a floating room (Settings, on exo-sheet-in) keeps its open motion each time. */
 @keyframes exo-float-in {
   from { scale: 0.98; }
 }
@@ -233,7 +235,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--color-muted);
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-props-close:hover {

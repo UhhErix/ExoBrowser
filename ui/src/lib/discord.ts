@@ -430,13 +430,15 @@ export function displayName(message: Pick<DiscordMessage, 'author' | 'member'>):
   return message.member?.nick || message.author.global_name || message.author.username
 }
 
-/** Discord's CDN size for a picture shown at size px: a power of two with room for a 2x screen, never under 128. */
-export function cdnSize(size: number): number {
-  return Math.min(4096, 2 ** Math.ceil(Math.log2(Math.max(128, size * Math.max(2, window.devicePixelRatio || 1)))))
-}
-
 // The sizes Discord's CDN serves (Discord's own list).
 const CDN_STEPS = [16, 20, 22, 24, 28, 32, 40, 44, 48, 56, 60, 64, 80, 96, 100, 128, 160, 240, 256, 300, 320, 480, 512, 600, 640, 1024, 1280, 1536, 2048, 3072, 4096]
+
+/** Discord's CDN size for a picture shown at size px: the smallest step it serves with room for a 2x screen. A floor of
+    128 decoded a 32px row's picture 16 times over (64 KB each, in lists of hundreds). */
+export function cdnSize(size: number): number {
+  const want = size * Math.max(2, window.devicePixelRatio || 1)
+  return CDN_STEPS.find(step => step >= want) ?? 4096
+}
 
 /** The smallest CDN size covering this many CSS pixels at the screen's density, as Discord's client picks one. */
 export function cdnStep(px: number): number {

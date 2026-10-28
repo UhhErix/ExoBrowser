@@ -62,14 +62,17 @@ function fit(el: HTMLElement) {
   const times = animations.map(a => a.currentTime)
   animations.forEach(a => { a.currentTime = Number(a.effect?.getComputedTiming().endTime ?? 0) })
   const rect = el.getBoundingClientRect()
-  animations.forEach((a, i) => { a.currentTime = times[i] })
   const box = new DOMRect(rect.left - dx, rect.top - dy, rect.width, rect.height)
-  if (!box.width || !box.height) return
-  // What opened it: the point it was put at (fixed), or the element it hangs from.
+  // What opened it (the point it was put at when fixed, or the element it hangs from) and the room it has (the window,
+  // and every box between it and the element that clips it) are read in this same layout, before the animations go
+  // back: its own transform moves none of them, and a read after that write would style the page again.
   const parent = fixed ? null : el.offsetParent as HTMLElement | null
-  const from = parent?.getBoundingClientRect() ?? new DOMRect(el.offsetLeft, el.offsetTop, 0, 0)
-  // The window, and every box between it and the element that clips it.
-  const { top, left, bottom, right } = room(el, parent)
+  const measured = box.width && box.height
+    ? { from: parent?.getBoundingClientRect() ?? new DOMRect(el.offsetLeft, el.offsetTop, 0, 0), room: room(el, parent) }
+    : null
+  animations.forEach((a, i) => { a.currentTime = times[i] })
+  if (!measured) return
+  const { from, room: { top, left, bottom, right } } = measured
   if (cap(el, box.height, Math.floor(bottom - top - 2 * EDGE))) return
   const x = place({ start: box.left, size: box.width }, { start: from.left, end: from.right }, left + EDGE, right - EDGE)
   const y = place({ start: box.top, size: box.height }, { start: from.top, end: from.bottom }, top + EDGE, bottom - EDGE, el.matches(SLIDES))
@@ -85,8 +88,11 @@ const seen = new WeakSet<Element>()
 export function installMenuFit() {
   // A popup that moves without changing size (a tooltip on the next target, a picker that changes side) is measured again.
   const moves = new MutationObserver(records => {
+    // Each popup is measured once a batch: a class and a style change together are one move, and measuring it again
+    // would read the page's layout after the first measure's own write.
+    const changed = new Set<HTMLElement>()
     for (const record of records) {
-      if (record.type === 'attributes') { fit(record.target as HTMLElement); continue }
+      if (record.type === 'attributes') { changed.add(record.target as HTMLElement); continue }
       record.addedNodes.forEach(node => {
         if (!(node instanceof HTMLElement)) return
         const found = [...(node.matches(POPUPS) ? [node] : []), ...node.querySelectorAll<HTMLElement>(POPUPS)]
@@ -102,6 +108,7 @@ export function installMenuFit() {
         }
       })
     }
+    changed.forEach(fit)
   })
   moves.observe(document.body, { childList: true, subtree: true })
 }

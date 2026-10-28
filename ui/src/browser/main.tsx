@@ -2,7 +2,7 @@
  * Exo Browser's chrome (the C++ host in the Exo Browser repo draws it in WebView2 over the tab): Exo's own look from
  * Exo's own styles and parts, the browser's logic in src/browser.
  */
-import { StrictMode, useEffect, useState, type CSSProperties } from 'react'
+import { Activity, StrictMode, Suspense, lazy, useEffect, useLayoutEffect, useState, type CSSProperties } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../tokens.css'
 import '../exo-shell.css'
@@ -10,6 +10,8 @@ import '../styles/rooms.css'
 import './browser.css'
 import { installMenuFit } from '../lib/menuFit'
 import { installInputModality } from '../lib/motionPreference'
+import { NOTICE_STAY_MS } from '../lib/notify'
+import { ConfirmHost } from '../components/ui/Dialog'
 import { holdInput, inputReleased, isFirstRun, onHost, send, setSetting, startHost, useBrowserValue } from './host'
 import { engineOf, hostOf } from './search'
 import { Chrome, isAutohide, isVertical, useLayoutReport, widthOf } from './Chrome'
@@ -19,27 +21,50 @@ import { WhatsNew } from './WhatsNew'
 import { Switcher } from './Switcher'
 import { useMods } from './Mods'
 import { MenuLayer, MenuScrim, closeMenu, downloadsMenu, extensionsMenu, menuKind } from './menus'
-import { Settings } from './Settings'
-import { VaultSheet } from './vault/VaultSheet'
-import { VaultFill, VaultPrompt, startFill } from './vault/Fill'
+import { VaultFill, VaultPrompt, reportHot, startFill } from './vault/Fill'
 import { startPageMenu } from './pageMenu'
 import { Status } from './Status'
 import * as I from './icons'
-import { startVault } from './vault/store'
-import { Onboarding } from './onboarding/Onboarding'
+import { startVault, useVaultOpen } from './vault/store'
 
+// Settings, Exo Vault's sheet and first run draw nothing until they open: each loads apart from the Bar, so the window
+// starts without them, and ahead of its first opening on an idle moment after the first paint (the end of this file).
+const loadSettings = () => import('./Settings')
+const loadVault = () => import('./vault/VaultSheet')
+const loadOnboarding = () => import('./onboarding/Onboarding')
+const Settings = lazy(() => loadSettings().then(m => ({ default: m.Settings })))
+const VaultSheet = lazy(() => loadVault().then(m => ({ default: m.VaultSheet })))
+const Onboarding = lazy(() => loadOnboarding().then(m => ({ default: m.Onboarding })))
+
+// Settings drawn once, hidden, on that idle moment, then let go: hidden, nothing of it runs (no data asked for, no input
+// held), and its first opening no longer pays the first run of its code and its first elements (~300 ms, measured), now
+// spent while nothing waits on it.
+const warmers = new Set<(on: boolean) => void>()
+function warmSettings() {
+  for (const warm of warmers) warm(true)
+  requestIdleCallback(() => { for (const warm of warmers) warm(false) }, { timeout: 3000 })
+}
+
+/** The window's notices: each goes after Exo's notice time, held while the pointer is on it (it takes the pointer while
+ *  it shows, Fill.tsx › reportHot) and counted again from when it leaves. */
 function useToasts() {
   const [toast, setToast] = useState<{ text: string; key: number } | null>(null)
+  const [held, setHeld] = useState(false)
   useEffect(() => {
-    let timer = 0
-    const show = (text: string) => { setToast({ text, key: Date.now() }); clearTimeout(timer); timer = window.setTimeout(() => setToast(null), 3600) }
+    const show = (text: string) => { setToast({ text, key: Date.now() }); setHeld(false) }
     const offs = [
       onHost('toast', m => show(m.text as string)),
       onHost('importData', m => show(importFrom(m))),
     ]
     return () => offs.forEach(off => off())
   }, [])
-  return toast
+  useEffect(() => {
+    if (!toast || held) return
+    const timer = window.setTimeout(() => setToast(null), NOTICE_STAY_MS)
+    return () => clearTimeout(timer)
+  }, [toast, held])
+  useLayoutEffect(reportHot, [toast])
+  return { toast, hold: setHeld }
 }
 
 // A Chromium browser's bookmarks (folders flattened), its search engine and its Chrome Web Store extensions
@@ -113,7 +138,10 @@ function App() {
   const revealTop = useBrowserValue(b => b.revealTop), revealSide = useBrowserValue(b => b.revealSide)
   const version = useBrowserValue(b => b.update?.version ?? '')
   const [settings, setSettings] = useState<{ open: boolean; section: string }>({ open: false, section: '' })
-  const toast = useToasts()
+  const [warm, setWarm] = useState(false)
+  useEffect(() => { warmers.add(setWarm); return () => { warmers.delete(setWarm) } }, [])
+  const vaultOpen = useVaultOpen()
+  const { toast, hold } = useToasts()
   useLayoutReport()
   useMods(prefs)
 
@@ -151,7 +179,12 @@ function App() {
   useEffect(() => onHost('settings.open', m => { if (isFirstRun()) return; closeMenu(); setSettings({ open: true, section: (m.section as string) || '' }) }), [])
   useEffect(() => holdInput('settings', settings.open), [settings.open])
   useEffect(() => onHost('downloads', () => { if (menuKind() === 'downloads') downloadsMenu(document.getElementById('exb-dl-btn')!) }), [])
-  useEffect(() => onHost('extensions.open', () => { if (!isFirstRun()) extensionsMenu(document.getElementById('exb-tools')!) }), [])
+  // Ctrl+Shift+E: what a key opens is there at once (data-exo-input).
+  useEffect(() => onHost('extensions.open', () => {
+    if (isFirstRun()) return
+    document.documentElement.dataset.exoInput = 'key'
+    extensionsMenu(document.getElementById('exb-tools')!)
+  }), [])
   // Exo Vault: its state from the host, and the sign-in fields pages report.
   useEffect(() => { const offs = [startVault(), startFill(), startPageMenu()]; return () => offs.forEach(off => off()) }, [])
   const closeSettings = () => setSettings(s => ({ ...s, open: false }))
@@ -182,18 +215,21 @@ function App() {
       <MenuScrim />
       <MenuLayer />
       <Switcher />
-      <Settings open={settings.open} section={settings.section} onClose={closeSettings} />
-      <VaultSheet />
+      {settings.open ? <Suspense fallback={null}><Settings open section={settings.section} onClose={closeSettings} /></Suspense> : null}
+      {warm && !settings.open ? <Activity mode="hidden"><Suspense fallback={null}><Settings open section="" onClose={closeSettings} /></Suspense></Activity> : null}
+      {vaultOpen ? <Suspense fallback={null}><VaultSheet /></Suspense> : null}
       <VaultFill />
-      {firstRun ? <Onboarding onDone={() => { setSetting('onboarded', '1'); if (version) setSetting('whatsNewSeen', version) }} /> : null}
+      {firstRun ? <Suspense fallback={null}><Onboarding onDone={() => { setSetting('onboarded', '1'); if (version) setSetting('whatsNewSeen', version) }} /></Suspense> : null}
       <WhatsNew blocked={firstRun || settings.open} />
       <Status />
+      {/* Exo's questions before what can't be undone (ask.ts), over everything here. */}
+      <ConfirmHost />
       {/* Exo's notices (its NoticeStack): one stack at the top right under the Bar, Exo Vault's offer to save on top. */}
       <section className="exo-notices exb-notices" aria-label="Notifications">
         <VaultPrompt />
         {toast ? (
-          <div key={toast.key} className="exo-notice-slot">
-            <div className="exo-notice exo-glass is-panel" role="status">
+          <div key={toast.key} className="exo-notice-slot" onAnimationEnd={reportHot}>
+            <div className="exo-notice exo-glass is-panel exb-toast" role="status" onPointerEnter={() => hold(true)} onPointerLeave={() => hold(false)}>
               <div className="exo-notice-main">
                 <span className="exo-notice-glyph" aria-hidden="true"><I.Bell size={18} /></span>
                 <span className="exo-notice-text"><span className="exo-notice-body">{toast.text}</span></span>
@@ -211,3 +247,10 @@ installMenuFit()
 installInputModality()
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
 startHost()
+// Once the first frame is up, on an idle moment: Settings and the vault's sheet load ahead, so a first opening doesn't
+// wait on them; first run's, when it's due.
+requestAnimationFrame(() => setTimeout(() => requestIdleCallback(() => {
+  void loadSettings().then(warmSettings)
+  void loadVault()
+  if (isFirstRun()) void loadOnboarding()
+}, { timeout: 4000 })))

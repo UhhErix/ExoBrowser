@@ -23,7 +23,7 @@
   font-weight: 500;
   line-height: 28px;
   white-space: nowrap;
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-nav-btn>*,
@@ -52,7 +52,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--color-muted);
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-settings-btn.is-on {
@@ -119,7 +119,7 @@
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: exo-check-hold 380ms var(--ease-out) forwards;
+  animation: exo-check-hold var(--dur-flight) var(--ease-out) forwards;
 }
 
 :root[data-exo-motion='reduce'] .exo-refresh-covers-check {
@@ -127,7 +127,6 @@
   stroke-dashoffset: 0;
 }
 
-.exo-titlebar .exo-nav-mark,
 .exo-titlebar .exo-top-rooms,
 .exo-titlebar .exo-titlebar-tools {
   height: 36px;

@@ -71,9 +71,9 @@ Exo Shield's filter lists are built into each release. It downloads no lists and
 
 ## Updates
 
-When Exo Browser starts, and every twelve hours while it runs, it asks GitHub which release is the newest (`github.com/UhhErix/ExoBrowser/releases/latest`). Settings > About > Check for updates asks the same at once. GitHub sees your IP address and "ExoBrowser/" with the version you run; nothing else is sent.
+When Exo Browser starts, and every twelve hours while it runs, it asks Exo's update address which release is the newest (`exo-updates.exo-erix.workers.dev`, a Cloudflare Worker run for Exo). It answers from Exo Browser's releases on GitHub, or from its own copy of them when GitHub can't. It sees your IP address while it answers, and "ExoBrowser/" with the version you run; it keeps no logs and stores nothing about who asked. Only if it doesn't answer, Exo Browser asks GitHub itself (`github.com/UhhErix/ExoBrowser/releases/latest`), which sees the same. Settings > About > Check for updates asks at once.
 
-When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from GitHub (`github.com`, which hands the files over from its own download host), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
+When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from the same place (the update address hands them over from GitHub's download host, `github.com`, or its own copy), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
 
 ## Questions
 

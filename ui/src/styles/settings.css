@@ -2,15 +2,6 @@
    section a title over rows on the black, split by hairlines, using the window's width. Shared
    status, segmented and busy-button rules used elsewhere also live here. */
 
-/* A busy apply button keeps its width while the count changes. */
-.exo-upscaler-btn.is-morph {
-  position: relative;
-  overflow: hidden;
-  color: var(--color-fg);
-  border-color: var(--color-line);
-  font-variant-numeric: tabular-nums;
-}
-
 .exo-set-error {
   margin: 8px 0 0;
   color: var(--color-bad);
@@ -115,7 +106,7 @@ span.exo-error-note {
   color: var(--color-muted);
   font-size: calc(13px * var(--exo-scale, 1));
   text-align: left;
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-settings-nav button.is-current {
@@ -227,7 +218,7 @@ span.exo-error-note {
 .exo-set-item-aside {
   display: block;
   margin-top: 2px;
-  color: var(--color-faint);
+  color: var(--color-muted);
   font-size: calc(12px * var(--exo-scale, 1));
 }
 .exo-set-item-control {
@@ -297,7 +288,7 @@ span.exo-error-note {
   text-decoration: underline;
   text-decoration-color: rgb(var(--exo-ink-rgb) / 0.25);
   text-underline-offset: 3px;
-  transition: color 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out);
 }
 
 .exo-set-links {
@@ -349,7 +340,10 @@ span.exo-error-note {
   align-items: center;
   gap: 8px;
   border-radius: 8px;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
+  /* Rows out of view aren't laid out or painted: the headphone list is long and not windowed. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 44px;
 }
 
 .exo-lucid-headphone.is-current {
@@ -391,8 +385,8 @@ span.exo-error-note {
   border: 0;
   border-radius: 999px;
   background: transparent;
-  color: var(--color-faint);
-  transition: color 120ms var(--ease-out), background-color 120ms var(--ease-out);
+  color: var(--color-muted);
+  transition: color var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-lucid-star.is-on {

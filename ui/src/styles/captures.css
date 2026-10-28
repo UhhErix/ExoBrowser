@@ -58,7 +58,7 @@
   font-size: calc(12px * var(--exo-scale, 1));
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -196,7 +196,7 @@
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-captures-way:hover {
@@ -247,6 +247,8 @@
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
+  /* Thumbnails out of view aren't laid out or painted: a year of captures scrolls as one screen of them. */
+  content-visibility: auto;
   padding: 0;
   overflow: hidden;
   border: 0;
@@ -255,7 +257,7 @@
   outline: 1px solid transparent;
   outline-offset: 2px;
   cursor: pointer;
-  transition: outline-color 120ms var(--ease-out);
+  transition: outline-color var(--dur-quick) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -312,7 +314,7 @@
   box-shadow: var(--exo-rim);
   color: var(--color-fg);
   opacity: 0;
-  transition: opacity 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: opacity var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-capture-fav.is-on,

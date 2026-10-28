@@ -10,8 +10,8 @@ body { overflow-x: hidden; scrollbar-width: none; }
 /* From 1%, not 0: WebView2 holds a new page's first frames until something on it is visible, and with everything at 0
    it showed nothing for about 300 ms, then the page almost done arriving. */
 @keyframes exb-arrive { from { opacity: 0.01; translate: 0 8px; } }
-/* All of it on Exo's move time, the cards a beat apart and the last in under a third of a second: it ran 280ms with
-   each card 24ms after the last, so a page of bookmarks was half a second arriving on every new tab. */
+/* Exo's arrive (DESIGN.md › Arrive): an 8px rise over the arrive time, each step 24ms after the last and the eighth and
+   later together, so the mark, its line and a page of bookmarks have landed within half a second. */
 
 .exb-ntp {
   min-height: 100vh;
@@ -25,9 +25,9 @@ body { overflow-x: hidden; scrollbar-width: none; }
      can't fit it all scrolls instead of pushing the mark under the Bar. */
   padding: 48px calc(24px + var(--exb-inset-left, 0px)) calc(48px + var(--exb-inset-top, 0px)) 24px;
 }
-.exb-ntp-mark { width: 72px; height: 72px; margin-bottom: 18px; animation: exb-arrive var(--dur-move) var(--ease-out) backwards; }
+.exb-ntp-mark { width: 72px; height: 72px; margin-bottom: 18px; animation: exb-arrive var(--dur-arrive) var(--ease-out) backwards; }
 
-.exb-ntp-quote { margin: 0; max-width: 760px; text-align: center; animation: exb-arrive var(--dur-move) var(--ease-out) 12ms backwards; }
+.exb-ntp-quote { margin: 0; max-width: 760px; text-align: center; animation: exb-arrive var(--dur-arrive) var(--ease-out) 24ms backwards; }
 /* The line to read is Exo's title type: Inter's Display cut at 650, the page's one large line. */
 .exb-ntp-quote blockquote {
   margin: 0;
@@ -49,8 +49,8 @@ body { overflow-x: hidden; scrollbar-width: none; }
 .exb-ntp-marks { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; width: min(960px, 100%); margin-top: 44px; user-select: none; }
 .exb-ntp-marks + .exb-ntp-marks { margin-top: 28px; }
 .exb-ntp-marks.is-bar { gap: 6px; }
-/* Rearranging: the others slide to make room; the one in hand rides above them, a touch larger. */
-.exb-ntp-marks [data-url] { transition: transform var(--dur-move) var(--ease-out), translate var(--dur-move) var(--ease-out), scale var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out); }
+/* Rearranging: the others slide to make room on the spring (travel); the one in hand rides above them, a touch larger. */
+.exb-ntp-marks [data-url] { transition: transform var(--dur-move) var(--ease-spring), translate var(--dur-move) var(--ease-out), scale var(--dur-quick) var(--ease-out), background-color var(--dur-quick) var(--ease-out); }
 .exb-ntp-marks [data-url].is-dragging { z-index: 2; scale: 1.04; cursor: grabbing; transition: scale var(--dur-quick) var(--ease-out); }
 
 .exb-card {
@@ -71,7 +71,10 @@ body { overflow-x: hidden; scrollbar-width: none; }
   box-shadow: var(--glassy-ring), var(--glassy-rim), var(--glassy-shadow);
   color: var(--color-fg);
   text-decoration: none;
-  animation: exb-arrive var(--dur-move) var(--ease-out) calc(24ms + min(var(--i, 0), 6) * 12ms) backwards;
+  /* The capsules on it (its name, its ×) are drawn over its own blurred wash: a blur of their own behind them showed
+     the same colors, yet each was a live backdrop moving with its card (up to some forty on a page). */
+  --exo-control-glass: none;
+  animation: exb-arrive var(--dur-arrive) var(--ease-out) calc(min(var(--i, 0) + 2, 7) * 24ms) backwards;
   transition: translate var(--dur-move) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 .exb-card-wash {
@@ -81,12 +84,10 @@ body { overflow-x: hidden; scrollbar-width: none; }
   background: var(--tint) center / cover no-repeat;
   /* Exo's large liquid glass over the site's colors: its frost, saturation and dim, then its tint (::after). */
   filter: blur(24px) saturate(1.8) var(--glassy-overlay-tone);
-  transition: scale var(--dur-flight) var(--ease-out);
 }
 .exb-card::after { content: ""; position: absolute; inset: 0; z-index: -1; background-color: var(--glassy-overlay); background-image: var(--glassy-sheen); }
 :root[data-exo-glass="solid"] .exb-card-wash { opacity: 0.35; }
 .exb-card:hover { translate: 0 -3px; }
-.exb-card:hover .exb-card-wash { scale: 1.12; }
 .exb-card:active { scale: 0.97; transition-duration: var(--dur-press); }
 .exb-card-face {
   width: 46px;
@@ -115,7 +116,7 @@ body { overflow-x: hidden; scrollbar-width: none; }
   border-radius: 999px;
   color: var(--color-fg);
   opacity: 0;
-  transition: opacity var(--dur-quick);
+  transition: opacity var(--dur-quick) var(--ease-out);
 }
 .exb-card:hover .exb-card-x { opacity: 1; }
 
@@ -139,7 +140,7 @@ body { overflow-x: hidden; scrollbar-width: none; }
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
   text-decoration: none;
-  animation: exb-arrive var(--dur-move) var(--ease-out) calc(24ms + min(var(--i, 0), 6) * 12ms) backwards;
+  animation: exb-arrive var(--dur-arrive) var(--ease-out) calc(min(var(--i, 0) + 2, 7) * 24ms) backwards;
   transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 .exb-chip:hover { background-color: var(--hover-fill); }
@@ -153,5 +154,4 @@ body { overflow-x: hidden; scrollbar-width: none; }
 .exb-ntp-menu.exo-shelf-sort-menu { position: fixed; display: flex; inset: auto; margin: 0; min-width: 210px; }
 
 /* Reduce motion: a press and a hover change only light, as Exo's own controls do (system.css). */
-html[data-exo-motion="reduce"] :is(.exb-card, .exb-chip):is(:hover, :active),
-html[data-exo-motion="reduce"] .exb-card:hover .exb-card-wash { translate: none; scale: none; }
+html[data-exo-motion="reduce"] :is(.exb-card, .exb-chip):is(:hover, :active) { translate: none; scale: none; }

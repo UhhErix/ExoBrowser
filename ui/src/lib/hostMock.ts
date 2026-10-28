@@ -351,7 +351,7 @@ let MOCK_REPLACED: ReplacedApp[] = [
   { id: 'photos', name: 'Photos', detail: 'Exo shows and trims your captures', installed: true, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: null },
   { id: 'gamebar', name: 'Xbox Game Bar', detail: 'Exo records clips and replays', installed: true, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: null },
   { id: 'clipchamp', name: 'Clipchamp', detail: 'Exo trims and shares your clips', installed: false, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: { folders: 1, files: 2, registry: 6, shortcuts: 0, bytes: 38_000_000 } },
-  { id: 'nvidia', name: 'NVIDIA App', detail: 'Exo updates the driver and sets its profile; the driver stays', installed: true, leftovers: 6, bytes: 1_300_000_000, needsAdmin: true, found: { folders: 5, files: 0, registry: 1, shortcuts: 0, bytes: 1_300_000_000 }, cleared: null },
+  { id: 'nvidia', name: 'NVIDIA App and Control Panel', detail: 'Exo updates the driver, sets its profile and your screens; the driver stays', installed: true, leftovers: 6, bytes: 1_300_000_000, needsAdmin: true, found: { folders: 5, files: 0, registry: 1, shortcuts: 0, bytes: 1_300_000_000 }, cleared: null },
 ]
 
 function mockDepsList() {
@@ -1175,6 +1175,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'store.gameReviews': () => ({ ok: true, word: 'Mostly Positive', percent: 78, count: 1025 }),
   'store.game': mockStoreGame,
   'store.wishlist': () => ({ ok: true, items: [] }),
+  'store.exo.catalog': () => ({ ok: true, enabled: false, items: [] }),
   'twitch.connect': () => ({ ok: false, message: 'Twitch sign-in is not available in the browser mock.' }),
   'keys.preview': () => ({ ok: true, looksLikeKey: false, store: 'unknown', key: '' }),
   'keys.activate': () => ({ ok: true, message: 'Mock key.' }),

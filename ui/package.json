@@ -6,9 +6,9 @@
   "scripts": {
     "sync": "node scripts/sync-exo.mjs",
     "icons": "node scripts/icons.mjs",
-    "build": "node scripts/sync-exo.mjs && node scripts/icons.mjs && tsc -p . && vite build",
+    "build": "node scripts/sync-exo.mjs && node scripts/icons.mjs && node node_modules/@typescript/native/bin/tsc -p . && vite build",
     "build:setup": "vite build --config vite.setup.config.ts --logLevel warn",
-    "check": "node scripts/icons.mjs --check && tsc -p . && eslint src/browser src/setup --max-warnings 0 && node scripts/css-design.mjs css-design.config.mjs src/browser && node scripts/css-design.mjs css-design.config.mjs src/setup && node scripts/browser-design.mjs",
+    "check": "node scripts/icons.mjs --check && node node_modules/@typescript/native/bin/tsc -p . && eslint src/browser src/setup --max-warnings 0 && node scripts/css-design.mjs css-design.config.mjs src/browser && node scripts/css-design.mjs css-design.config.mjs src/setup && node scripts/browser-design.mjs",
     "dev": "vite"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "@typescript/native": "npm:typescript@7.1.0-beta",
     "@vitejs/plugin-react": "6.1.2",
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",

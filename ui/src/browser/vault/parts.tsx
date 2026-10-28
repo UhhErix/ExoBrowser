@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Row } from '../../components/settings/parts'
 import * as I from '../icons'
-import { copy, setVault, type Item } from './store'
+import { copy, setVault, whenLocked, type Item } from './store'
 import { parseOtp, secondsLeft, totpCode } from './totp'
 import { hostOf } from './sites'
 import { api } from '../host'
@@ -14,8 +14,10 @@ export function Act({ label, onPress, children, disabled }: { label: string; onP
 
 const TYPE_ICON = { login: I.Key, card: I.Card, note: I.Note, identity: I.Identity } as const
 
-// Sites' icons, as the browser already has them from browsing (never fetched for the vault), asked once per site.
+// Sites' icons, as the browser already has them from browsing (never fetched for the vault), asked once per site
+// while it's open: kept past a lock, the map listed the vault's sites with the vault locked.
 const icons = new Map<string, Promise<string>>()
+whenLocked(() => icons.clear())
 const siteIcon = (site: string) => {
   if (!icons.has(site)) icons.set(site, api<string>(`/icon/${site}`).then(icon => icon ?? ''))
   return icons.get(site)!
@@ -30,7 +32,7 @@ export function Avatar({ item }: { item: Item }) {
     if (host) void siteIcon(host).then(found => { if (live) setIcon(found) })
     return () => { live = false }
   }, [host])
-  if (host && icon) return <span className="exb-vault-avatar has-icon" aria-hidden="true"><img src={icon} alt="" draggable={false} /></span>
+  if (host && icon) return <span className="exb-vault-avatar has-icon" aria-hidden="true"><img src={icon} alt="" draggable={false} decoding="async" loading="lazy" /></span>
   if (host) return <span className="exb-vault-avatar" aria-hidden="true">{(item.name || host).charAt(0).toUpperCase()}</span>
   const Icon = TYPE_ICON[item.type]
   return <span className="exb-vault-avatar" aria-hidden="true"><Icon size={14} /></span>
@@ -74,7 +76,8 @@ export function Secret({ label, value, detail, what }: { label: string; value?: 
   if (!value) return null
   return (
     <Row label={label} detail={detail}>
-      <span className={`exb-vault-value is-secret${shown ? ' is-shown' : ''}`}>{shown ? value : '•'.repeat(Math.min(16, value.length))}</span>
+      {/* Always twelve dots: as many as it has told a PIN's or a code's length. */}
+      <span className={`exb-vault-value is-secret${shown ? ' is-shown' : ''}`}>{shown ? value : '•'.repeat(12)}</span>
       <Act label={shown ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`} onPress={() => setShown(s => !s)}>{shown ? <I.EyeOff /> : <I.Eye />}</Act>
       <Act label={`Copy ${label.toLowerCase()}`} onPress={() => copy(value, what)}><I.Copy /></Act>
     </Row>
@@ -92,22 +95,35 @@ export function Plain({ label, value, what }: { label: string; value?: string; w
   )
 }
 
-/** The current 2FA code, counting down to the next. */
+/** The current 2FA code, counting down to the next. The clock ticks only for a key that makes codes, and not while the
+ *  window is hidden (it catches up as it shows again); a code worked out for an older key or step never lands late. */
 export function useOtp(secret: string | undefined) {
   const [now, setNow] = useState(() => Date.now())
   const [code, setCode] = useState('')
   const otp = parseOtp(secret)
+  const valid = !!otp
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [])
+    if (!valid) return
+    let timer = 0
+    const tick = () => {
+      clearInterval(timer)
+      if (document.hidden) return
+      setNow(Date.now())
+      timer = window.setInterval(() => setNow(Date.now()), 1000)
+    }
+    tick()
+    document.addEventListener('visibilitychange', tick)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', tick) }
+  }, [valid])
   const step = otp ? Math.floor(now / 1000 / otp.period) : 0
   useEffect(() => {
     const parsed = parseOtp(secret)
-    if (parsed) void totpCode(parsed).then(setCode)
-    else setCode('')
+    if (!parsed) { setCode(''); return }
+    let live = true
+    void totpCode(parsed).then(c => { if (live) setCode(c) })
+    return () => { live = false }
   }, [secret, step])
-  return { code, left: otp ? secondsLeft(otp, now) : 0, valid: !!otp }
+  return { code, left: otp ? secondsLeft(otp, now) : 0, valid }
 }
 
 export function OtpRow({ secret }: { secret?: string }) {

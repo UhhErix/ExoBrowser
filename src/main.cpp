@@ -96,6 +96,8 @@ struct Tab {
     int folder = 0;            // the folder it sits in among its space's pinned tabs (0: none)
     bool priv = false;         // private: its own profile, kept in memory only; no history, never in the session
     bool kept = false;         // Keep this tab: never archived, and never asleep (frozen or closed) to save memory
+    bool crashed = false;      // its page's process went while it was off screen: loaded again when it's shown
+    bool pipped = false;       // AutoPip floated its video as it was left: put back as it comes on screen
 };
 
 // A space: a set of tabs of its own (its pinned tabs and the one last on screen too), with a name, an icon, a color
@@ -255,6 +257,16 @@ static std::string ReadFileUtf8(const std::wstring& path) {
 
 // Written beside, then swapped in, so a crash mid-write never leaves half a file.
 static void WriteFileUtf8(const std::wstring& path, const std::string& data) {
+    // The browser's own tables (*.tsv) aren't written again with the same bytes as their last write: a save with nothing
+    // new in it flushed the disk all the same. Anything else (an export you asked for, an extension's files) always is.
+    static std::mutex lock;
+    static std::unordered_map<std::wstring, size_t> lastWrite;
+    bool table = path.size() > 4 && _wcsicmp(path.c_str() + path.size() - 4, L".tsv") == 0;
+    size_t hash = std::hash<std::string>{}(data);
+    if (table) {
+        std::lock_guard<std::mutex> hold(lock);
+        if (auto it = lastWrite.find(path); it != lastWrite.end() && it->second == hash) return;
+    }
     std::wstring tmp = path + L".tmp";
     HANDLE f = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
     if (f == INVALID_HANDLE_VALUE) return;
@@ -262,8 +274,12 @@ static void WriteFileUtf8(const std::wstring& path, const std::string& data) {
     // Only a complete copy replaces the file (a full disk writes short).
     bool whole = WriteFile(f, data.data(), (DWORD)data.size(), &written, nullptr) && written == data.size();
     CloseHandle(f);
-    if (whole) MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-    else DeleteFileW(tmp.c_str());
+    if (whole && MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
+        std::lock_guard<std::mutex> hold(lock);
+        if (table) lastWrite[path] = hash;
+    } else {
+        DeleteFileW(tmp.c_str());
+    }
 }
 
 static std::vector<std::vector<std::wstring>> ReadTable(const wchar_t* name) {
@@ -625,7 +641,8 @@ static void IconWorker();
 // skips this check.
 enum class Egress { Update, Extension, Icon, Feed };
 static const struct { Egress why; const wchar_t* host; } kDestinations[] = {
-    {Egress::Update, L"github.com"},              // Settings > About: the newest release, its notes, its Setup
+    {Egress::Update, L"exo-updates.exo-erix.workers.dev"},  // Exo's update address: the newest release, its files
+    {Egress::Update, L"github.com"},              // Settings > About, when Exo's address doesn't answer: the same from GitHub
     {Egress::Extension, L"clients2.google.com"},  // an extension added from the Chrome Web Store
 };
 
@@ -703,6 +720,24 @@ static void SaveIcons() {
     for (auto& [site, when] : g_iconMiss) miss += Utf8(site) + "\t" + std::to_string(when) + "\n";
     WriteFileUtf8(g.dataDir + L"\\iconmiss.tsv", miss);
     WriteFileUtf8(g.dataDir + L"\\icons.tsv", out);
+}
+
+// History cleared (or visits removed): the icons kept for sites nothing points to any more go too, so favicons.tsv and
+// icons.tsv stop being a list of every site you ever visited. Bookmarks, open tabs and the archive keep theirs.
+static void PruneSiteIcons() {
+    std::unordered_set<std::wstring> keep;
+    for (auto& [url, _] : g.history) keep.insert(SiteOf(url));
+    for (auto& b : g.bookmarks) keep.insert(SiteOf(b.url));
+    for (auto& t : g.tabs) if (!t->priv) keep.insert(SiteOf(t->url));
+    for (auto& a : g.archive) keep.insert(SiteOf(a.url));
+    size_t before = g.favicons.size() + g_icons.size() + g_iconMiss.size();
+    std::erase_if(g.favicons, [&](auto& x) { return !keep.count(x.first); });
+    std::erase_if(g_icons, [&](auto& x) { return !keep.count(x.first); });
+    std::erase_if(g_iconMiss, [&](auto& x) { return !keep.count(x.first); });
+    std::erase_if(g_iconTried, [&](auto& s) { return !keep.count(s.substr(0, s.find(L'#'))); });
+    if (g.favicons.size() + g_icons.size() + g_iconMiss.size() == before) return;
+    SaveFavicons();
+    SaveIcons();
 }
 
 static std::wstring FavFor(const std::wstring& url) {
@@ -822,12 +857,16 @@ static void ThemeChanged() {
     std::wstring was = g.theme;
     ApplyTheme();
     if (g.theme == was) return;
+    // Once for your profile and once for the private one: one tab of each is enough (a private tab first left your own
+    // tabs in the old scheme).
+    bool own = false, priv = false;
     for (auto& t : g.tabs) {
+        if ((t->priv ? priv : own)) continue;
         ComPtr<ICoreWebView2_13> c13;
         ComPtr<ICoreWebView2Profile> profile;
         if (!t->core || FAILED(t->core.As(&c13)) || FAILED(c13->get_Profile(&profile))) continue;
         profile->put_PreferredColorScheme(g.theme == L"light" ? COREWEBVIEW2_PREFERRED_COLOR_SCHEME_LIGHT : COREWEBVIEW2_PREFERRED_COLOR_SCHEME_DARK);
-        break;
+        (t->priv ? priv : own) = true;
     }
     SendSettings();
     RefreshNewTabs();
@@ -1096,7 +1135,7 @@ static ComPtr<ICoreWebView2CookieManager> CookieManager() {
     for (auto& t : g.tabs) {
         ComPtr<ICoreWebView2_2> c2;
         ComPtr<ICoreWebView2CookieManager> cm;
-        if (t->core && SUCCEEDED(t->core.As(&c2)) && SUCCEEDED(c2->get_CookieManager(&cm))) return cm;
+        if (t->core && !t->priv && SUCCEEDED(t->core.As(&c2)) && SUCCEEDED(c2->get_CookieManager(&cm))) return cm;
     }
     return nullptr;
 }
@@ -1361,9 +1400,10 @@ static void SaveExtFolders() {
     WriteFileUtf8(g.dataDir + L"\\extensions.tsv", out);
 }
 
+// Your own profile, from any tab of it: a private tab's (its throwaway profile) would take extensions and sign-ins away.
 static ComPtr<ICoreWebView2Profile7> TabProfile() {
     for (auto& t : g.tabs) {
-        if (!t->core) continue;
+        if (!t->core || t->priv) continue;
         ComPtr<ICoreWebView2_13> c13;
         ComPtr<ICoreWebView2Profile> profile;
         ComPtr<ICoreWebView2Profile7> p7;
@@ -1389,19 +1429,30 @@ static std::wstring BuiltinFolder(const std::wstring& name) {
     std::wstring dest = g.dataDir + L"\\Builtin\\" + name;
     std::string shipped = ReadFileUtf8(source + L"\\manifest.json");
     if (shipped.empty()) return dest;
+    // Setup refreshes it as it installs (ExoBrowser.nsi); this is for a copy it couldn't, or one run from elsewhere.
     if (ReadFileUtf8(dest + L"\\manifest.json") != shipped) {
         SHCreateDirectoryExW(nullptr, (g.dataDir + L"\\Builtin").c_str(), nullptr);
-        std::wstring from = dest;
-        from.push_back(L'\0');
-        SHFILEOPSTRUCTW del{nullptr, FO_DELETE, from.c_str(), nullptr, FOF_NO_UI, FALSE, nullptr, nullptr};
-        SHFileOperationW(&del);
+        auto remove = [](const std::wstring& dir) {
+            std::wstring from = dir;
+            from.push_back(L'\0');
+            SHFILEOPSTRUCTW del{nullptr, FO_DELETE, from.c_str(), nullptr, FOF_NO_UI, FALSE, nullptr, nullptr};
+            SHFileOperationW(&del);
+        };
+        // Copied beside and swapped in whole: a copy cut short (its manifest already there) was never redone.
+        std::wstring incoming = dest + L".incoming";
+        remove(incoming);
         std::wstring src = source + L"\\*";
         src.push_back(L'\0');
-        std::wstring to = dest;
+        std::wstring to = incoming;
         to.push_back(L'\0');
-        SHCreateDirectoryExW(nullptr, dest.c_str(), nullptr);
+        SHCreateDirectoryExW(nullptr, incoming.c_str(), nullptr);
         SHFILEOPSTRUCTW copy{nullptr, FO_COPY, src.c_str(), to.c_str(), FOF_NO_UI, FALSE, nullptr, nullptr};
-        SHFileOperationW(&copy);
+        if (SHFileOperationW(&copy) == 0 && !copy.fAnyOperationsAborted) {
+            remove(dest);
+            if (!MoveFileExW(incoming.c_str(), dest.c_str(), 0)) remove(incoming);
+        } else {
+            remove(incoming);
+        }
     }
     return dest;
 }
@@ -2069,10 +2120,11 @@ static void SetBlur(bool on) {
     if (!g.content) return;
     if (on) {
         g.content.Effect(g.blur);
+        // At its full amount at once (Exo never animates a blur: each step of one is a new blur of the whole page); Peek's
+        // card coming in is the motion.
         auto a = g.compositor.CreateScalarKeyFrameAnimation();
-        a.InsertKeyFrame(0.f, 0.f);
-        a.InsertKeyFrame(1.f, 22.f * Scale(), EaseOut());
-        a.Duration(std::chrono::milliseconds(160));
+        a.InsertKeyFrame(1.f, 22.f * Scale());
+        a.Duration(std::chrono::milliseconds(1));
         g.blur.StartAnimation(L"Blur.BlurAmount", a);
     } else {
         g.content.Effect(nullptr);
@@ -2092,15 +2144,29 @@ static void SetBlur(bool on) {
 static const UINT kTimerHide = 3, kTimerHideSide = 4;
 static bool g_hideTopPending = false, g_hideSidePending = false;
 
+// Exo's --ease-spring (tokens.css), point for point: travel and shape move on it, appearing on --ease-out.
+static void SpringTo(const wuc::Vector3KeyFrameAnimation& a, wf::Numerics::float3 to) {
+    static const float points[][2] = {{1.8f, .005f}, {3.7f, .018f}, {5.7f, .04f}, {8.f, .074f}, {10.2f, .111f}, {12.5f, .156f},
+        {25.8f, .437f}, {29.7f, .512f}, {33.2f, .576f}, {37.3f, .645f}, {41.3f, .703f}, {45.5f, .756f}, {49.8f, .803f},
+        {54.5f, .846f}, {59.5f, .883f}, {64.7f, .913f}, {70.3f, .939f}, {76.f, .958f}, {82.f, .973f}, {90.2f, .986f},
+        {99.8f, .995f}};
+    auto linear = g.compositor.CreateLinearEasingFunction();
+    a.SetVector3Parameter(L"to", to);
+    for (auto& [at, v] : points)
+        a.InsertExpressionKeyFrame(at / 100.f, L"this.StartingValue + (to - this.StartingValue) * " + std::to_wstring(v), linear);
+    a.InsertKeyFrame(1.f, to, linear);
+}
+
 static void AnimateGlass(const wuc::ContainerVisual& layer, bool on, bool side) {
     float k = Scale();
-    wf::Numerics::float3 away = side ? wf::Numerics::float3{-14.f * k, 0, 0} : wf::Numerics::float3{0, -10.f * k, 0};
+    // As the page's own slide (browser.css): 8 px, fading on --ease-out (base 160 in, quick 120 out) and travelling on
+    // --ease-spring (move 220 in, quick 120 out).
+    wf::Numerics::float3 away = side ? wf::Numerics::float3{-8.f * k, 0, 0} : wf::Numerics::float3{0, -8.f * k, 0};
     auto opacity = g.compositor.CreateScalarKeyFrameAnimation();
     opacity.InsertKeyFrame(1.f, on ? 1.f : 0.f, EaseOut());
-    // Exo's times, as the page's own fade (browser.css): base 160 and move 220 in, quick 120 out.
     opacity.Duration(std::chrono::milliseconds(on ? 160 : 120));
     auto offset = g.compositor.CreateVector3KeyFrameAnimation();
-    offset.InsertKeyFrame(1.f, on ? wf::Numerics::float3{0, 0, 0} : away, EaseOut());
+    SpringTo(offset, on ? wf::Numerics::float3{0, 0, 0} : away);
     offset.Duration(std::chrono::milliseconds(on ? 220 : 120));
     layer.StartAnimation(L"Opacity", opacity);
     layer.StartAnimation(L"Offset", offset);
@@ -2635,7 +2701,12 @@ static void ConfigureProfile(ICoreWebView2* core) {
                     missing->push_back(folder);
             }
             auto next = std::make_shared<std::function<void()>>();
-            *next = [p7, stale, missing, next] {
+            // Holding itself weakly, and itself only through the callbacks still to come: it goes when the last one
+            // ends (holding itself, it leaked on every run, as an appearance change makes).
+            std::weak_ptr<std::function<void()>> weak = next;
+            *next = [p7, stale, missing, weak] {
+                auto next = weak.lock();
+                if (!next) return;
                 if (!stale->empty()) {
                     auto ext = stale->back();
                     stale->pop_back();
@@ -3093,12 +3164,15 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
             if (Tab* t = FindTab(id)) {
                 LPWSTR title = nullptr;
                 core->get_DocumentTitle(&title);
-                t->title = Take(title);
-                if (auto it = g.history.find(t->url); it != g.history.end() && !t->title.empty()) {
+                std::wstring now = Take(title);
+                if (now == t->title) return S_OK;
+                t->title = now;
+                // A private tab's title never reaches history. And a title alone doesn't save the session: a page that
+                // retitles itself (an unread count) rewrote it every 1.5 s; the next real change, or the close, keeps it.
+                if (auto it = g.history.find(t->url); !t->priv && it != g.history.end() && !t->title.empty() && it->second.title != t->title) {
                     it->second.title = t->title;
                     g.historyDirty = true;
                 }
-                MarkSessionDirty();
                 QueueState();
             }
             return S_OK;
@@ -3206,6 +3280,7 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
             t->id = g.nextId++;
             t->url = Take(u);
             t->lastActive = GetTickCount64();
+            t->seen = _time64(nullptr);  // never seen, the archive took it within 30 s
             Tab* opener = FindTab(id);
             t->space = opener ? opener->space : g.space;
             t->priv = opener && opener->priv;
@@ -3248,6 +3323,8 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
             COREWEBVIEW2_PROCESS_FAILED_KIND kind;
             a->get_ProcessFailedKind(&kind);
             if (kind != COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED) return S_OK;
+            // Off screen (one shared process can take several tabs down), it loads again when it's shown, not all at once now.
+            if (Tab* t = FindTab(id); t && !Shown(t) && !t->peek) { t->crashed = true; return S_OK; }
             // At most three reloads a minute: a page that crashes as it loads would loop.
             static std::unordered_map<int, std::pair<int, ULONGLONG>> crashes;
             auto& [count, since] = crashes[id];
@@ -3319,20 +3396,27 @@ static void ShowActive() {
     for (auto& t : g.tabs)
         if (t->ctl && !Shown(t.get()) && !t->peek) t->ctl->put_IsVisible(FALSE);
     g.content.Children().RemoveAll();
+    // On screen, a tab is awake: its memory back to normal, and loaded again if its page's process went while away.
+    auto wake = [](Tab* t) {
+        if (t->suspended || t->lowMemory) {
+            if (ComPtr<ICoreWebView2_19> c19; SUCCEEDED(t->core.As(&c19)))
+                c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL);
+            t->suspended = t->lowMemory = false;
+        }
+        if (t->crashed && t->core) { t->crashed = false; t->core->Reload(); }
+        // Placed while it was away: its page's popups (a select's list) open at its window's place now.
+        t->ctl->NotifyParentWindowPositionChanged();
+    };
     // The other panes of a split, beside it.
     for (Tab* p : Panes()) {
         if (p == a) continue;
-        if (p->ctl) { g.content.Children().InsertAtTop(p->visual); p->ctl->put_IsVisible(!g.minimized); }
+        if (p->ctl) { wake(p); g.content.Children().InsertAtTop(p->visual); p->ctl->put_IsVisible(!g.minimized); }
         else EnsureView(p, [](Tab* t) { if (Shown(t)) ShowActive(); });
     }
     if (a) {
         a->lastActive = GetTickCount64();
         if (a->ctl) {
-            if (a->suspended || a->lowMemory) {
-                if (ComPtr<ICoreWebView2_19> c19; SUCCEEDED(a->core.As(&c19)))
-                    c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL);
-                a->suspended = a->lowMemory = false;
-            }
+            wake(a);
             g.content.Children().InsertAtTop(a->visual);
             a->ctl->put_IsVisible(!g.minimized);
             if (!g.overlay) FocusTarget(a->id);
@@ -3348,12 +3432,41 @@ static void ShowActive() {
     QueueState();
 }
 
+// Minimized, nothing of the window is on screen: every pane of the split and Peek's card stop drawing (not only the
+// active tab), and what doesn't play sound gives its memory back as a tab asleep does. Restored, ShowActive wakes what
+// shows.
+static void SetMinimized(bool on) {
+    for (auto& t : g.tabs) {
+        if (!t->ctl || !(Shown(t.get()) || t->peek)) continue;
+        t->ctl->put_IsVisible(!on);
+        if (on && !t->audible && !t->lowMemory) {
+            if (ComPtr<ICoreWebView2_19> c19; SUCCEEDED(t->core.As(&c19)))
+                c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
+            t->lowMemory = true;
+        }
+    }
+    if (g.uiCtl) g.uiCtl->put_IsVisible(!on);
+    if (on) return;
+    ShowActive();
+    if (Tab* p = FindTab(g.peekId); p && p->ctl) {
+        if (p->lowMemory) {
+            if (ComPtr<ICoreWebView2_19> c19; SUCCEEDED(p->core.As(&c19)))
+                c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL);
+            p->lowMemory = false;
+        }
+        p->ctl->put_IsVisible(TRUE);
+    }
+}
+
 static void EnterSpace(int id);
 
 // Picture in picture by itself (Settings > General): leaving a tab whose video plays with sound floats the video;
 // coming back puts it in the page again. A muted video (an ad playing quietly) stays put.
 static void AutoPip(Tab* t, bool enter) {
     if (!t || !t->core || Setting(L"autoPip", L"on") == L"off") return;
+    // Coming back, only a tab it floated a video for is asked (a script in every tab it ever switched to woke slept ones).
+    if (!enter && !t->pipped) return;
+    t->pipped = enter;
     t->core->ExecuteScript(enter
         ? L"(() => { if (document.pictureInPictureElement) return; const v = [...document.querySelectorAll('video')]"
           L".filter(v => !v.paused && !v.muted && v.volume > 0 && v.readyState > 2 && v.clientWidth > 160 && !v.disablePictureInPicture)"
@@ -3597,7 +3710,10 @@ static void CloseTab(int id, bool force = false) {
             else { g.activeId = 0; NewTabPage(); }
         }
         if (!t->home.empty()) t->url = t->home;
+        // A pane of the split on screen (not the active one): the rest of the split takes its room.
+        bool shown = id != g.activeId && Shown(t);
         Discard(t);
+        if (shown) ShowActive();
         MarkSessionDirty();
         QueueState();
         return;
@@ -3611,11 +3727,14 @@ static void CloseTab(int id, bool force = false) {
     if (g.focus == id) g.focus = 0;
     if (id == g.activeId && g.elementFullscreen) LeaveFullscreen();
     int split = t->split;
+    bool shown = id != g.activeId && Shown(t);
     Discard(t);
     g.tabs.erase(g.tabs.begin() + i);
     if (split && std::count_if(g.tabs.begin(), g.tabs.end(), [split](auto& x) { return x->split == split; }) < 2)
         for (auto& x : g.tabs) if (x->split == split) x->split = 0;
-    if (g.activeId == id) {
+    if (shown) {
+        ShowActive();  // a pane of the split on screen went: the others take its room at once
+    } else if (g.activeId == id) {
         // The space's last tab closed leaves a new tab page in it.
         if (Tab* next = Neighbor(space, i)) {
             g.activeId = next->id;
@@ -4071,6 +4190,8 @@ static void TrackDownload(ICoreWebView2DownloadStartingEventArgs* a, int tabId) 
 // A download's state as WebView2 has it now: done, stopped (cancelled or failed) or still going.
 static void DownloadState(Download* d, ICoreWebView2DownloadOperation* op) {
             int id = d->id;
+            // The list goes to the chrome page only when this changed (the tick asks every second; its bytes go on their own).
+            std::wstring before = d->state + L"|" + d->path;
             COREWEBVIEW2_DOWNLOAD_STATE state;
             op->get_State(&state);
             LPWSTR path = nullptr;
@@ -4106,7 +4227,7 @@ static void DownloadState(Download* d, ICoreWebView2DownloadOperation* op) {
                 d->little = nullptr;
                 SaveDownloads();
             }
-            SendDownloads();
+            if (d->state + L"|" + d->path != before) SendDownloads();
 }
 
 // Every second while a download runs, its state is read again: its "finished" event never comes once the page that
@@ -4124,7 +4245,8 @@ static void DownloadTick() {
             SaveDownloads();
             SendDownloads();
         }
-        running = running || d.state == L"progress" || d.state == L"paused";
+        // A paused one waits without the tick (it kept it going for as long as it stayed paused); resuming starts it again.
+        running = running || d.state == L"progress";
     }
     if (!running) KillTimer(g.hwnd, kTimerDownloads);
 }
@@ -4139,7 +4261,7 @@ static void DownloadAction(const std::wstring& verb, int id) {
         // Still coming in (or paused): it opens as it finishes, a paused one going on again first.
         if (d->state == L"progress" || d->state == L"paused") {
             d->openWhenDone = true;
-            if (d->state == L"paused" && d->op) { d->op->Resume(); d->state = L"progress"; }
+            if (d->state == L"paused" && d->op) { d->op->Resume(); d->state = L"progress"; SetTimer(g.hwnd, kTimerDownloads, 1000, nullptr); }
         } else {
             ShellExecuteW(g.hwnd, L"open", d->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         }
@@ -4151,7 +4273,7 @@ static void DownloadAction(const std::wstring& verb, int id) {
     } else if (verb == L"dlCancel" && d->op) {
         d->op->Cancel();
     } else if (verb == L"dlPause" && d->op) {
-        if (d->state == L"paused") { d->op->Resume(); d->state = L"progress"; }
+        if (d->state == L"paused") { d->op->Resume(); d->state = L"progress"; SetTimer(g.hwnd, kTimerDownloads, 1000, nullptr); }
         else { d->op->Pause(); d->state = L"paused"; }
     } else if (verb == L"dlRemove") {
         if (d->op) d->op->Cancel();
@@ -4213,11 +4335,37 @@ static std::wstring StateJson() {
            L",\"transparency\":" + Bool(WindowsTransparency()) + L"}";
 }
 
+// Settings' History shows six visits: those only, with icons for their sites and for the archive's tabs (it fetched up
+// to 5000 visits and every site's icon each time it opened). Full history asks for HistoryJson.
+static std::wstring RecentHistoryJson() {
+    std::vector<const Visit*> all;
+    for (auto& [_, v] : g.history) all.push_back(&v);
+    size_t n = std::min<size_t>(6, all.size());
+    std::partial_sort(all.begin(), all.begin() + n, all.end(), [](auto a, auto b) { return a->last > b->last; });
+    std::wstring items, favs;
+    std::unordered_set<std::wstring> sites;
+    for (size_t i = 0; i < n; i++) {
+        const Visit* v = all[i];
+        if (!items.empty()) items += L",";
+        items += L"[" + Json(v->url) + L"," + Json(v->title) + L"," + std::to_wstring(v->visits) + L"," + std::to_wstring(v->last) + L"]";
+        sites.insert(SiteOf(v->url));
+    }
+    for (auto& a : g.archive) sites.insert(SiteOf(a.url));
+    for (auto& site : sites)
+        if (auto it = g.favicons.find(site); it != g.favicons.end()) {
+            if (!favs.empty()) favs += L",";
+            favs += Json(site) + L":" + Json(it->second);
+        }
+    return L"{\"items\":[" + items + L"],\"favicons\":{" + favs + L"}}";
+}
+
 static std::wstring HistoryJson() {
     std::vector<const Visit*> all;
     for (auto& [_, v] : g.history) all.push_back(&v);
-    std::sort(all.begin(), all.end(), [](auto a, auto b) { return a->last > b->last; });
-    if (all.size() > 5000) all.resize(5000);
+    // Only the newest 5000 put in order, not all 20,000.
+    size_t n = std::min<size_t>(5000, all.size());
+    std::partial_sort(all.begin(), all.begin() + n, all.end(), [](auto a, auto b) { return a->last > b->last; });
+    all.resize(n);
     std::wstring items, favs;
     std::unordered_map<std::wstring, bool> seen;
     for (auto v : all) {
@@ -4241,9 +4389,16 @@ using ApiReply = std::function<void(const std::string& body, const wchar_t* type
 
 static void ApiData(const std::wstring& path, ApiReply reply) {
     if (path == L"/ntp.json") reply(Utf8(NewTabJson()), L"application/json", 200);
+    // Answered at once from the last look for other browsers to import from, with a fresh look behind it that Settings
+    // hears of (importSources); only the first one waits for it (about 120 ms), as every Settings open did.
+    else if (path == L"/state.json" && g_browsersAt && !BrowsersFresh()) {
+        reply(Utf8(StateJson()), L"application/json", 200);
+        WhenBrowsersKnown([] { if (g.uiReady) UiPost(L"{\"t\":\"importSources\"}"); });
+    }
     else if (path == L"/state.json") WhenBrowsersKnown([reply] { reply(Utf8(StateJson()), L"application/json", 200); });
     else if (path == L"/bookmarks.json") reply(Utf8(BookmarksJson()), L"application/json", 200);
     else if (path == L"/history.json") reply(Utf8(HistoryJson()), L"application/json", 200);
+    else if (path == L"/history-recent.json") reply(Utf8(RecentHistoryJson()), L"application/json", 200);
     else if (path == L"/downloads.json") reply(Utf8(DownloadsJson(true)), L"application/json", 200);
     // /icon/<site>: the icon this browser already has for a site (Exo Vault's rows), never fetched for it.
     else if (path.rfind(L"/icon/", 0) == 0) reply(Utf8(Json(FavFor(L"https://" + path.substr(6) + L"/"))), L"application/json", 200);
@@ -4391,8 +4546,8 @@ static void SetFullscreen(bool on) {
 static void LeaveFullscreen() {
     if (!g.fullscreen) return;
     if (g.elementFullscreen) {
-        for (auto& t : g.tabs)
-            if (t->core) t->core->ExecuteScript(L"document.fullscreenElement && document.exitFullscreen()", nullptr);
+        // Only the tab on screen has a page in full screen (a script into every tab woke the ones asleep).
+        if (Tab* a = Active(); a && a->core) a->core->ExecuteScript(L"document.fullscreenElement && document.exitFullscreen()", nullptr);
         g.elementFullscreen = false;
     }
     SetFullscreen(false);
@@ -5002,13 +5157,18 @@ static void OnNewTabMessage(int id, const std::wstring& msg) {
 // opens it again. GitHub sees the address it's asked from and "ExoBrowser/<version>"; nothing else is sent.
 
 static const wchar_t kReleases[] = L"https://github.com/UhhErix/ExoBrowser/releases";
+// Exo's update address (Exo Launcher's cloud/updates): it answers from GitHub's releases, or its own mirror when GitHub
+// can't, so a move of the downloads (an account renamed) never strands an installed copy again. GitHub itself is asked
+// only when it doesn't answer.
+static const wchar_t kUpdates[] = L"https://exo-updates.exo-erix.workers.dev/v1/browser";
 static const UINT WM_APP_UPDATE = WM_APP + 6;  // lParam: new UpdateNews*
 static const UINT kTimerUpdate = 12;
 static const UINT kUpdateEveryMs = 12 * 60 * 60 * 1000;
 
 // What the page shows: idle, checking, current, available, downloading, installing or error.
 // notes: the newer release's whats-new.json (its What's New items, which the page checks before showing).
-struct UpdateNews { std::wstring state, latest, message, file; int percent = -1; bool quiet = false; std::wstring notes; };
+// from: where the release's files come from, up to their tag ("<kUpdates>/download/v" or "<kReleases>/download/v").
+struct UpdateNews { std::wstring state, latest, message, file; int percent = -1; bool quiet = false; std::wstring notes, from; };
 static UpdateNews g_update{L"idle"};
 static bool g_updateBusy = false;
 
@@ -5136,25 +5296,37 @@ static void UpdateCheck(bool quiet) {
     std::thread([hwnd, quiet] {
         UpdateNews news;
         news.quiet = quiet;
-        std::wstring where;
-        if (!HttpGet(Egress::Update, std::wstring(kReleases) + L"/latest", nullptr, &where)) {
-            news.state = L"error";
-            news.message = L"Couldn't reach GitHub to check. Try again in a moment.";
-        } else {
-            size_t at = where.rfind(L"/tag/");
-            std::wstring tag = at == std::wstring::npos ? L"" : where.substr(at + 5);
+        // A version is digits and dots, nothing else (it goes into the files' addresses).
+        auto version = [](std::wstring tag) {
             if (!tag.empty() && (tag[0] == L'v' || tag[0] == L'V')) tag.erase(0, 1);
-            if (tag.empty() || !iswdigit(tag[0])) {
-                news.state = L"error";
-                news.message = L"GitHub answered with something unexpected. Try again later.";
-            } else {
-                news.latest = tag;
-                news.state = Newer(tag) ? L"available" : L"current";
-                // Its What's New, from beside its Setup (none on a release without one).
-                std::string notes;
-                if (news.state == L"available" && HttpGet(Egress::Update, std::wstring(kReleases) + L"/download/v" + tag + L"/whats-new.json", &notes) && notes.size() <= 64 * 1024)
-                    news.notes = Wide(notes);
-            }
+            bool ok = !tag.empty() && iswdigit(tag[0]) && std::all_of(tag.begin(), tag.end(), [](wchar_t c) { return iswdigit(c) || c == L'.'; });
+            return ok ? tag : std::wstring();
+        };
+        // Exo's update address: {"app":"browser","tag":"v1.2.0","version":"1.2.0",...}.
+        std::string latest;
+        std::wstring tag;
+        if (HttpGet(Egress::Update, std::wstring(kUpdates) + L"/latest", &latest) && latest.size() <= 16 * 1024) {
+            size_t at = latest.find("\"version\":\"");
+            if (at != std::string::npos) tag = version(Wide(latest.substr(at + 11, latest.find('"', at + 11) - at - 11)));
+            if (!tag.empty()) news.from = std::wstring(kUpdates) + L"/download/v";
+        }
+        // GitHub itself when it didn't answer: its latest release's page names the tag.
+        std::wstring where;
+        if (tag.empty() && HttpGet(Egress::Update, std::wstring(kReleases) + L"/latest", nullptr, &where)) {
+            size_t at = where.rfind(L"/tag/");
+            tag = version(at == std::wstring::npos ? L"" : where.substr(at + 5));
+            if (!tag.empty()) news.from = std::wstring(kReleases) + L"/download/v";
+        }
+        if (tag.empty()) {
+            news.state = L"error";
+            news.message = L"Couldn't check for updates. Try again in a moment.";
+        } else {
+            news.latest = tag;
+            news.state = Newer(tag) ? L"available" : L"current";
+            // Its What's New, from beside its Setup (none on a release without one).
+            std::string notes;
+            if (news.state == L"available" && HttpGet(Egress::Update, news.from + tag + L"/whats-new.json", &notes) && notes.size() <= 64 * 1024)
+                news.notes = Wide(notes);
         }
         PostUpdate(hwnd, std::move(news));
     }).detach();
@@ -5170,7 +5342,7 @@ static void UpdateInstall() {
         return;
     }
     g_updateBusy = true;
-    std::wstring version = g_update.latest, notes = g_update.notes;
+    std::wstring version = g_update.latest, notes = g_update.notes, from = g_update.from;
     g_update = {L"downloading", version};
     g_update.notes = notes;
     g_update.percent = 0;
@@ -5178,13 +5350,21 @@ static void UpdateInstall() {
     std::wstring dir = g.dataDir + L"\\Updates";
     CreateDirectoryW(dir.c_str(), nullptr);
     HWND hwnd = g.hwnd;
-    std::thread([hwnd, version, dir] {
-        std::wstring base = std::wstring(kReleases) + L"/download/v" + version + L"/ExoBrowser-Setup.exe";
+    std::thread([hwnd, version, dir, from] {
+        // From where the check found it (Exo's update address, or GitHub), and GitHub if that doesn't answer now.
+        std::wstring github = std::wstring(kReleases) + L"/download/v";
+        std::wstring base = (from.empty() ? github : from) + version + L"/ExoBrowser-Setup.exe";
         std::wstring file = dir + L"\\ExoBrowser-Setup-" + version + L".exe", part = file + L".part";
         UpdateNews news{L"error", version};
         std::string sum;
-        if (!HttpGet(Egress::Update, base + L".sha256", &sum) || sum.size() < 64) {
-            news.message = L"Couldn't get the update's checksum from GitHub. Try again in a moment.";
+        bool summed = HttpGet(Egress::Update, base + L".sha256", &sum) && sum.size() >= 64;
+        if (!summed && base.rfind(github, 0) != 0) {
+            base = github + version + L"/ExoBrowser-Setup.exe";
+            sum.clear();
+            summed = HttpGet(Egress::Update, base + L".sha256", &sum) && sum.size() >= 64;
+        }
+        if (!summed) {
+            news.message = L"Couldn't get the update's checksum. Try again in a moment.";
             PostUpdate(hwnd, std::move(news));
             return;
         }
@@ -5421,7 +5601,9 @@ static void VaultError(const std::wstring& op, vault::Result r) {
 // Argon2id takes a moment: the work runs on its own thread and comes back as WM_APP_VAULT.
 static void VaultOffThread(const std::wstring& op, std::function<VaultJob()> work) {
     unsigned epoch = g_vaultEpoch;
-    std::thread([op, work, epoch] {
+    // Moved, not copied: each job wipes what it holds (a password, the whole vault for an export), and a copy of it left
+    // behind here went unwiped.
+    std::thread([op, work = std::move(work), epoch] {
         auto* job = new VaultJob(work());
         job->op = op;
         job->epoch = epoch;
@@ -5946,6 +6128,7 @@ static void OnVaultMessage(const std::vector<std::wstring>& p) {
                 vault::Wipe(key);
                 return job;
             });
+            vault::Wipe(key);
         });
     } else if (v == L"vaultHelloOn") {
         if (!vault::Unlocked()) return;
@@ -5981,6 +6164,9 @@ static void OnVaultMessage(const std::vector<std::wstring>& p) {
             vault::Wipe(key);
             return job;
         });
+        vault::Wipe(current);
+        vault::Wipe(next);
+        vault::Wipe(key);
     } else if (v == L"vaultExport") {
         if (vault::Unlocked()) VaultExport(FromB64(arg(1)), FromB64(arg(2)));
     } else if (v == L"vaultImportFile") {
@@ -5994,6 +6180,7 @@ static void OnVaultMessage(const std::vector<std::wstring>& p) {
             vault::Wipe(password);
             return job;
         });
+        vault::Wipe(password);
     } else if (v == L"vaultSources") {
         WhenBrowsersKnown(VaultSources);
     } else if (v == L"vaultImportBrowser") {
@@ -6037,6 +6224,10 @@ static void SetUiHot(const std::wstring& spec) {
 // stays out of screen captures: a stream, a call's screen share, a recording or a screenshot shows nothing there, and
 // you see it as always. Windows 10 before 2004 can't leave a window out, so there it shows black.
 static void HideFromCapture(bool hide) {
+#ifdef EXO_MEDIA
+    // A build for the README's pictures (cl /DEXO_MEDIA, never released) leaves it in them, sample vault and all.
+    return;
+#endif
     if (!SetWindowDisplayAffinity(g.hwnd, hide ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) && hide) SetWindowDisplayAffinity(g.hwnd, WDA_MONITOR);
 }
 
@@ -6080,6 +6271,7 @@ static void OnUiMessage(const std::wstring& msg) {
         UiPost(L"{\"t\":\"bookmarks\",\"items\":" + BookmarksJson() + L"}");
         SendExtensions();
         SendUpdate();
+        UiPost(std::wstring(L"{\"t\":\"active\",\"on\":") + (GetForegroundWindow() == g.hwnd ? L"true" : L"false") + L"}");
         for (auto& t : g_pendingToasts) UiPost(t);
         g_pendingToasts.clear();
     } else if (v == L"activate") {
@@ -6327,6 +6519,7 @@ static void OnUiMessage(const std::wstring& msg) {
             for (auto& x : g.folders) if (x.parent == id) x.parent = parent;
             for (auto& t : g.tabs) if (t->folder == id) t->folder = parent;
             g.folders.erase(std::remove_if(g.folders.begin(), g.folders.end(), [id](const TabFolder& x) { return x.id == id; }), g.folders.end());
+            g_feeds.erase(id);  // a live folder's feed went with it
             Order();
             SaveSpaces();
             MarkSessionDirty();
@@ -6468,6 +6661,7 @@ static void OnUiMessage(const std::wstring& msg) {
     } else if (v == L"historyDelete") {
         for (size_t i = 1; i < p.size(); i++) g.history.erase(p[i]);
         g.historyDirty = true;
+        PruneSiteIcons();
         SendHistory();
         RefreshNewTabs();
     } else if (v == L"clearData") {
@@ -6563,6 +6757,7 @@ static void OnUiMessage(const std::wstring& msg) {
     } else if (v == L"clearHistory") {
         g.history.clear();
         SaveHistory();
+        PruneSiteIcons();
         SendHistory();
     }
 }
@@ -6894,18 +7089,20 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return HTCLIENT;
     }
     case WM_SIZE: {
+        bool was = g.minimized;
         g.minimized = wp == SIZE_MINIMIZED;
-        if (Tab* a = Active(); a && a->ctl) a->ctl->put_IsVisible(!g.minimized);
-        if (g.uiCtl) g.uiCtl->put_IsVisible(!g.minimized);
+        if (g.minimized != was) SetMinimized(g.minimized);
         if (!g.minimized) Layout();
         static WPARAM shown = SIZE_RESTORED;
         if (wp != shown) { shown = wp; QueueState(); }  // the page shows Maximize or Restore
         return 0;
     }
     case WM_MOVE:
-        // A page's own popups (a select's list, its context menu, autofill) open where WebView2 thinks the window is.
+        // A page's own popups (a select's list, its context menu, autofill) open where WebView2 thinks the window is:
+        // told to what's on screen (each tab off it is told as it comes back, in ShowActive), not every tab at every step
+        // of a drag.
         if (g.uiCtl) g.uiCtl->NotifyParentWindowPositionChanged();
-        for (auto& t : g.tabs) if (t->ctl) t->ctl->NotifyParentWindowPositionChanged();
+        for (auto& t : g.tabs) if (t->ctl && (Shown(t.get()) || t->peek)) t->ctl->NotifyParentWindowPositionChanged();
         return 0;
     case WM_QUERYENDSESSION:
         return TRUE;
@@ -6942,6 +7139,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_APP_VAULT:
         OnVaultJob((VaultJob*)lp);
         return 0;
+    // Another app in front (a game): the chrome page pauses its loops (spinners, the loading sweep) until it's back. The
+    // page can't tell by its own focus, which a click into a tab takes.
+    case WM_ACTIVATEAPP:
+        if (g.uiReady) UiPost(std::wstring(L"{\"t\":\"active\",\"on\":") + (wp ? L"true" : L"false") + L"}");
+        break;
     // Exo Vault locks with Windows, and before the PC sleeps.
     case WM_WTSSESSION_CHANGE:
         if (wp == WTS_SESSION_LOCK) VaultLock();
@@ -7061,10 +7263,12 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_CLOSE:
+        // Where it was, then out of sight at once: the vault's hand-over and the saves happen behind it.
+        SavePlacement();
+        ShowWindow(hwnd, SW_HIDE);
         KeepVault();  // open, it stays open for the next start
         vault::Lock();
         VaultClearClipboard();
-        SavePlacement();
         SaveSession();
         SaveHistory();
         if (g.faviconsDirty) SaveFavicons();
@@ -7178,15 +7382,24 @@ static int KeeperMain(HANDLE in) {
         if (!ConnectNamedPipe(pipe, &ov) && GetLastError() == ERROR_PIPE_CONNECTED) SetEvent(ov.hEvent);
     };
     listen();
+    // It sleeps until something happens (asked, Windows' news, the vault's folder changing, its time running out): it
+    // woke every 2 s to look for the vault file.
+    HANDLE folder = FindFirstChangeNotificationW(g.dataDir.c_str(), FALSE, FILE_NOTIFY_CHANGE_FILE_NAME);
+    HANDLE waits[2] = {ov.hEvent, folder};
+    DWORD count = folder == INVALID_HANDLE_VALUE ? 1 : 2;
     while (!g_keeperDone) {
-        DWORD wait = 2000;
+        DWORD wait = count == 1 ? 2000 : INFINITE;
         if (until) {
             ULONGLONG now = GetTickCount64();
             if (now >= until) break;
             wait = (DWORD)std::min<ULONGLONG>(wait, until - now);
         }
-        DWORD r = MsgWaitForMultipleObjects(1, &ov.hEvent, FALSE, wait, QS_ALLINPUT);
-        if (r == WAIT_OBJECT_0) {
+        DWORD r = MsgWaitForMultipleObjects(count, waits, FALSE, wait, QS_ALLINPUT);
+        if (r == WAIT_FAILED) break;
+        if (r == WAIT_OBJECT_0 + 1 && count == 2) {
+            if (!vault::Exists(VaultFile())) break;  // the vault went (removed with Exo Browser's data)
+            FindNextChangeNotification(folder);
+        } else if (r == WAIT_OBJECT_0) {
             bool handed = false;
             if (KeeperAsker(pipe, k.browser)) {
                 KeptVault out = k;
@@ -7204,13 +7417,14 @@ static int KeeperMain(HANDLE in) {
             if (handed) break;
             DisconnectNamedPipe(pipe);
             listen();
-        } else if (r == WAIT_OBJECT_0 + 1) {
+        } else if (r == WAIT_OBJECT_0 + count) {
             MSG m;
             while (PeekMessageW(&m, nullptr, 0, 0, PM_REMOVE)) { TranslateMessage(&m); DispatchMessageW(&m); }
         } else if (!vault::Exists(VaultFile())) {
             break;  // the vault went (removed with Exo Browser's data)
         }
     }
+    if (folder != INVALID_HANDLE_VALUE) FindCloseChangeNotification(folder);
     SecureZeroMemory(&k, sizeof k);
     WTSUnRegisterSessionNotification(hwnd);
     DestroyWindow(hwnd);

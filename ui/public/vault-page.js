@@ -26,15 +26,17 @@
   const fieldOf = e => (e.composedPath && e.composedPath()[0]) || e.target;
 
   // The username for a form: the field the page marks as one, else the last text field before its first password.
+  // Fields are picked by their type and words first; only a candidate is measured for whether it shows (a field
+  // outside any form measured every input on the page, a layout read and a style each).
   const usernameIn = scope => {
-    const inputs = [...scope.querySelectorAll('input')].filter(el => textual(el) && shown(el));
-    const marked = inputs.find(el => /username|email/.test(el.getAttribute('autocomplete') || ''));
+    const inputs = [...scope.querySelectorAll('input')].filter(textual);
+    const marked = inputs.find(el => /username|email/.test(el.getAttribute('autocomplete') || '') && shown(el));
     if (marked) return marked;
     const pw = passwords(scope)[0];
-    if (!pw) return inputs.find(el => el.type === 'email' || /user|login|email|account|identifier/.test(words(el))) || null;
-    let last = null;
-    for (const el of inputs) if (el.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING) last = el;
-    return last;
+    if (!pw) return inputs.find(el => (el.type === 'email' || /user|login|email|account|identifier/.test(words(el))) && shown(el)) || null;
+    const before = inputs.filter(el => el.compareDocumentPosition(pw) & Node.DOCUMENT_POSITION_FOLLOWING);
+    for (let i = before.length - 1; i >= 0; i--) if (shown(before[i])) return before[i];
+    return null;
   };
 
   const kindOf = el => {
@@ -74,14 +76,15 @@
 
   let typed = false, filling = false;
   // Focus moved by a fill doesn't open the menu again.
+  // Each listener runs its cheap tests before composedPath(), which builds the event's whole path on every key and press.
   addEventListener('focusin', e => { if (filling) return; const el = fieldOf(e); if (!(el instanceof HTMLInputElement)) { current = null; return; } typed = false; focusOn(el); }, true);
   // Typing your own puts the menu away.
-  addEventListener('input', e => { if (e.isTrusted && fieldOf(e) === current && !typed) { typed = true; send({ e: 'typing' }); } }, true);
-  addEventListener('focusout', e => { if (fieldOf(e) === current && kind) send({ e: 'blur' }); }, true);
+  addEventListener('input', e => { if (e.isTrusted && current && !typed && fieldOf(e) === current) { typed = true; send({ e: 'typing' }); } }, true);
+  addEventListener('focusout', e => { if (kind && current && fieldOf(e) === current) send({ e: 'blur' }); }, true);
   addEventListener('scroll', () => { if (kind && current && current.matches(':focus')) queue(); }, true);
   addEventListener('resize', () => { if (kind && current && current.matches(':focus')) queue(); });
-  // A click on a field that already had focus opens the menu again.
-  addEventListener('pointerdown', e => { const el = fieldOf(e); if (el instanceof HTMLInputElement && el.matches(':focus')) focusOn(el); }, true);
+  // A click on a field that already had focus opens the menu again (only the field in focus can be that one).
+  addEventListener('pointerdown', e => { if (current && current.matches(':focus') && fieldOf(e) === current) focusOn(current); }, true);
 
   // What a sign-in sends: on submit, on a click on its button, or on Enter in its password. Several of those for one
   // sign-in (a click that submits) send once, the latest; the same one twice in a row isn't sent again.
@@ -128,7 +131,7 @@
     const scope = button.form || button.closest('form') || scopeOf(button);
     if (passwords(scope).length) collect(scope);
   }, true);
-  addEventListener('keydown', e => { const el = fieldOf(e); if (e.key === 'Enter' && el instanceof HTMLInputElement && el.type === 'password') collect(scopeOf(el)); }, true);
+  addEventListener('keydown', e => { if (e.key !== 'Enter') return; const el = fieldOf(e); if (el instanceof HTMLInputElement && el.type === 'password') collect(scopeOf(el)); }, true);
 
   // Filling, as if typed: the page's own listeners see each value arrive.
   const put = (el, value) => {

@@ -37,7 +37,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-row:hover {
@@ -83,7 +83,7 @@
   font: inherit;
   font-size: calc(12px * var(--exo-scale, 1));
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-sort:hover {
@@ -256,7 +256,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-recent-open:hover {
@@ -302,7 +302,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-card-open:hover {
@@ -339,7 +339,7 @@
   background: var(--color-fg);
   color: var(--exo-ink-inverse, #000);
   cursor: pointer;
-  transition: scale 120ms var(--ease-out);
+  transition: scale var(--dur-quick) var(--ease-out);
 }
 
 /* Shown with its card's hover or keyboard focus, fading in and out on the quick time as every control
@@ -402,7 +402,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-top-open:hover {
@@ -504,7 +504,7 @@
   min-height: 56px;
   padding: 4px 8px;
   border-radius: 14px;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-track + .exo-music-track {
@@ -780,7 +780,7 @@
 
 .exo-music-lyrics.is-synced li {
   color: var(--color-faint);
-  transition: color 160ms var(--ease-out);
+  transition: color var(--dur-base) var(--ease-out);
 }
 
 .exo-music-lyrics.is-synced li.is-past {
@@ -1177,7 +1177,7 @@
   color: #fff; /* over media in every theme: Light's dark ink vanished on the dark pill */
   font-size: calc(12px * var(--exo-scale, 1));
   opacity: 0;
-  transition: opacity 120ms var(--ease-out);
+  transition: opacity var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-edit-cover:hover .exo-music-edit-cover-hint,
@@ -1188,7 +1188,7 @@
 /* Word-timed lyrics: the sung words of the line take the ink. */
 .exo-music-lyrics.is-synced li.is-active span {
   color: var(--color-muted);
-  transition: color 120ms var(--ease-out);
+  transition: color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-lyrics.is-synced li.is-active span.is-sung {
@@ -1208,6 +1208,7 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  /* design-disable-next-line exo/motion-token -- a live lyric fill follows the song */
   transition: --exo-sung 80ms linear;
 }
 
@@ -1242,7 +1243,7 @@ html[data-exo-motion="reduce"] .exo-music-lyrics.is-synced li.is-active span.is-
   height: 8px;
   border-radius: 50%;
   background: var(--color-faint);
-  transition: background-color 200ms var(--ease-out);
+  transition: background-color var(--dur-base) var(--ease-out);
 }
 
 .exo-music-lyric-wait span.is-on {
@@ -1266,7 +1267,7 @@ html[data-exo-motion="reduce"] .exo-music-lyrics.is-synced li.is-active span.is-
   color: var(--color-fg);
   font: inherit;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-music-mood:hover {
@@ -1566,7 +1567,7 @@ html[data-exo-motion="reduce"] .exo-music-lyrics.is-synced li.is-active span.is-
 }
 
 .exo-music-cover.is-leaving {
-  animation: exo-music-uncover 220ms var(--ease-out) forwards;
+  animation: exo-music-uncover var(--dur-move) var(--ease-out) forwards;
   pointer-events: none;
 }
 
@@ -1575,7 +1576,10 @@ html[data-exo-motion="reduce"] .exo-music-lyrics.is-synced li.is-active span.is-
 }
 
 /* Reduce motion: no fade, but still an end, so the cover always goes. */
-:root[data-exo-motion='reduce'] .exo-music-cover.is-leaving { animation-duration: 1ms; }
+:root[data-exo-motion='reduce'] .exo-music-cover.is-leaving {
+  /* design-disable-next-line exo/motion-token -- a 1ms run so animationend still fires */
+  animation-duration: 1ms;
+}
 
 .exo-music-cover .exo-music-side { overflow: hidden; }
 .exo-music-cover-page { overflow: hidden; }

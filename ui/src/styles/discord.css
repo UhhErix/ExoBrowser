@@ -94,7 +94,7 @@
   border-radius: 0 4px 4px 0;
   background: var(--color-fg);
   content: "";
-  transition: height 160ms var(--ease-out);
+  transition: height var(--dur-base) var(--ease-out);
 }
 
 .exo-dc-guild.is-unread::before {
@@ -803,7 +803,7 @@ video.exo-dc-media {
   color: var(--color-muted);
   font-size: calc(12px * var(--exo-scale, 1));
   opacity: 0;
-  transition: opacity 120ms var(--ease-out);
+  transition: opacity var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-sticker-msg:hover .exo-dc-sticker-name {
@@ -2292,9 +2292,9 @@ video.exo-dc-media {
   border-radius: 4px;
   background: var(--dc-rail);
   color: var(--dc-muted);
-  transition: width 160ms var(--ease-out);
 }
 
+/* It widens at once when focused: a width that eased laid the chat's head out again every frame. */
 .exo-dc-search:focus-within {
   width: 240px;
 }
@@ -2577,15 +2577,15 @@ video.exo-dc-media {
   height: 5px;
   border-radius: 999px;
   background: var(--dc-text);
-  animation: exo-dc-typing 1.2s infinite ease-in-out;
+  animation: exo-dc-typing 1.2s infinite var(--ease-out);
 }
 
 .exo-dc-typing-dots i:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: 0.2s;
 }
 
 .exo-dc-typing-dots i:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.4s;
 }
 
 @keyframes exo-dc-typing {
@@ -2954,6 +2954,7 @@ video.exo-dc-media {
    under Reduce motion it simply stays lit until then. */
 .exo-dc-msg.is-flash {
   background-color: rgb(var(--exo-ink-rgb) / 0.1);
+  /* design-disable-next-line exo/motion-token -- the jumped-to message holds its light, as Discord's does */
   animation: exo-dc-flash 1600ms var(--ease-out) forwards;
 }
 
@@ -3017,6 +3018,8 @@ video.exo-dc-media {
   opacity: 0.4;
 }
 
+/* A server is glass: its ::after is also its press light (glass.css), whose rest state (unlit, a third of its size)
+   the bar sets back. */
 .exo-dc-guild.is-drop-before::after,
 .exo-dc-guild.is-drop-after::after,
 .exo-dc-folder.is-drop-after::after {
@@ -3027,9 +3030,12 @@ video.exo-dc-media {
   border-radius: 999px;
   z-index: 31;
   background: var(--color-fg);
+  opacity: 1;
+  scale: none;
   content: "";
   pointer-events: none;
-  animation: exo-shaders-drop 120ms var(--ease-out);
+  transition: none;
+  animation: exo-shaders-drop var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-guild.is-drop-before::after {
@@ -3887,15 +3893,6 @@ video.exo-dc-media {
   gap: 2px;
 }
 
-.exo-dc-select {
-  padding: 2px 6px;
-  border: 1px solid var(--dc-line);
-  border-radius: 6px;
-  background: var(--dc-raised);
-  color: var(--dc-text);
-  font: inherit;
-}
-
 .exo-dc-tab.is-danger {
   color: var(--dc-bad);
 }
@@ -4197,7 +4194,7 @@ button.exo-dc-pf-face {
   box-shadow: var(--exo-rim);
   color: var(--dc-text);
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-more.is-inline {
@@ -4295,7 +4292,7 @@ button.exo-dc-pf-name:hover {
   border: 0;
   border-radius: 8px;
   background: none;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 button.exo-dc-pf-badge {
@@ -4452,7 +4449,7 @@ button.exo-dc-pf-badge {
   box-shadow: var(--exo-rim);
   color: var(--dc-muted);
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-role-add-btn:hover,
@@ -4550,7 +4547,7 @@ button.exo-dc-pf-badge {
   font-size: calc(12px * var(--exo-scale, 1));
   resize: none;
   field-sizing: content;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-note:hover,
@@ -4591,7 +4588,7 @@ button.exo-dc-pf-badge {
 
 .exo-dc-pf-connections button {
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-connections button:hover {
@@ -4644,7 +4641,7 @@ button.exo-dc-pf-badge {
   font-size: calc(13px * var(--exo-scale, 1));
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-list button:hover {
@@ -4701,7 +4698,7 @@ button.exo-dc-pf-badge {
   font: inherit;
   font-size: calc(13px * var(--exo-scale, 1));
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-toggle:hover {
@@ -4710,7 +4707,7 @@ button.exo-dc-pf-badge {
 
 .exo-dc-pf-toggle svg {
   color: var(--dc-muted);
-  transition: transform 160ms var(--ease-out);
+  transition: transform var(--dur-base) var(--ease-out);
 }
 
 .exo-dc-pf-toggle svg.is-open {
@@ -4733,7 +4730,7 @@ button.exo-dc-pf-badge {
   font: inherit;
   font-size: calc(13px * var(--exo-scale, 1));
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-pf-view:hover {
@@ -4811,7 +4808,7 @@ button.exo-dc-pf-badge {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  transition: background-color var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), scale var(--dur-quick) var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), box-shadow var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc .exo-dc-guild:not(.exo-glass) {
@@ -4868,7 +4865,7 @@ button.exo-dc-pf-badge {
   min-height: 34px;
   border-radius: 12px;
   color: var(--dc-muted);
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc .exo-dc-item:hover {
@@ -5056,7 +5053,7 @@ button.exo-dc-pf-badge {
   border-radius: 999px;
   background: var(--exo-fill);
   box-shadow: var(--exo-rim);
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc .exo-dc-reaction:hover {
@@ -5102,7 +5099,7 @@ button.exo-dc-pf-badge {
 
 .exo-dc .exo-dc-menu > button {
   border-radius: 10px;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc .exo-dc-menu > button:hover {
@@ -5124,7 +5121,7 @@ button.exo-dc-pf-badge {
 /* Choices: Exo's segmented look; the current tab filled. */
 .exo-dc .exo-dc-tab {
   border-radius: 999px;
-  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc .exo-dc-tab:hover {
@@ -5138,7 +5135,7 @@ button.exo-dc-pf-badge {
 }
 
 /* Primary actions: white on black, as everywhere in Exo. */
-.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-blurple, .exo-dc-tab.is-raised.is-good) {
+.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-tab.is-raised.is-good) {
   border: 0;
   background: var(--color-fg);
   box-shadow: none;
@@ -5217,7 +5214,7 @@ button.exo-dc-pf-badge {
   animation: exo-scrim-in var(--dur-base) var(--ease-out);
 }
 
-/* Reduced motion: the typing dots hold still, and the search box, poll bars, switches and a jump's light change at once. */
+/* Reduced motion: the typing dots hold still, and poll bars, switches and a jump's light change at once. */
 :root[data-exo-motion="reduce"] .exo-dc-typing-dots i {
   animation: none;
 }
@@ -5226,7 +5223,6 @@ button.exo-dc-pf-badge {
   animation: none;
 }
 
-:root[data-exo-motion="reduce"] .exo-dc .exo-dc-search,
 :root[data-exo-motion="reduce"] .exo-dc-poll-answer.is-result::before {
   transition: none;
 }
@@ -6254,7 +6250,7 @@ button.exo-dc-gifv {
   box-shadow: var(--exo-rim);
   color: var(--color-fg);
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-voice-btn:hover {
@@ -6290,7 +6286,7 @@ button.exo-dc-gifv {
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-voice-join:hover:not(:disabled) {
@@ -6459,7 +6455,7 @@ button.exo-dc-gifv {
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-watch:hover {
@@ -6593,7 +6589,7 @@ button.exo-dc-gifv {
 }
 
 .exo-dc-stream .exo-dc-stream-tools > .exo-dc-voice-btn {
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out), opacity var(--dur-base) var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out), opacity var(--dur-base) var(--ease-out);
 }
 
 .exo-dc-stream.is-idle:not(:focus-within) :is(.exo-dc-stream-name, .exo-dc-stream-sound, .exo-dc-stream-tools > .exo-dc-voice-btn) {
@@ -7092,10 +7088,6 @@ button.exo-dc-poll-answer:hover:not(:disabled) {
   gap: 2px;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.exo-dc-delete-tip {
-  font-size: calc(12px * var(--exo-scale, 1));
 }
 
 /* A stream's own sound: Mute Stream and the Stream Volume slider beside it. */

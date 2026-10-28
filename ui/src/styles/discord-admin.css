@@ -64,7 +64,8 @@ textarea.exo-dc-field {
 
 /* Leaving with unsaved changes: the bar flashes red and shakes, Discord's warning; under Reduce motion, the red alone. */
 .exo-dc-savebar.is-nudged {
-  animation: exo-dc-nudge-red 900ms var(--ease-out) both, exo-dc-nudge-shake 420ms var(--ease-out);
+  /* design-disable-next-line exo/motion-token -- the unsaved bar holds its red while it shakes, not a move */
+  animation: exo-dc-nudge-red 900ms var(--ease-out) both, exo-dc-nudge-shake var(--dur-flight) var(--ease-out);
 }
 
 @keyframes exo-dc-nudge-red {
@@ -174,7 +175,7 @@ textarea.exo-dc-field {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-option:hover:not(:disabled) {
@@ -374,7 +375,7 @@ button.exo-dc-grip:hover {
   font-size: calc(13px * var(--exo-scale, 1));
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-role-pick span:last-child {
@@ -580,7 +581,7 @@ button.exo-dc-grip:hover {
   display: flex;
   gap: 2px;
   opacity: 0;
-  transition: opacity 120ms var(--ease-out);
+  transition: opacity var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-sticker-tile:hover .exo-dc-tile-tools,
@@ -678,7 +679,7 @@ button.exo-dc-grip:hover {
   color: var(--color-muted);
   font: inherit;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-tri button:hover {
@@ -893,7 +894,6 @@ button.exo-dc-member {
   font-size: calc(20px * var(--exo-scale, 1));
 }
 
-.exo-dc-mfa > header > span,
 .exo-dc-mfa-warning > p,
 .exo-dc-mfa-sms {
   margin: 0;

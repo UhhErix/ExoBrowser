@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.2.0 — October 28, 2026
+
+A pass over every line of Exo Browser: faster where you feel it, lighter on memory and the processor, safer in Exo Vault, one look and motion with Exo, and a dozen bugs gone. Every number here was measured on the same PC before and after.
+
+- **Faster where you feel it.** A new tab shows its page in 34 ms (286 before), and Settings opens in 12 ms the first time (300). Search's first open drops no frames (one of 49 ms before), and Exo Vault unlocks in 237 ms (300). _Verified: timed through the chrome page, three runs each._
+- **Lighter.** The graphics process holds 140 MB at rest (364 before). Minimizing pauses every pane of a split view and Peek, not only the tab in front. A page that retitles itself (an unread count) no longer rewrites your saved tabs every 1.5 s. Spinners and the loading sweep pause while another app, a game, is in front. Exo Vault's keeper sleeps instead of waking every 2 s, using no processor time over 20 s. _Verified on a throwaway profile._
+- **The first start after an update is quick.** Setup now refreshes Exo Shield's 51 MB of lists while it installs. The browser used to do it on its first start, before anything showed, which made that start 5.2 s. _Checked: the browser's own copy, kept for a copy Setup couldn't refresh, is swapped in whole, and Exo Shield loads from it._
+- **Exo Vault, harder to read.** What you type into a password field no longer appears in the page's markup. After you change the master password, the old one opens nothing left on this PC. Copies of a password, or of the whole vault for an export, no longer stay in memory after use, and hidden fields show 12 dots whatever their length. _Verified: a typed password was in the markup before and isn't now; every vault check passes._
+- **Asks before it can't be undone.** Deleting a space, clearing history or the archive, clearing cookies, deleting a vault item forever and emptying the vault's trash ask first. _Verified: Delete forever asks, and the item goes only when confirmed._
+- **Private stays private.** A private tab's title no longer reaches your history. Clearing history also removes the site icons kept for sites nothing else uses. _Verified: a private tab retitled on a visited address left its history entry as it was._
+- **Updates from Exo's own address**, with GitHub behind it when it doesn't answer, so moving the downloads can never strand an installed copy again. _Verified: a copy marked 1.1.7 found 1.1.8 through it, downloaded it and matched its checksum._
+- **Bugs fixed.**
+  - Tabs opened with Ctrl+click or a middle click could be archived within 30 s.
+  - Closing a pane of a split view left a blank half, and panes beside the tab in front could read as asleep.
+  - A private tab could take extensions, imported sign-ins and the color scheme for itself.
+  - A paused download kept a timer running, and a background tab whose page crashed reloaded at once instead of when shown.
+  - One trackpad swipe ran through every space, the What's New list showed a missing icon, and the toolbar command always said Hide.
+  - Dragging to reorder in Settings snapped back, and the glow when a page finished loading never showed.
+- **One look and motion with Exo.** Every transition runs on Exo's times and curves, menus grow from their button, and what the keyboard opens lands at once. Notices last Exo's notice time and wait while you point at them, and grey notes that only explained are gone. _Verified: Exo's motion check passes on every stylesheet, and the layout check finds 0 faults at three window sizes._
+- **The newest parts.** It's now type-checked with TypeScript 7.1 beta (0.4 s instead of 2.7), and Argon2 runs its SSE2 build, with the same keys and about 20% faster.
+
 ## 1.1.8 — October 28, 2026
 
 Exo Vault no longer asks for your master password every time you open Exo Browser.

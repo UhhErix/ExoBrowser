@@ -68,17 +68,6 @@ body,
   }
 }
 
-/* While the engine works, the mark breathes. */
-.exo-setup-mark.is-working {
-  animation: exo-setup-breathe 2.4s var(--ease-in-out) infinite;
-}
-
-@keyframes exo-setup-breathe {
-  50% {
-    scale: 0.96;
-    opacity: 0.85;
-  }
-}
 
 .exo-setup-actions {
   display: flex;
@@ -144,7 +133,8 @@ body,
   overflow-wrap: anywhere;
 }
 
-/* Progress: a thin white bar that eases to each value the engine reports. */
+/* Progress: a thin white bar that moves to each value the engine reports, linear as Exo's progress does (the bar is the
+   one thing showing the work: the mark no longer breathes beside it). */
 .exo-setup-bar-track {
   overflow: hidden;
   width: 280px;
@@ -160,7 +150,7 @@ body,
   border-radius: inherit;
   background: var(--color-fg);
   transform-origin: left;
-  transition: transform var(--dur-move) var(--ease-out);
+  transition: transform var(--dur-move) linear;
 }
 
 .exo-setup-status {
@@ -210,9 +200,5 @@ body,
   .exo-setup-options,
   .exo-setup-bar-fill {
     transition: none;
-  }
-
-  .exo-setup-mark.is-working {
-    animation: none;
   }
 }

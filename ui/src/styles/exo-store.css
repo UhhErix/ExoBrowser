@@ -1,0 +1,160 @@
+/* Exo Store in the Store room (components/store/ExoStore.tsx, ExoPublish.tsx, ExoReview.tsx): the games reuse the
+   Store's cards and game page; Publish and Review are Settings' rows and sections on the room's page. */
+
+.exo-exo-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exo-exo-state,
+.exo-exo-done {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+/* A job's progress under Get, and beside Add build while a build goes up. */
+.exo-exo-progress {
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--exo-float-line);
+}
+
+.exo-exo-progress > i {
+  display: block;
+  height: 100%;
+  background: var(--color-fg);
+  transition: width var(--dur-quick) var(--ease-out);
+}
+
+.exo-exo-progress.is-inline {
+  width: 120px;
+}
+
+.exo-exo-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exo-exo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.exo-exo-report .exo-exo-chips {
+  justify-content: flex-start;
+}
+
+/* Publish and Review: one column of sections, as Settings reads. */
+.exo-exo-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 var(--exo-gutter) 48px;
+}
+
+.exo-exo-page > .exo-shelf-head {
+  padding-inline: 0;
+}
+
+.exo-exo-input {
+  width: 320px;
+}
+
+.exo-exo-input.is-wide,
+.exo-exo-text.is-wide {
+  width: 560px;
+  max-width: 100%;
+}
+
+.exo-exo-input.is-half {
+  width: 220px;
+}
+
+.exo-exo-input.is-short {
+  width: 120px;
+}
+
+/* A field of several lines: the field's glass with a card's corners (a pill's would cut its words). */
+.exo-field.exo-exo-text {
+  display: block;
+  height: auto;
+  min-height: 64px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.exo-exo-thumb {
+  display: block;
+  width: 32px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.exo-exo-thumb:is(.is-hero, .is-logo) {
+  width: 96px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.exo-exo-shots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.exo-exo-shot {
+  position: relative;
+}
+
+.exo-exo-shot img {
+  display: block;
+  width: 160px;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.exo-exo-shot img.is-logo {
+  object-fit: contain;
+}
+
+.exo-exo-shot button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+/* Review: the listing as it will show, its cover beside its words. */
+.exo-exo-preview {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.exo-exo-cover {
+  flex: none;
+  width: 120px;
+  aspect-ratio: 2 / 3;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.exo-exo-preview-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}

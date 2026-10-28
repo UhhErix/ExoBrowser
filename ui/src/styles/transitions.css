@@ -93,7 +93,7 @@
 }
 
 :root[data-exo-vt='room']::view-transition-new(root) {
-  animation: exo-vt-fade-in 180ms var(--ease-out) both, exo-vt-slide-in var(--dur-move) var(--ease-spring) both;
+  animation: exo-vt-fade-in var(--dur-base) var(--ease-out) both, exo-vt-slide-in var(--dur-move) var(--ease-spring) both;
 }
 
 /* Appearance: the whole window, the Bar too, crossfades from one theme to the other over the flight time. */
@@ -137,7 +137,7 @@
 }
 
 ::view-transition-old(exo-page) {
-  animation: exo-vt-fade-out 140ms var(--ease-out) both, exo-vt-slide-out 140ms var(--ease-out) both;
+  animation: exo-vt-fade-out var(--dur-quick) var(--ease-out) both, exo-vt-slide-out var(--dur-quick) var(--ease-out) both;
 }
 
 ::view-transition-new(exo-page) {
@@ -145,7 +145,7 @@
 }
 
 :root[data-exo-vt-back]::view-transition-new(exo-page) {
-  animation-duration: var(--dur-quick), 180ms;
+  animation-duration: var(--dur-quick), var(--dur-base);
 }
 
 /* Morph: art keeps its aspect (cropped like the picture, never stretched);
@@ -174,7 +174,7 @@
 
 :root[data-exo-vt='morph']::view-transition-old(*),
 :root[data-exo-vt='morph']::view-transition-new(*) {
-  animation-duration: 200ms;
+  animation-duration: var(--dur-move);
 }
 
 /* Opening, the card's picture gives way quickly: cropped to cover the page as it grows, a portrait cover read as a
@@ -186,7 +186,7 @@
 :root[data-exo-vt='morph']:not([data-exo-vt-back])::view-transition-old(exo-dc-image),
 :root[data-exo-vt='morph']:not([data-exo-vt-back])::view-transition-old(exo-folder),
 :root[data-exo-vt='morph']:not([data-exo-vt-back])::view-transition-old(exo-device-art) {
-  animation-duration: 120ms;
+  animation-duration: var(--dur-quick);
 }
 
 /* A device's picture flies whole: its card's frame and its page's are different shapes, so each picture is fitted
@@ -215,8 +215,8 @@
 :root[data-exo-vt='morph'][data-exo-vt-back]::view-transition-new(exo-folder),
 :root[data-exo-vt='morph'][data-exo-vt-back]::view-transition-old(exo-device-art),
 :root[data-exo-vt='morph'][data-exo-vt-back]::view-transition-new(exo-device-art) {
-  animation-delay: calc(var(--dur-flight) - 140ms);
-  animation-duration: 140ms;
+  animation-delay: calc(var(--dur-flight) - var(--dur-quick));
+  animation-duration: var(--dur-quick);
   animation-fill-mode: both;
 }
 

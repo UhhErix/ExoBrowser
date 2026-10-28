@@ -40,13 +40,6 @@
   font-weight: 700;
 }
 
-.exo-dc-settings-category > p,
-.exo-dc-settings-lede {
-  margin: 0 0 12px;
-  color: var(--color-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-}
-
 .exo-dc-settings-category .exo-dc-settings-category {
   margin: 12px 0 0;
 }
@@ -226,6 +219,7 @@
   border-radius: inherit;
   background: var(--color-faint);
   transform: translateX(calc(var(--fill, 0) * 100% - 100%));
+  /* design-disable-next-line exo/motion-token -- a live mic meter follows the level */
   transition: transform 60ms linear;
 }
 

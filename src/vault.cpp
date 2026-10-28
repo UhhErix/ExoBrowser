@@ -265,7 +265,11 @@ Result ChangePassword(const std::wstring& file, const std::string& key, const st
     Envelope e;
     if (Result r = Read(file, e); r != Ok) return r;
     e.memory = kMemory, e.passes = kPasses, e.lanes = kLanes, e.salt = salt, e.password = slot;
-    return WriteAtomic(file, ToJson(e)) ? Ok : WriteFailed;
+    if (!WriteAtomic(file, ToJson(e))) return WriteFailed;
+    // The backup is the file as it was, sealed under the old password: it becomes this one too, so the old password
+    // opens nothing kept here.
+    CopyFileW(file.c_str(), (file + L".bak").c_str(), FALSE);
+    return Ok;
 }
 
 Result SetHelloKey(const std::wstring& file, const std::string& helloKey) {

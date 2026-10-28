@@ -124,7 +124,8 @@ body,
 .exb-star.is-on { color: var(--color-good); }
 .exb-store-add { flex: none; }
 
-/* Loading: a light travels along the field (Exo's work sheen) and lands as a brief glow. */
+/* Loading: a light travels along the field (Exo's unknown-progress glide, linear every 1.4s) and lands as a brief glow.
+   A wait under 300ms shows nothing: the glide starts after it (Exo's waits). */
 .exb-load { position: absolute; inset: 0; z-index: -1; border-radius: inherit; overflow: hidden; pointer-events: none; visibility: hidden; }
 .exb-load::before {
   content: "";
@@ -146,11 +147,17 @@ body,
   transform: scaleX(0);
 }
 .exb-load.is-loading, .exb-load.is-landed { visibility: visible; }
-.exb-load.is-loading::before { animation: exb-sweep 1.1s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
-.exb-load.is-loading::after { animation: exb-grow 1.1s cubic-bezier(0.45, 0, 0.25, 1) infinite alternate; }
-.exb-load.is-landed::after { transform: scaleX(1); background: linear-gradient(90deg, transparent, rgb(var(--exo-ink-rgb) / 0) 50%, transparent); transition: background var(--dur-flight) var(--ease-out); }
+.exb-load.is-loading::before { animation: exb-sweep 1400ms linear 300ms infinite; }
+.exb-load.is-loading::after { animation: exb-grow 1400ms linear 300ms infinite alternate; }
+/* Landed: the line drawn whole (in the accent, when there is one) fades out on the flight time. A gradient can't be
+   faded, so the glow was one that snapped off; its opacity can. */
+.exb-load.is-landed::after { transform: scaleX(1); animation: exb-land var(--dur-flight) var(--ease-out) forwards; }
 @keyframes exb-sweep { to { transform: translateX(330%); } }
 @keyframes exb-grow { from { transform: scaleX(0.08); } to { transform: scaleX(1); } }
+@keyframes exb-land { from { opacity: 1; } to { opacity: 0; } }
+/* Reduce motion: nothing glides; the line holds half lit while the page loads. */
+:root[data-exo-motion="reduce"] .exb-load.is-loading::before { animation: none; }
+:root[data-exo-motion="reduce"] .exb-load.is-loading::after { transform: scaleX(0.5); animation: exo-wait-in var(--dur-base) var(--ease-out) 300ms backwards; }
 
 .exb-find { flex: 1; min-width: 0; height: 30px; display: flex; align-items: center; gap: 6px; padding: 0 2px 0 10px; }
 .exb-find-input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--color-fg); font: inherit; font-size: calc(13px * var(--exo-scale, 1)); font-weight: 500; user-select: text; }
@@ -162,7 +169,13 @@ body,
 .exb-ring { position: absolute; inset: 0; margin: auto; width: 26px; height: 26px; rotate: -90deg; pointer-events: none; }
 .exb-ring circle { fill: none; stroke-width: 2; stroke: transparent; }
 .exb-dl.is-busy .exb-ring circle:first-child { stroke: rgb(var(--exo-ink-rgb) / 0.15); }
-.exb-dl.is-busy .exb-ring .exb-arc { stroke: var(--color-fg); stroke-linecap: round; stroke-dasharray: 50.27; transition: stroke-dashoffset var(--dur-base) var(--ease-out); }
+.exb-dl.is-busy .exb-ring .exb-arc { stroke: var(--color-fg); stroke-linecap: round; stroke-dasharray: 50.27; transition: stroke-dashoffset var(--dur-move) linear; }
+
+/* The window draws the frost under the Bar's capsules, the side tabs, a link's address and Peek's and Zap's bars (they
+   lie over the tab, which this clear page can't see), so a backdrop blur of their own blurred nothing, yet cost the GPU
+   each frame they moved (auto-hide slides them). Menus, Search and the sheets keep theirs: they blur this page's own
+   words under them. */
+#exb-bar .exo-glass, .exb-side.exo-glass, .exb-status.exo-glass, .exb-peek-bar.exo-glass, .exb-zap-bar.exo-glass { backdrop-filter: none; }
 
 /* On glass, lines are ink at 10% as in Exo (glass.css): the solid surfaces' opaque line read as a black bar on it. */
 .exb :is(.exo-glass, .exo-shelf-sort-menu, .exb-search, .exb-side, .exb-vault-fill) { --exo-float-line: rgb(var(--exo-ink-rgb) / 0.1); }
@@ -199,7 +212,7 @@ body,
 .exb-tab.is-pinned :is(.exb-tab-title, .exb-tab-close) { display: none; }
 /* A pinned tab away from its own page: its icon is the way back, the arrow showing under the pointer. */
 .exb-tab-home { position: relative; flex: none; display: grid; place-items: center; width: 22px; height: 22px; margin: -3px; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--color-fg); }
-.exb-tab-home-back { position: absolute; inset: 0; display: grid; place-items: center; border-radius: inherit; background: var(--exo-float); opacity: 0; }
+.exb-tab-home-back { position: absolute; inset: 0; display: grid; place-items: center; border-radius: inherit; background: var(--exo-float); opacity: 0; transition: opacity var(--dur-quick) var(--ease-out); }
 .exb-tab-home:hover .exb-tab-home-back { opacity: 1; }
 .exb-tab-home::after { content: ""; position: absolute; right: 0; bottom: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--color-muted); box-shadow: 0 0 0 1.5px var(--exo-float); }
 .exb-tab-home:hover::after { display: none; }
@@ -222,7 +235,8 @@ body,
   border-radius: 999px;
   background: none;
   color: var(--color-muted);
-  transition: background-color var(--dur-quick), color var(--dur-quick);
+  /* Shown with its tab (the close), it fades in and out on the quick time, as every control shown with its row. */
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out), opacity var(--dur-quick) var(--ease-out);
 }
 .exb-tab-act:hover { background: var(--hover-fill); color: var(--color-fg); }
 .exb-tab-close { opacity: 0; }
@@ -234,8 +248,20 @@ body,
 :root:not([data-exo-theme="light"]) [data-ink="dark"], :root[data-exo-theme="light"] [data-ink="light"] { --exb-ink: invert(1) hue-rotate(180deg); }
 :is(.exb-fav, .exb-search-fav, .exb-set-lead) { filter: var(--exb-ink); }
 .exb-fav-blank { color: var(--color-muted); }
-.exb-spin { width: 14px; height: 14px; flex: none; margin: 1px; border-radius: 50%; border: 2px solid rgb(var(--exo-ink-rgb) / 0.18); border-top-color: var(--color-fg); animation: exb-spin 0.8s linear infinite; }
-@keyframes exb-spin { to { rotate: 360deg; } }
+/* Loading, a tab's ring takes its icon's place on Exo's spinner's times (waits.css): after a 300ms wait it fades in as
+   the icon fades out, so a page that loads at once never flashes it. */
+.exb-spin { width: 14px; height: 14px; flex: none; margin: 1px; border-radius: 50%; border: 2px solid rgb(var(--exo-ink-rgb) / 0.18); border-top-color: var(--color-fg); animation: exo-wait-in var(--dur-base) var(--ease-out) 300ms backwards, exo-spin 0.8s linear infinite; }
+.exb-fav-wait { width: 16px; height: 16px; flex: none; display: grid; place-items: center; }
+.exb-fav-wait > * { grid-area: 1 / 1; }
+.exb-fav-wait > :not(.exb-spin) { animation: exb-fav-out var(--dur-base) var(--ease-out) 300ms forwards; }
+@keyframes exb-fav-out { from { opacity: 1; } to { opacity: 0; } }
+:root[data-exo-motion="reduce"] .exb-spin { animation: exo-wait-in var(--dur-base) var(--ease-out) 300ms backwards; }
+/* In the background (the host's activation, data-exo-inactive) the ring stops turning, as Exo's loops do (tokens.css);
+   its wait-in runs, so one that starts there still shows. The address's glide pauses too: each pseudo-element on its
+   own, since inside :is() one is invalid and the rule never paused anything. */
+html[data-exo-inactive="true"] .exb-spin { animation-play-state: running, paused !important; }
+html[data-exo-inactive="true"] .exb-load.is-loading::before,
+html[data-exo-inactive="true"] .exb-load.is-loading::after { animation-play-state: paused !important; }
 
 /* Tab density (Settings › Look): roomier or denser tabs, both strips. */
 .exb.is-roomy .exb-tab.exo-nav-btn { max-width: 260px; padding-left: 14px; gap: 10px; }
@@ -264,7 +290,7 @@ body,
   font: inherit;
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
-  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out), box-shadow var(--dur-quick) var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 .exb-space:hover { background: var(--hover-fill); }
 .exb-space.is-on { padding-right: 12px; background: var(--exo-selected); }
@@ -317,7 +343,7 @@ body,
 }
 .exb-side-new { justify-content: center; padding: 0; border-radius: 999px; }
 .exb-side-new:hover, .exb-vtab:hover:not(.is-on) { background: var(--hover-fill); color: var(--color-fg); }
-.exb-side-new:active, .exb-vtab:active { scale: 0.97; }
+.exb-side-new:active, .exb-vtab:active { scale: 0.97; transition-duration: var(--dur-press); }
 .exb-vtab.is-on { color: var(--color-fg); }
 .exb-vtab .exb-tab-title { flex: 1; }
 .exb-side-tabs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: none; }
@@ -329,17 +355,17 @@ body,
   transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out); }
 .exb-ptab:hover { background: var(--hover-fill); }
 .exb-ptab.is-on { background: var(--exo-selected); }
-.exb-ptab:active { scale: 0.97; background: var(--exo-pressed); }
+.exb-ptab:active { scale: 0.97; background: var(--exo-pressed); transition-duration: var(--dur-press); }
 .exb-side-grip { position: absolute; top: 12px; right: -6px; bottom: 12px; width: 8px; cursor: ew-resize; }
 
 /* ---------------------------------------------------------------- Auto-hide: each slides in from its own edge */
 
-/* On Exo's times (the host's frost under them runs the same, AnimateGlass): in on the base time as it travels on the
-   move time, out on the quick time. */
-.is-autohide .exb-bar.exo-titlebar { opacity: 0; translate: 0 -10px; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-out); }
-.is-autohide.reveal-top .exb-bar.exo-titlebar { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-out); }
-.is-autohide .exb-side { opacity: 0; translate: -14px 0; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-out); }
-.is-autohide.reveal-side .exb-side { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-out); }
+/* As Exo's Bar capsules drop into their slot (the host's frost under them runs the same, AnimateGlass): 8px, faded in
+   on the base time as it travels on the move time and the spring; out, fading and travelling on the quick time. */
+.is-autohide .exb-bar.exo-titlebar { opacity: 0; translate: 0 -8px; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-spring); }
+.is-autohide.reveal-top .exb-bar.exo-titlebar { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-spring); }
+.is-autohide .exb-side { opacity: 0; translate: -8px 0; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-spring); }
+.is-autohide.reveal-side .exb-side { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-spring); }
 
 /* ---------------------------------------------------------------- Search, opened in the address */
 
@@ -359,8 +385,10 @@ body,
   transform-origin: top center;
   animation: exb-search-in var(--dur-base) var(--ease-out);
 }
-/* It grows in as Exo's large glass does (opacity with it), so the window's frost under it fades in alongside. */
+/* It grows in as Exo's large glass does (opacity with it), so the window's frost under it fades in alongside. Opened
+   by a key (Ctrl+L, Ctrl+K, Ctrl+Tab's switcher), it is there at once, as what the keyboard opens in Exo. */
 @keyframes exb-search-in { from { scale: 0.98; opacity: 0; } }
+:is(.exb-search, .exb-switcher).is-key { animation: none; }
 /* Laid out like the address it opens over (icon and text centered together), so nothing moves when it opens. */
 .exb-search-field { height: var(--exb-cap-h); flex: none; display: flex; align-items: center; justify-content: center; gap: 9px; padding: 0 13px; }
 .exb-search-icon { flex: none; color: var(--color-muted); }
@@ -368,11 +396,13 @@ body,
 .exb-search-field input::placeholder { color: var(--color-muted); }
 .exb-search-list { min-height: 0; flex: 1; overflow-y: auto; scrollbar-width: none; padding: 6px; border-top: 1px solid var(--exo-float-line); }
 .exb-search-group { padding: 8px 10px 4px; font-size: calc(12px * var(--exo-scale, 1)); font-weight: 500; color: var(--color-muted); }
-.exb-search-row { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--exo-row-radius, 12px); transition: background-color 120ms; }
+.exb-search-row { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--exo-row-radius, 12px); transition: background-color var(--dur-quick) var(--ease-out); }
 /* The selected row is lifted like a hovered one, so its secondary words go full ink as Exo's do on a hovered row. */
 .exb-search-row.is-selected { background: var(--hover-fill); --color-muted: var(--color-fg); --color-faint: var(--color-fg); }
 /* A row's actions open: the other rows step back, so none shows through the menu's glass. */
-.exb-search-list > * { transition: background-color 120ms, opacity var(--dur-quick) var(--ease-out); }
+.exb-search-list > * { transition: background-color var(--dur-quick) var(--ease-out), opacity var(--dur-quick) var(--ease-out); }
+/* The row chosen lights at once and lets go on the quick time, as Exo's menu rows do. */
+:is(.exb-search-list, .exb-switcher) > .exb-search-row.is-selected { transition-duration: 0s, var(--dur-quick); }
 .exb-search.is-acting .exb-search-list > :not(.is-selected) { opacity: 0; }
 .exb-search-lead { color: var(--color-muted); }
 .exb-search-fav { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
@@ -386,6 +416,12 @@ body,
 .exb-menu-scrim { position: fixed; inset: 0; z-index: 70; }
 .exb-menu.exo-shelf-sort-menu { position: fixed; inset: auto; margin: 0; min-width: 220px; max-width: 360px; }
 .exb-menu.is-right { transform-origin: top right; }
+/* Every menu here carries exo-game-menu (a context menu's fade on the press time). One under a Bar's button (Downloads,
+   Extensions) grows from it instead, 0.96 to 1 on the base time, as Exo's large glass appears; from a key, at once. */
+:root:not([data-exo-input="key"]) .exb-menu.is-right:popover-open { transition-duration: var(--dur-base); }
+@starting-style {
+  .exb-menu.is-right:popover-open { scale: 0.96; }
+}
 .exb-menu .exo-menu-item.is-off { color: var(--color-faint); }
 .exb-menu-img { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
 .exb-menu-label { min-width: 0; flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -393,7 +429,8 @@ body,
 .exb-menu-rule { height: 1px; flex: none; margin: 4px 0; background: var(--exo-float-line); }
 .exb-menu-progress, .exb-progress { display: block; height: 3px; margin: 0 10px 6px 36px; overflow: hidden; border-radius: 3px; background: var(--exo-track); }
 .exb-progress { margin: 6px 0 0; height: 4px; }
-:is(.exb-menu-progress, .exb-progress) i { display: block; height: 100%; border-radius: inherit; background: var(--color-fg); transform-origin: left; transition: transform var(--dur-base) var(--ease-out); }
+/* Progress moves as Exo's does: linear, on the move time. */
+:is(.exb-menu-progress, .exb-progress) i { display: block; height: 100%; border-radius: inherit; background: var(--color-fg); transform-origin: left; transition: transform var(--dur-move) linear; }
 
 /* ---------------------------------------------------------------- Settings: Exo's sheet, under the whole Bar */
 
@@ -424,7 +461,7 @@ body,
 .exb-edit:focus { background: var(--exo-fill); box-shadow: var(--exo-field-rim); }
 .exb-handle { width: 24px; height: 32px; margin: 0 -6px 0 -4px; flex: none; display: grid; place-items: center; color: var(--color-faint); cursor: grab; touch-action: none; }
 .exb-handle:hover { color: var(--color-fg); }
-.exb-mark { transition: transform var(--dur-move) var(--ease-out); }
+.exb-mark { transition: transform var(--dur-move) var(--ease-spring); }
 .exb-mark.is-dragging { position: relative; z-index: 2; transition: none; cursor: grabbing; border-radius: 12px; background: var(--glassy-overlay); box-shadow: var(--glassy-shadow-raised); }
 
 /* ---------------------------------------------------------------- A link's address, at the foot of its page (Status.tsx) */
@@ -488,7 +525,7 @@ body,
 
 /* ---------------------------------------------------------------- Peek: the card's buttons, over its top right */
 
-.exb-peek-bar.exo-titlebar-tools { position: fixed; display: flex; align-items: center; height: var(--exb-cap-h); padding: 0 3px; border-radius: 999px; width: max-content; translate: -100% 0; pointer-events: auto; gap: 2px; padding-left: 14px; animation: exb-peek-in var(--dur-quick) var(--ease-out) backwards; }
+.exb-peek-bar.exo-titlebar-tools { position: fixed; display: flex; align-items: center; height: var(--exb-cap-h); padding: 0 3px; border-radius: 999px; width: max-content; translate: -100% 0; pointer-events: auto; gap: 2px; padding-left: 14px; animation: exb-peek-in var(--dur-base) var(--ease-out) backwards; }
 .exb-peek-site { max-width: 320px; margin-right: 6px; overflow: hidden; color: var(--color-muted); font-size: calc(12px * var(--exo-scale, 1)); font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
 @keyframes exb-peek-in { from { opacity: 0; } }
 :root[data-exo-motion="reduce"] .exb-peek-bar { animation: none; }
@@ -526,7 +563,7 @@ body,
 
 /* ---------------------------------------------------------------- Boosts: Zap's bar over the page, each site's editor */
 
-.exb-zap-bar.exo-titlebar-tools { position: fixed; top: calc(var(--exb-bar-h) + 10px); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 6px; height: var(--exb-cap-h); width: max-content; padding: 0 4px 0 14px; border-radius: 999px; pointer-events: auto; animation: exb-peek-in var(--dur-quick) var(--ease-out) backwards; }
+.exb-zap-bar.exo-titlebar-tools { position: fixed; top: calc(var(--exb-bar-h) + 10px); left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 6px; height: var(--exb-cap-h); width: max-content; padding: 0 4px 0 14px; border-radius: 999px; pointer-events: auto; animation: exb-peek-in var(--dur-base) var(--ease-out) backwards; }
 .is-autohide .exb-zap-bar.exo-titlebar-tools { top: 10px; }
 .exb-zap-text { margin-right: 4px; color: var(--color-fg); font-size: calc(13px * var(--exo-scale, 1)); font-weight: 500; white-space: nowrap; }
 :root[data-exo-motion="reduce"] .exb-zap-bar { animation: none; }

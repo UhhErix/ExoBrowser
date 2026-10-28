@@ -22,6 +22,7 @@ const config = (await import(pathToFileURL(path.resolve(configPath)).href)).defa
 const sizes = new Set(config.sizes ?? [])
 const exceptions = config.exceptions ?? []
 const sliderFiles = new Set((config.sliderFiles ?? []).map((f) => path.normalize(f)))
+const motionExempt = new Set((config.motionExempt ?? []).map((f) => path.normalize(f)))
 
 const isHover = (rule) => rule?.type === 'rule' && /:hover\b/.test(rule.selector)
 const num = (s) => (s.endsWith('%') ? parseFloat(s) / 100 : parseFloat(s))
@@ -117,6 +118,18 @@ function check(file, root) {
     else if (decl.prop === 'font' && !/^(inherit|var\()/.test(decl.value.trim())) {
       const size = /(calc\([^)]*\)\)|[\d.]+(px|rem|em))/.exec(decl.value)
       if (size) scale(decl, size[1])
+    }
+  })
+  // DESIGN.md › Motion: five times only for what moves once. A duration is a --dur-* token (or built from one with
+  // calc); a literal time only as a delay, a loop's period (infinite: the spin, shine, sheen), the reduce-motion
+  // override's 0.01ms, 0, or with a design-disable comment saying why (a hold, a live readout).
+  const literalTime = (t) => /^[\d.]+m?s$/.test(t) && !/^0(\.0+)?m?s$/.test(t) && t !== '0.01ms'
+  if (!motionExempt.has(path.normalize(file))) root.walkDecls(/^(transition|animation)(-duration)?$/, (decl) => {
+    for (const item of decl.value.split(/,(?![^(]*\))/)) {
+      if (/\binfinite\b/.test(item)) continue
+      const duration = item.trim().split(/\s+(?![^(]*\))/).find((part) => /^[\d.]+m?s$/.test(part) || /^(var|calc)\(/.test(part))
+      if (duration && literalTime(duration))
+        report(file, decl, 'exo/motion-token', `"${duration}" is a literal duration: use one of DESIGN.md's five times (var(--dur-press|quick|base|move|flight))`)
     }
   })
   // A disable comment that turns nothing off is stale.

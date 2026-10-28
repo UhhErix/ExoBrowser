@@ -1,13 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Button } from '../../components/ui/Button'
+import { Spinner } from '../../components/ui/Spinner'
+import { shouldReduceMotion } from '../../lib/motionPreference'
 import * as I from '../icons'
 import { local, onHost, send, useBrowserValue } from '../host'
 import { b64, helloUnlock, loginsFor, neverSave, openVault, saveItem, newItem, setVault, unlock, useOutOfCaptures, useVault, vaultNow, type FillTarget, type Item, type Prompt } from './store'
 import { Avatar, summary, useOtp } from './parts'
 import { generate } from './generate'
-import { useRecipe } from './Editor'
+import { useRecipe } from './recipe'
 import { pageEdges } from '../menus'
 import { sameSite, siteName, siteOfUrl } from './sites'
+// The fill menu's and the save prompt's own styles live with the vault's: loaded with them, not with the vault's sheet.
+import './vault.css'
 
 /*
  * Exo Vault on the page: a menu beside the sign-in field you're in (your logins for that site, a strong new
@@ -40,7 +44,8 @@ let hotSent = ''
 export function reportHot() {
   cancelAnimationFrame(hotFrame)
   hotFrame = requestAnimationFrame(() => {
-    const spec = [...document.querySelectorAll('.exb-vault-fill, .exb-vault-prompt, .exb-peek-bar, .exb-switcher, .exb-zap-bar')].map(el => {
+    // A fill menu fading out no longer takes the pointer; a toast does while it shows, so it holds under the pointer.
+    const spec = [...document.querySelectorAll('.exb-vault-fill:not(.is-leaving), .exb-vault-prompt, .exb-peek-bar, .exb-switcher, .exb-zap-bar, .exb-toast')].map(el => {
       const r = el.getBoundingClientRect()
       return [r.left, r.top, r.width, r.height].map(Math.round).join(',')
     }).join(';')
@@ -93,16 +98,20 @@ function fillWith(target: FillTarget, payload: Record<string, unknown>) {
 /**
  * The master password where the vault was asked for (the menu beside a sign-in field, the offer to save one), with
  * Windows Hello beside it when it's on: Unlock opened Exo Vault's sheet over the page to type it there. The words go
- * to the host the moment Unlock is pressed and leave the field.
+ * to the host the moment Unlock is pressed and leave the field. Uncontrolled, as Gate's are: controlled, React wrote
+ * each key into the input's value attribute.
  */
 function UnlockHere({ action, onUnlock, beside }: { action: string; onUnlock: () => void; beside?: ReactNode }) {
   const v = useVault()
-  const [password, setPassword] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  const [typed, setTyped] = useState(false)
   const go = () => {
-    if (!password || v.busy) return
+    const el = field.current
+    if (!el?.value || v.busy) return
     onUnlock()
-    unlock(password)
-    setPassword('')
+    unlock(el.value)
+    el.value = ''
+    setTyped(false)
   }
   return (
     <>
@@ -112,10 +121,10 @@ function UnlockHere({ action, onUnlock, beside }: { action: string; onUnlock: ()
             <I.Fingerprint size={14} />
           </Button>
         ) : null}
-        <input className="exo-field exb-vault-unlock-field" type="password" autoComplete="off" aria-label="Master password" placeholder="Master password"
-          value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); go() } }} />
+        <input ref={field} className="exo-field exb-vault-unlock-field" type="password" autoComplete="off" aria-label="Master password" placeholder="Master password"
+          onChange={e => setTyped(!!e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); go() } }} />
         {beside}
-        <Button className="exo-set-btn is-compact is-primary" isDisabled={!password || v.busy} onPress={go}>{v.busy ? 'Opening…' : action}</Button>
+        <Button className="exo-set-btn is-compact is-primary" isDisabled={!typed || v.busy} onPress={go}>{v.busy ? <><Spinner />Opening</> : action}</Button>
       </div>
       {v.error ? <p className="exo-set-error exb-vault-unlock-error" role="alert">{v.error}</p> : null}
     </>
@@ -132,12 +141,11 @@ function OtpChoice({ item, target }: { item: Item; target: FillTarget }) {
   )
 }
 
-function Choices({ target }: { target: FillTarget }) {
+function Choices({ target, logins }: { target: FillTarget; logins: Item[] }) {
   const v = useVault()
   const recipe = useRecipe()
   const [fresh] = useState(() => generate(recipe))
   if (v.state !== 'unlocked') return <UnlockHere action="Unlock" onUnlock={() => { refocusTab = target.tab }} />
-  const logins = loginsFor(target.origin)
   if (target.kind === 'otp') return <>{logins.filter(i => i.totp).map(i => <OtpChoice key={i.id} item={i} target={target} />)}</>
   if (target.kind === 'card') return <>{(v.data?.items ?? []).filter(i => i.type === 'card' && !i.trashed).map(i => (
     <button key={i.id} type="button" role="menuitem" className="exo-menu-item exb-vault-pick"
@@ -162,12 +170,13 @@ function Choices({ target }: { target: FillTarget }) {
   )
 }
 
-/** The menu under the field, as wide as the field (at least a menu's width); above it when there's no room below. */
-function FillMenu({ target }: { target: FillTarget }) {
+/** The menu under the field, as wide as the field (at least a menu's width); above it when there's no room below. It
+ *  grows from the field's side and, put away, fades out (`leaving`) before it goes. */
+function FillMenu({ target, leaving }: { target: FillTarget; leaving: boolean }) {
   const v = useVault()
   const ref = useRef<HTMLDivElement>(null)
   const [above, setAbove] = useState(false)
-  const logins = v.state === 'unlocked' ? loginsFor(target.origin) : []
+  const logins = v.state === 'unlocked' ? loginsFor(target.origin, v.data?.items) : []
   // Locked, it offers to unlock only on a sign-in (a password field, or a form that has one), not on every email field.
   const offers = v.state !== 'unlocked' ? target.kind === 'password' || target.pw : target.signup || target.kind === 'new-password' ||
     (target.kind === 'otp' ? logins.some(i => i.totp) : target.kind === 'card' ? (v.data?.items ?? []).some(i => i.type === 'card' && !i.trashed) : logins.length > 0)
@@ -191,12 +200,12 @@ function FillMenu({ target }: { target: FillTarget }) {
   useOutOfCaptures(offers && v.state === 'unlocked')
   if (!offers) return null
   return (
-    <div ref={ref} className="exo-shelf-sort-menu exb-menu exb-vault-fill" role="menu" aria-label="Exo Vault" style={style}
+    <div ref={ref} className={`exo-shelf-sort-menu exb-menu exb-vault-fill${above ? ' is-above' : ''}${leaving ? ' is-leaving' : ''}`} role="menu" aria-label="Exo Vault" style={style}
       onAnimationEnd={reportHot}
       // Typing the master password here gives this page the keyboard: Esc puts the menu away and hands it back.
       onKeyDown={e => { if (e.key === 'Escape') { e.preventDefault(); hideFill(); send('vaultFocusTab', target.tab) } }}
       onPointerEnter={() => { overMenu = true; clearTimeout(hideTimer) }} onPointerLeave={() => { overMenu = false }}>
-      <Choices target={target} />
+      <Choices target={target} logins={logins} />
       <button type="button" role="menuitem" className="exo-menu-item exb-vault-pick is-quiet" onClick={() => { hideFill(); openVault('login') }}>
         <I.Vault />Open Exo Vault
       </button>
@@ -287,10 +296,18 @@ export function VaultFill() {
   useEffect(() => { hideFill() }, [active, url])
   // A sign-in waiting on the vault: once it opens, offer it again, now as save or update.
   useEffect(() => { if (v.state === 'unlocked') vaultOpened() }, [v.state])
-  const target = v.fill && v.fill.tab === active && sameSite(url, v.fill.origin) ? v.fill : null
-  return (
-    <>
-      {target && !v.open ? <FillMenu target={target} /> : null}
-    </>
-  )
+  const target = v.fill && v.fill.tab === active && sameSite(url, v.fill.origin) && !v.open ? v.fill : null
+  // The menu put away stays a moment as it fades out (Exo's leave, the quick time); under Reduce motion it goes at once.
+  const [kept, setKept] = useState<FillTarget | null>(null)
+  useEffect(() => {
+    if (target) { setKept(target); return }
+    if (!kept) return
+    const timer = window.setTimeout(() => setKept(null), shouldReduceMotion() ? 0 : LEAVE_MS)
+    return () => clearTimeout(timer)
+  }, [target, kept])
+  const shown = target ?? kept
+  return shown ? <FillMenu target={shown} leaving={!target} /> : null
 }
+
+/** --dur-quick: the leave's length in vault.css. */
+const LEAVE_MS = 120

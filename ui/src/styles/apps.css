@@ -110,7 +110,7 @@
   display: grid;
   gap: 12px;
   padding: 4px 16px 16px 56px;
-  animation: exo-arrive 280ms var(--ease-out) backwards;
+  animation: exo-arrive var(--dur-arrive) var(--ease-out) backwards;
 }
 
 .exo-apps-found {

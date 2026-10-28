@@ -116,7 +116,7 @@ export async function toggleDictation(field: DictationField) {
   }
   if (!started.ok) {
     end()
-    notify({ tone: 'bad', text: started.message ?? "Dictation couldn't start." })
+    notify({ tone: 'bad', text: started.message ?? "Dictation couldn't start. Try again." })
     return
   }
   set({ phase: 'listening' })
@@ -133,7 +133,7 @@ export async function stopDictation() {
   const start = field.selectionStart ?? field.value.length
   const stop = field.selectionEnd ?? start
   const result = await host.dictationStop(field.value.slice(Math.max(0, start - 1), start), field.value.slice(stop, stop + 1))
-    .catch((e: unknown) => ({ ok: false, text: '', message: e instanceof Error ? e.message : "Dictation couldn't finish." }))
+    .catch((e: unknown) => ({ ok: false, text: '', message: e instanceof Error ? e.message : "Dictation couldn't finish. Try again." }))
   end()
   if (result.text && field.isConnected) insertText(field, result.text, start, stop)
   else if (result.message) notify({ text: result.message })

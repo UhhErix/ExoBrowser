@@ -21,6 +21,7 @@
 @import "./styles/captures.css";
 @import "./styles/notes.css";
 @import "./styles/store.css";
+@import "./styles/exo-store.css";
 @import "./styles/music-player.css";
 @import "./styles/shelf.css";
 @import "./styles/friends-b.css";
@@ -105,6 +106,9 @@ kbd,
   --dur-base: 160ms;
   --dur-move: 220ms;
   --dur-flight: 300ms;
+  /* Not motion the eye follows: a shelf's arrive (DESIGN.md › Arrive) and how long Done holds before easing back. */
+  --dur-arrive: 280ms;
+  --dur-hold: 3000ms;
 }
 
 html,
@@ -376,7 +380,7 @@ body,
 /* Arrive: items rise 8px into place in turn, 24ms apart; --i is the item's place, and the 8th on share one
    delay, so a whole shelf has landed within half a second and nothing waits on its neighbours. */
 .exo-motion-arrive {
-  animation: exo-arrive 280ms var(--ease-out) backwards;
+  animation: exo-arrive var(--dur-arrive) var(--ease-out) backwards;
   animation-delay: calc(min(var(--i, 0), 7) * 24ms);
 }
 
@@ -394,7 +398,7 @@ body,
   background: rgba(0, 0, 0, 0.55);
   box-shadow: inset 0 0 0 1px var(--color-good);
   opacity: 0;
-  animation: exo-done 3000ms var(--ease-out) forwards;
+  animation: exo-done var(--dur-hold) var(--ease-out) forwards;
   pointer-events: none;
 }
 
@@ -414,13 +418,14 @@ body,
   stroke-linejoin: round;
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: exo-check 3000ms var(--ease-out) forwards;
+  animation: exo-check var(--dur-hold) var(--ease-out) forwards;
   pointer-events: none;
 }
 
-/* A check that stays (nothing to come back to, e.g. an "all current" state). */
+/* A check that stays (nothing to come back to, e.g. an "all current" state): drawn as Done's is, after a press's
+   beat and over the flight time. */
 .exo-motion-check.is-held {
-  animation: exo-check-hold 380ms var(--ease-out) 80ms forwards;
+  animation: exo-check-hold var(--dur-flight) var(--ease-out) var(--dur-press) forwards;
 }
 
 /* Switch: a tab's new content is there at once. It never fades in: its glass would show its tint alone until the
@@ -463,16 +468,19 @@ body,
 }
 
 /* The fill is the chosen item's only fill, from its first placement (its own, under the fill, doubled it until the
-   group armed). Once armed, the chosen item hands its hover fill to the glide over the move, holding it until the
-   fill is nearly there, so a pressed row never goes empty; while the fill travels no other row shows a hover fill,
-   so the two never overlap. */
+   group armed). Once armed, the chosen item hands its hover fill to the glide over the move: it holds the fill for a
+   press's beat, then lets it go on the quick time as the glide lands, so a pressed row never goes empty; while the
+   fill travels no other row shows a hover fill, so the two never overlap. Its words and press keep their own times. */
 .exo-glide :is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [aria-current]:not([aria-current='false'])) {
   background-color: transparent !important;
 }
 
 .exo-glide.is-glide-ready :is([aria-pressed='true'], [aria-checked='true'], [aria-selected='true'], [aria-current]:not([aria-current='false'])) {
-  transition-duration: var(--dur-move);
-  transition-timing-function: cubic-bezier(0.7, 0, 0.84, 0);
+  transition:
+    background-color var(--dur-quick) var(--ease-out) var(--dur-press),
+    color var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-glide.is-gliding :is(button, a, label, [role='tab'], [role='radio'], [role='option']):hover {
@@ -493,9 +501,10 @@ body,
   100% { opacity: 0; }
 }
 
+/* Within Done's 3s: the check draws in from a press's beat (3%, 90ms) over the flight time (to 13%, 390ms). */
 @keyframes exo-check {
   0%, 3% { stroke-dashoffset: 1; opacity: 1; }
-  15% { stroke-dashoffset: 0; opacity: 1; }
+  13% { stroke-dashoffset: 0; opacity: 1; }
   80% { stroke-dashoffset: 0; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
@@ -605,7 +614,7 @@ body,
     -webkit-user-select: text;
   }
 
-  /* Loops (the Exo bar's sheen and glide, a spin, a ring, a shine, typing dots, Nitro name effects) pause while Exo is in the background, and so does the Store's
+  /* Loops (the Exo bar's sheen and glide, a spin, a ring, a shine, a working word's dots, typing dots, Nitro name effects) pause while Exo is in the background, and so does the Store's
      featured game's time, which would turn the banner with nobody looking; nothing else does.
      A one-shot entry paused on its first frame stays at opacity 0, so a page opened while focus
      is elsewhere (a game, another window) showed nothing. Listing the loops, not exempting the
@@ -614,8 +623,8 @@ body,
   html[data-exo-inactive="true"] .exo-store-hero-time,
   html[data-exo-inactive="true"] .exo-progress-fill,
   html[data-exo-inactive="true"] .exo-progress-fill::after,
-  html[data-exo-inactive="true"] .exo-progress-head,
   html[data-exo-inactive="true"] .exo-spin,
+  html[data-exo-inactive="true"] .exo-working-dots span,
   html[data-exo-inactive="true"] .exo-dc-typing-dots i,
   html[data-exo-inactive="true"] .exo-dc-dn.is-loop :is(.exo-dc-dn-text, .exo-dc-dn-letter),
   html[data-exo-inactive="true"] .exo-dc-dn.is-loop .exo-dc-dn-text::before {
@@ -658,7 +667,6 @@ body,
     font-weight: 500;
     white-space: nowrap;
     user-select: none;
-    transform: translateZ(0);
     transform-origin: center;
     transition:
       scale var(--dur-quick) var(--ease-out),
@@ -845,7 +853,6 @@ body,
     border-radius: 999px;
   }
 
-  .exo-nav-mark,
   .exo-settings-btn,
   .exo-winbtn,
   .exo-set-link {
@@ -853,7 +860,6 @@ body,
   }
 
   .exo-nav-btn,
-  .exo-nav-mark,
   .exo-settings-btn,
   .exo-winbtn {
     min-width: 0;

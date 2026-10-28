@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useGlide } from '../../lib/glide'
+import { NOTICE_STAY_MS } from '../../lib/notify'
 import * as I from '../icons'
 import { closeVault, lock, setVault, useOutOfCaptures, useVault, vaultNow } from './store'
 import { Gate } from './Gate'
@@ -30,12 +31,13 @@ function Sheet() {
   const glide = useGlide<HTMLUListElement>()
   const unlocked = v.state === 'unlocked' && !!v.data
   useOutOfCaptures(unlocked)
-  // A result line (copied, imported) fades on its own.
+  // A result line (copied, imported) goes on its own after Exo's notice time, counted again when it comes again (the
+  // same password copied twice).
   useEffect(() => {
     if (!v.note) return
-    const t = setTimeout(() => setVault({ note: '' }), 4200)
+    const t = setTimeout(() => setVault({ note: '' }), NOTICE_STAY_MS)
     return () => clearTimeout(t)
-  }, [v.note])
+  }, [v.note, v.noteKey])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented && !vaultNow().editing && !document.querySelector(':popover-open')) closeVault()
@@ -66,7 +68,7 @@ function Sheet() {
             <div className="exo-settings-column">{unlocked ? <Body section={v.section} /> : <Gate />}</div>
           </div>
         </div>
-        {v.note ? <p className="exb-vault-note-line" role="status">{v.note}</p> : null}
+        {v.note ? <p key={v.noteKey} className="exb-vault-note-line" role="status">{v.note}</p> : null}
       </main>
     </div>
   )

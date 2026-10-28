@@ -4,3 +4,5 @@
 .exb-ob-bar { height: 44px; display: flex; align-items: center; padding: 0 8px; app-region: drag; }
 .exb-ob-bar .exo-titlebar-actions { display: flex; gap: 2px; app-region: no-drag; }
 .exb-ob .exo-ob-step .exo-set-section { margin: 0; }
+/* No note beside the buttons: they keep the right end. */
+.exb-ob .exo-ob-foot:not(.is-welcome) .exo-ob-actions { margin-left: auto; }

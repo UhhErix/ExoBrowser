@@ -236,6 +236,12 @@ export function useAccountSettings(): AccountSettings {
   return useSyncExternalStore(subscribeAccount, () => account)
 }
 
+/** One of the account's settings, live: only a change to it redraws (a User Volume dragged in a call left every message
+    in the chat redrawing on each step). */
+export function useAccountSetting<K extends keyof AccountSettings>(key: K): AccountSettings[K] {
+  return useSyncExternalStore(subscribeAccount, () => account[key])
+}
+
 /** The account's settings now, for code that draws without a hook (markdown); the message around it re-renders on change. */
 export function accountSettings(): AccountSettings {
   return account

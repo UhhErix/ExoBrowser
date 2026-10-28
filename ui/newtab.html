@@ -7,6 +7,11 @@
     <!-- Light until the page's data says otherwise, when the window asks pages for light (it does only in Light): the
          page drew Void's black first, a tenth of a second of black on every new tab in Light. -->
     <script>if (matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.dataset.exoTheme = 'light'</script>
+    <!-- Inter is font-display: block (src/fonts.css): asked for now, not after the first layout, as the Bar's page does. -->
+    <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
+    <!-- The page's data, asked for while the page's script loads (newtab/main.tsx waits on this answer): fetched after
+         React mounted, the cards came a round trip later. -->
+    <script>window.exbNtp = fetch('https://api.newtab.exo/ntp.json', { cache: 'no-store' }).then(r => r.json()).catch(() => null)</script>
   </head>
   <body>
     <div id="root"></div>

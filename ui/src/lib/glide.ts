@@ -4,7 +4,7 @@ const SELECTED = '[aria-pressed="true"], [aria-checked="true"], [aria-selected="
 
 /**
  * The selected pill glides: one fill under the group slides to the chosen
- * item (the 200 ms switch motion, DESIGN.md › Motion) instead of jumping
+ * item (on the spring over the move time, DESIGN.md › Motion › Choose) instead of jumping
  * between items. Put the returned ref and `exo-glide` on the group; the
  * selected item is whichever carries aria-pressed, aria-checked,
  * aria-selected or aria-current, so groups need no extra state. The first

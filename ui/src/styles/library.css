@@ -65,7 +65,7 @@
   border-radius: var(--exo-panel-radius);
   background: var(--exo-float);
   box-shadow: inset 0 0 0 1px var(--exo-float-line);
-  transition: box-shadow 160ms var(--ease-out);
+  transition: box-shadow var(--dur-base) var(--ease-out);
 }
 
 .exo-continue-open {
@@ -180,7 +180,7 @@
   border: 0;
   border-radius: 999px;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 /* Play is small glass over the art, as More and the title's plate are; it takes glass's lift on hover (glass.css). */
@@ -196,7 +196,7 @@
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 /* Starting: busy, not unavailable, so it stays at full strength saying Preparing (at 60% its words went see-through
@@ -267,7 +267,7 @@
   border: 0;
   border-radius: 12px;
   background: none;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 
   color: var(--color-fg);
   font: inherit;
@@ -300,7 +300,7 @@
   font-size: calc(12px * var(--exo-scale, 1));
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-friend-pill-go:hover {
@@ -403,7 +403,7 @@
    thumbnail failed, so it is never undimmed by mistake. */
 .exo-library-pane .exo-tile.is-dim .exo-tile-media img.is-dim-fallback {
   filter: saturate(0.45) brightness(0.42);
-  transition: filter 160ms var(--ease-out);
+  transition: filter var(--dur-base) var(--ease-out);
 }
 
 .exo-library-pane .exo-tile.is-dim .exo-tile-hit:hover .exo-tile-media img.is-dim-fallback {
@@ -415,8 +415,8 @@
   pointer-events: none;
   /* On mount the keyframe covers the fade in (a class alone has nothing to leave);
      later hovers are the transition. */
-  animation: exo-cover-undim-in 160ms var(--ease-out) backwards;
-  transition: opacity 160ms var(--ease-out);
+  animation: exo-cover-undim-in var(--dur-base) var(--ease-out) backwards;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 
 .exo-cover-undim.is-on {

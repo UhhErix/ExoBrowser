@@ -4,6 +4,7 @@ import { openSettingsAt } from './SearchBox'
 import { COLORS, SPACE_ICONS, spaceIcon } from './look'
 import { boostSite } from './Boosts'
 import { folderItems } from './Folders'
+import { ask } from './ask'
 import * as I from './icons'
 
 /*
@@ -77,12 +78,22 @@ export function newSpace(tab = 0) {
   send('spaceNew', `Space ${n}`, icon, color, tab)
 }
 
+/** A space and its tabs go for good: asked first, from its menu or Settings › Spaces. */
+export async function deleteSpace(id: number) {
+  const b = browser()
+  const space = b.spaces.find(s => s.id === id)
+  if (!space) return
+  const n = b.tabs.filter(t => t.space === id).length
+  const body = n === 0 ? undefined : n === 1 ? 'Its tab closes with it.' : `Its ${n} tabs close with it.`
+  if (await ask({ title: `Delete ${space.name}?`, body, action: 'Delete' })) send('spaceDelete', id)
+}
+
 export function spaceMenu(id: number, x: number, y: number) {
   const b = browser()
   openMenu([
     { label: 'Edit spaces', Icon: I.Pencil, run: () => openSettingsAt('spaces') },
     { label: 'New space', Icon: I.Plus, run: () => newSpace() },
-    ...(b.spaces.length > 1 ? ['-' as const, { label: 'Delete space and its tabs', Icon: I.Trash, run: () => send('spaceDelete', id) }] : []),
+    ...(b.spaces.length > 1 ? ['-' as const, { label: 'Delete space and its tabs', Icon: I.Trash, run: () => void deleteSpace(id) }] : []),
   ], x, y, false, 'space')
 }
 

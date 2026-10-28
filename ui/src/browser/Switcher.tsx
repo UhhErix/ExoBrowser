@@ -15,7 +15,8 @@ const SHOWN = 8
 export function Switcher() {
   const [state, setState] = useState<{ ids: number[]; sel: number }>({ ids: [], sel: 0 })
   const tabs = useBrowserValue(b => b.tabs)
-  useEffect(() => onHost('switcher', m => setState({ ids: (m.ids as number[]) ?? [], sel: Number(m.sel) || 0 })), [])
+  // Only ever Ctrl+Tab: what the keyboard opens lands at once (is-key, browser.css; data-exo-input for the rest).
+  useEffect(() => onHost('switcher', m => { document.documentElement.dataset.exoInput = 'key'; setState({ ids: (m.ids as number[]) ?? [], sel: Number(m.sel) || 0 }) }), [])
   useLayoutEffect(reportHot, [state.ids.length])
   const list = state.ids.map(id => tabs.find(t => t.id === id)).filter((t): t is Tab => !!t)
   if (list.length < 2) return null
@@ -23,7 +24,7 @@ export function Switcher() {
   const first = Math.max(0, Math.min(state.sel - 3, list.length - SHOWN))
   return (
     <div className="exb-switcher-layer">
-      <div className="exo-glass is-panel exb-switcher" role="listbox" aria-label="Recent tabs">
+      <div className="exo-glass is-panel exb-switcher is-key" role="listbox" aria-label="Recent tabs">
         {list.slice(first, first + SHOWN).map((t, k) => {
           const i = first + k
           return (

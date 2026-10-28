@@ -61,8 +61,8 @@ function Chrome({ busy }: { busy: boolean }) {
   )
 }
 
-function Mark({ working }: { working?: boolean }) {
-  return <img className={`exo-setup-mark${working ? ' is-working' : ''}`} src="logo.svg" alt="" draggable={false} />
+function Mark() {
+  return <img className="exo-setup-mark" src="logo.svg" alt="" draggable={false} />
 }
 
 /** Uninstall keeps your things unless you ask: history, sign-ins, bookmarks and Exo Vault stay for a reinstall. */
@@ -121,7 +121,7 @@ function Working({ state, progress }: { state: State; progress: { value: number;
   const title = state.mode === 'uninstall' ? 'Uninstalling' : `${state.updating ? 'Updating to' : 'Installing'} ${state.version}`
   return (
     <section className="exo-setup-screen" key="working" aria-busy="true">
-      <Mark working />
+      <Mark />
       <h1>{title}</h1>
       <div className="exo-setup-bar-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress.value * 100)}>
         <span className="exo-setup-bar-fill" style={{ transform: `scaleX(${Math.max(0.02, progress.value)})` }} />
@@ -150,7 +150,8 @@ function Done({ state }: { state: State }) {
   )
 }
 
-function Failed({ state, problem }: { state: State; problem: string }) {
+/** What went wrong and Try again (the same step, as it was asked), then Close. */
+function Failed({ state, problem, onRetry }: { state: State; problem: string; onRetry: () => void }) {
   const verb = state.mode === 'uninstall' ? 'Not uninstalled' : state.updating ? 'Not updated' : 'Not installed'
   return (
     <section className="exo-setup-screen" key="failed">
@@ -158,7 +159,8 @@ function Failed({ state, problem }: { state: State; problem: string }) {
       <h1>{verb}</h1>
       <p className="exo-setup-problem">{problem}</p>
       <div className="exo-setup-actions">
-        <Button variant="primary" className="exo-setup-cta" data-autofocus onPress={() => send('close')}>Close</Button>
+        <Button variant="primary" className="exo-setup-cta" data-autofocus onPress={onRetry}>Try again</Button>
+        <Button variant="ghost" onPress={() => send('close')}>Close</Button>
       </div>
     </section>
   )
@@ -166,11 +168,14 @@ function Failed({ state, problem }: { state: State; problem: string }) {
 
 function Setup() {
   const { state, screen, setScreen, progress, problem } = useHost()
+  // The step last asked for, to ask again from Failed.
+  const [last, setLast] = useState<{ desktop: boolean; removeData: boolean }>({ desktop: true, removeData: false })
   // The window shows once the first screen has drawn, so it never opens empty.
   useEffect(() => { if (state) requestAnimationFrame(() => requestAnimationFrame(() => send('shown'))) }, [state])
   useEffect(() => { document.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true }) }, [screen, state])
   if (!state) return null
   const go = (desktop: boolean, removeData = false) => {
+    setLast({ desktop, removeData })
     setScreen('working')
     if (state.mode === 'uninstall') send('uninstall', { removeData })
     else send('install', { desktop })
@@ -181,7 +186,7 @@ function Setup() {
       {screen === 'start' ? <Start state={state} onGo={go} /> : null}
       {screen === 'working' ? <Working state={state} progress={progress} /> : null}
       {screen === 'done' ? <Done state={state} /> : null}
-      {screen === 'failed' ? <Failed state={state} problem={problem} /> : null}
+      {screen === 'failed' ? <Failed state={state} problem={problem} onRetry={() => go(last.desktop, last.removeData)} /> : null}
     </main>
   )
 }

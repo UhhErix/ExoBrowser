@@ -398,7 +398,7 @@
   font: inherit;
   font-size: calc(13px * var(--exo-scale, 1));
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-bar-search:hover {
@@ -553,7 +553,7 @@
 /* Pressed (DESIGN.md › Controls): one fill for every raised or quiet control, the step past hover. */
 :is(.exo-set-btn:not(.is-primary), .exo-game-tool, .exo-play, .exo-shelf-sort-trigger,
   .exo-add-game-btn, .exo-game-close, .exo-shelf-chip, .exo-music-sort, .exo-music-mini button,
-  .exo-dc-icon-btn, .exo-dc-tab:not(.is-add, .exo-dc-blurple), .button--ghost, .exo-capture-btn, .exo-mouse-pill,
+  .exo-dc-icon-btn, .exo-dc-tab:not(.is-add), .button--ghost, .exo-capture-btn, .exo-mouse-pill,
   .exo-dc-item, .exo-dc-member, .exo-dc-server-name, .exo-dc-me-who, .exo-dc-input-btn, .exo-dc-new-bar-read,
   .exo-music-row, .exo-music-recent-open, .exo-music-top-open, .exo-settings-nav button, .exo-dc-settings-nav button, .exo-dc-round-btn, .exo-dc-label-btn):active:not(:disabled) {
   background-color: var(--exo-pressed);
@@ -562,7 +562,7 @@
 
 /* Primary is the one filled control: white, no hairline, so it stands apart from the black ones. */
 :is(.exo-set-btn, .exo-dc-cv-button, .exo-sgp-offer, .exo-upscaler-btn).is-primary,
-.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-blurple, .exo-dc-tab.is-raised.is-good) {
+.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-tab.is-raised.is-good) {
   box-shadow: none;
 }
 
@@ -591,7 +591,7 @@
   background-color: var(--hover-fill);
 }
 
-.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-blurple, .exo-dc-tab.is-raised.is-good):hover:not(:disabled) {
+.exo-dc :is(.exo-dc-tab.is-add, .exo-dc-tab.is-raised.is-good):hover:not(:disabled) {
   background-color: var(--exo-primary-hover);
 }
 
@@ -641,7 +641,7 @@
 }
 
 .exo-dc .exo-dc-browse-view {
-  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), scale var(--dur-quick) var(--ease-out),
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out),
     opacity var(--dur-quick) var(--ease-out);
 }
 
@@ -891,7 +891,7 @@
   font-size: calc(13px * var(--exo-scale, 1));
   text-align: left;
   cursor: pointer;
-  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
 .exo-dc-settings-nav button:hover {
@@ -1034,189 +1034,8 @@
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.15' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5l10 -10'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-/* PC (gpu/PcRoom.tsx; DESIGN.md › PC): the page list, then one page at a time beside it, each scrolling on its own;
-   a page once built stays, hidden, while another shows, so it keeps its scroll and its work. */
-.exo-pc {
-  display: grid;
-  flex: 1;
-  grid-template-columns: 264px minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-  background: var(--color-bg);
-  color: var(--color-fg);
-}
-
-.exo-pc-stage {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-}
-
-.exo-pc-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  min-height: 0;
-  padding: 12px var(--exo-gutter) 24px;
-  overflow-y: auto;
-  scroll-padding-top: 12px;
-}
-
-.exo-pc-page[hidden] {
-  display: none;
-}
-
-/* The page scrolls; what is on it keeps its height. */
-.exo-pc-page > * {
-  flex: none;
-}
-
-/* Apps: its two panels fill the page and end at its foot, and the page itself doesn't scroll. Each list (your apps, the
-   runtimes) scrolls in its own panel under its head and fades into the panel's foot (exo-shell.css › Infinity pool), as
-   Music's library and Discord's DMs do, so nothing runs off the page. Stacked in a narrow window, they share its height. */
-.exo-pc-page[data-pc-page="apps"] {
-  /* Level with the page list's foot. */
-  padding-bottom: var(--exo-gap);
-  overflow: hidden;
-}
-
-.exo-pc-page[data-pc-page="apps"] > .exo-pc-row {
-  flex: 1 1 auto;
-  grid-auto-rows: minmax(0, 1fr);
-  min-height: 0;
-}
-
-.exo-pc-page[data-pc-page="apps"] .exo-system-panel {
-  min-height: 0;
-  padding-bottom: 0;
-}
-
-.exo-pc-page[data-pc-page="apps"] .exo-system-panel-body {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding-bottom: 0;
-}
-
-.exo-pc-page[data-pc-page="apps"] :is(.exo-apps, .exo-runtimes) {
-  flex: 1;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-}
-
-.exo-pc-page[data-pc-page="apps"] :is(.exo-apps-list, .exo-runtimes-list) {
-  min-height: 0;
-  padding-bottom: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Panels side by side where two fit (each at least 460px), ending level; one alone takes the row. */
-.exo-pc-row {
-  display: grid;
-  flex: none;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr));
-  align-items: stretch;
-  gap: 12px;
-}
-
-/* Overview: the About card on the left, as tall as what is beside it: Best settings, then a row per page. */
-.exo-pc-overview {
-  display: grid;
-  flex: none;
-  grid-template-columns: minmax(320px, 5fr) minmax(0, 7fr);
-  align-items: stretch;
-  gap: 12px;
-}
-
-.exo-pc-overview-side {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-@media (max-width: 1200px) {
-  .exo-pc-overview {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* The About card, Apple's in Exo's glass: the card's glyph on a large tile of the ink (the page list's tile, grown),
-   its name as the title, then what it runs as label and value rows between hairlines, all on the card's center. */
-.exo-pc-hero {
-  align-items: center;
-  justify-content: center;
-  padding: 40px 32px 32px;
-  text-align: center;
-}
-
-.exo-pc-hero-mark {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 88px;
-  height: 88px;
-  border-radius: 24px;
-  box-shadow: var(--glassy-ring);
-  color: var(--color-fg);
-}
-
-.exo-pc-hero-name {
-  max-width: 100%;
-  margin: 20px 0 0;
-  color: var(--color-fg);
-  font-size: calc(20px * var(--exo-scale, 1));
-  font-weight: 650;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-/* Wide enough for a row that holds a few facts ("16 GB DDR4 · 3600 MT/s · 2 of 4 slots") on one line. */
-.exo-pc-hero-facts {
-  display: grid;
-  width: min(100%, 520px);
-  margin: 24px 0 0;
-}
-
-/* The groups (what it's made of, its drives, Windows, the screen) stand apart by a gap, each under its own hairline. */
-.exo-pc-hero-facts + .exo-pc-hero-facts {
-  margin-top: 16px;
-}
-
-.exo-pc-hero-facts > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 38px;
-  border-top: 1px solid var(--exo-float-line);
-  font-size: calc(13px * var(--exo-scale, 1));
-}
-
-.exo-pc-hero-facts dt {
-  flex: none;
-  color: var(--color-muted);
-}
-
-.exo-pc-hero-facts dd {
-  min-width: 0;
-  margin: 0;
-  overflow: hidden;
-  color: var(--color-fg);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.exo-pc-hero-wait {
-  width: min(100%, 520px);
-  margin-top: 24px;
-}
-
+/* The PC room's own layout is in pc-room.css, loaded with the room. A pane of glass with its name over its rows
+   (the PC room's columns, Devices' pages). */
 .exo-system-panel {
   display: flex;
   flex-direction: column;
@@ -1356,7 +1175,7 @@
   border-radius: 999px;
   background: var(--color-fg);
   pointer-events: none;
-  animation: exo-shaders-drop 120ms var(--ease-out);
+  animation: exo-shaders-drop var(--dur-quick) var(--ease-out);
 }
 
 .exo-shaders-slot.is-before::before {
@@ -1638,6 +1457,7 @@ html[data-exo-motion="reduce"] .exo-shaders-slot.is-after::after {
   background: var(--color-fg);
   opacity: 0.5;
   transform-origin: left;
+  /* design-disable-next-line exo/motion-token -- the featured game's 8s timer, a progress line */
   animation: exo-store-time 8s linear both;
   pointer-events: none;
 }

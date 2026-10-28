@@ -1,41 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Row, Section } from '../../components/settings/parts'
 import { send } from '../host'
-import { addLogins, b64, onVaultMessage, setVault, useVault, vaultNow, type Item, type VaultData } from './store'
-import { readExport } from './importers'
+import { b64, useVault } from './store'
 
 /*
  * Moving in and out: saved passwords straight from every browser on this PC, any other password manager's export,
- * and an encrypted export of this vault to open on another PC.
+ * and an encrypted export of this vault to open on another PC. What an import brings is read in store.ts. The
+ * export's passwords are uncontrolled fields, read once and cleared, as the master password's are (Gate.tsx).
  */
-
-type Found = { url: string; username: string; password: string; created: number }
-
-onVaultMessage('importItems', m => {
-  let found: Found[] = []
-  try { found = JSON.parse(m.items as string) as Found[] } catch { /* nothing readable */ }
-  const source = m.source as string
-  const locked = Number(m.locked) || 0
-  // Nothing saved there: the passwords may live in a password manager instead.
-  if (!found.length && !locked) {
-    setVault({ note: `${source} has no passwords saved on this PC. If a password manager kept them (Proton Pass, Bitwarden), export from it and bring that file in` })
-    return
-  }
-  addLogins(found.map(f => ({ type: 'login', urls: [f.url], username: f.username, password: f.password, created: f.created || undefined })), source)
-  if (locked) setVault({ note: `${vaultNow().note}. ${locked} more couldn't be read here: export them from ${source} as a CSV file and bring that in` })
-})
-onVaultMessage('importText', m => {
-  const items = readExport(m.name as string, m.text as string)
-  if (items.length) addLogins(items, m.name as string)
-  else setVault({ note: `${m.name as string} has nothing Exo Vault can read. Export as CSV or unencrypted JSON and try that` })
-})
-onVaultMessage('importJson', m => {
-  let data: Partial<VaultData> = {}
-  try { data = JSON.parse(m.json as string) as VaultData } catch { /* nothing readable */ }
-  setVault({ importLocked: '' })
-  addLogins((data.items ?? []).filter((i: Item) => !i.trashed), 'the Exo Vault export')
-})
 
 function Browsers() {
   const v = useVault()
@@ -58,36 +31,49 @@ function Browsers() {
 /** An Exo Vault export opens with the password it was exported with. */
 function ExoFile() {
   const v = useVault()
-  const [password, setPassword] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  const [typed, setTyped] = useState(false)
   if (!v.importLocked) return null
-  const open = () => { send('vaultImportOpen', b64(password)); setPassword('') }
+  const open = () => {
+    const el = field.current
+    if (!el?.value) return
+    send('vaultImportOpen', b64(el.value))
+    el.value = ''
+    setTyped(false)
+  }
   return (
     <Row label={v.importLocked} detail="The password this export was made with" error={v.error || null}>
-      <input className="exo-field exb-field" type="password" aria-label="Export password" value={password} autoFocus onChange={e => setPassword(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter' && password) open() }} />
-      <Button size="sm" className="exo-set-btn is-primary" isDisabled={!password} onPress={open}>Open</Button>
+      <input ref={field} className="exo-field exb-field" type="password" aria-label="Export password" autoFocus onChange={e => setTyped(!!e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') open() }} />
+      <Button size="sm" className="exo-set-btn is-primary" isDisabled={!typed} onPress={open}>Open</Button>
     </Row>
   )
 }
 
 function Export() {
   const v = useVault()
-  const [password, setPassword] = useState('')
-  const [again, setAgain] = useState('')
-  const ready = password.length >= 10 && password === again
+  const first = useRef<HTMLInputElement>(null), second = useRef<HTMLInputElement>(null)
+  const [read, setRead] = useState({ length: 0, again: 0, match: true })
+  const measure = () => {
+    const a = first.current?.value ?? '', b = second.current?.value ?? ''
+    setRead({ length: a.length, again: b.length, match: a === b })
+  }
+  const ready = read.length >= 10 && read.match
   const go = () => {
-    send('vaultExport', b64(password), b64(JSON.stringify(v.data)))
-    setPassword('')
-    setAgain('')
+    if (!ready || !first.current || !second.current) return
+    send('vaultExport', b64(first.current.value), b64(JSON.stringify(v.data)))
+    first.current.value = ''
+    second.current.value = ''
+    measure()
   }
   return (
     <Section id="vault-export" title="Export">
       <Row label="Encrypted export" detail="One file with everything in the vault, locked with a password you choose here. Open it in Exo Vault on another PC"
-        error={password && password.length < 10 ? 'At least 10 characters' : again && again !== password ? "The two don't match" : null}>
-        <input className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="Export password" placeholder="Password" value={password}
-          onChange={e => setPassword(e.target.value)} />
-        <input className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="Export password again" placeholder="Again" value={again}
-          onChange={e => setAgain(e.target.value)} />
+        error={read.length && read.length < 10 ? 'At least 10 characters' : read.again && !read.match ? "The two don't match" : null}>
+        <input ref={first} className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="Export password" placeholder="Password"
+          onChange={measure} />
+        <input ref={second} className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="Export password again" placeholder="Again"
+          onChange={measure} onKeyDown={e => { if (e.key === 'Enter') go() }} />
         <Button size="sm" className="exo-set-btn is-primary" isDisabled={!ready} onPress={go}>Export</Button>
       </Row>
     </Section>

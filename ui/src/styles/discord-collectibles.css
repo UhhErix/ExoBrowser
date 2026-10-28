@@ -235,7 +235,10 @@
 .exo-dc-dn.is-animated .is-prism { animation: exo-dc-dn-prism 2s linear forwards; }
 .exo-dc-dn.is-animated .exo-dc-dn-letter { animation: exo-dc-dn-gummy 4s cubic-bezier(0.44, 0.29, 0.48, 1) calc(var(--dn-letter, 0) * 50ms) forwards; }
 
-.exo-dc-dn.is-animated.is-loop :is(.exo-dc-dn-text, .exo-dc-dn-text::before, .exo-dc-dn-letter) {
+/* The pseudo-element on its own: inside :is() it is invalid and dropped, so a Toon's or Pop's shade played once while
+   its words went on. */
+.exo-dc-dn.is-animated.is-loop :is(.exo-dc-dn-text, .exo-dc-dn-letter),
+.exo-dc-dn.is-animated.is-loop .exo-dc-dn-text::before {
   animation-iteration-count: infinite;
 }
 
@@ -728,7 +731,6 @@
   gap: 2px;
 }
 
-.exo-dc-pay-head span,
 .exo-dc-pay-note,
 .exo-dc-shop-dialog-side .exo-dc-pay-note {
   margin: 0;
@@ -738,7 +740,7 @@
 
 .exo-dc-pay-note.is-bad,
 .exo-dc-shop-dialog-side .exo-dc-pay-note.is-bad {
-  color: var(--exo-red);
+  color: var(--color-bad);
 }
 
 .exo-dc-pay-grid {

@@ -107,7 +107,7 @@
   box-shadow: var(--exo-rim);
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
-  transition: opacity 80ms var(--ease-out), background-color 120ms var(--ease-out), box-shadow 120ms var(--ease-out), scale 120ms var(--ease-out);
+  transition: opacity var(--dur-press) var(--ease-out), background-color var(--dur-quick) var(--ease-out), box-shadow var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-play:disabled {
@@ -143,12 +143,12 @@
   white-space: nowrap;
   transform: none;
   transition:
-    color 120ms var(--ease-out),
-    border-color 120ms var(--ease-out),
-    background-color 120ms var(--ease-out),
-    box-shadow 120ms var(--ease-out),
-    opacity 120ms var(--ease-out),
-    scale 120ms var(--ease-out);
+    color var(--dur-quick) var(--ease-out),
+    border-color var(--dur-quick) var(--ease-out),
+    background-color var(--dur-quick) var(--ease-out),
+    box-shadow var(--dur-quick) var(--ease-out),
+    opacity var(--dur-quick) var(--ease-out),
+    scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-add-game-btn,
@@ -226,7 +226,7 @@
 
 .exo-enter {
   isolation: isolate;
-  animation: exo-enter 200ms var(--ease-out) backwards;
+  animation: exo-enter var(--dur-base) var(--ease-out) backwards;
 }
 
 .exo-enter::after {
@@ -238,7 +238,7 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  animation: exo-enter-cover 200ms var(--ease-out) backwards;
+  animation: exo-enter-cover var(--dur-base) var(--ease-out) backwards;
 }
 
 /* Scrims and rooms: opacity only, so nothing moves under the content. */
@@ -277,7 +277,7 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  animation: exo-enter-cover 120ms var(--ease-out) backwards;
+  animation: exo-enter-cover var(--dur-quick) var(--ease-out) backwards;
 }
 
 /* Large glass (menus, popovers, a profile card) appears from its trigger's side: 0.96 → 1 on the base
@@ -341,6 +341,7 @@ html[data-exo-motion="reduce"] :is(.exo-glass, .exo-shelf-sort-menu, .exo-key-po
 }
 
 html[data-exo-motion="reduce"] .exo-dc-savebar.is-nudged {
+  /* design-disable-next-line exo/motion-token -- reduce motion: the unsaved bar's red hold without the shake */
   animation: exo-dc-nudge-red 900ms linear both !important;
 }
 

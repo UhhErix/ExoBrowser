@@ -13,7 +13,7 @@
   justify-content: center;
   gap: 8px;
   max-width: 100%;
-  transition: opacity 160ms var(--ease-out), transform 160ms var(--ease-out), color 160ms var(--ease-out);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
 }
 
 .exo-action-state {
@@ -51,20 +51,17 @@
   font-weight: 600;
 }
 
-.exo-primary-action.is-active .exo-action-idle,
-.exo-update-action.is-active .exo-action-idle {
+.exo-primary-action.is-active .exo-action-idle {
   opacity: 0;
   transform: translateY(-3px);
 }
 
-.exo-primary-action.is-active .exo-action-active,
-.exo-update-action.is-active .exo-action-active {
+.exo-primary-action.is-active .exo-action-active {
   opacity: 1;
   transform: translateY(0);
 }
 
-.exo-primary-action.is-active:disabled,
-.exo-update-action.is-active:disabled {
+.exo-primary-action.is-active:disabled {
   opacity: 1;
 }
 
@@ -82,8 +79,8 @@
 
 /*
  * The intro: the app icon itself (public/logo.svg, the vector make-logo.py draws), so it is exactly as sharp
- * and lit as the icon on the taskbar. It settles in once, from 0.94 and 8px low to rest, on the spring
- * (DESIGN.md › Motion), while a soft light rises behind it, then holds still while Exo loads. Transform and
+ * and lit as the icon on the taskbar. It settles in once, from 0.94 and 8px low to rest, on the spring over the
+ * flight time (DESIGN.md › Motion), while a soft light rises behind it, then holds still while Exo loads. Transform and
  * opacity only, on its own layer, so the compositor runs it at the screen's own rate however busy the page
  * is behind it; it grows to its rest size, never past it, so it never draws from a smaller raster.
  */
@@ -99,7 +96,7 @@
 
 .exo-boot.is-playing::before {
   opacity: 1;
-  animation: exo-boot-fade 900ms var(--ease-out) 120ms both;
+  animation: exo-boot-fade var(--dur-flight) var(--ease-out) var(--dur-quick) both;
 }
 
 .exo-boot-icon {
@@ -113,7 +110,7 @@
 
 .exo-boot.is-playing .exo-boot-icon {
   opacity: 1;
-  animation: exo-boot-fade 360ms var(--ease-out) both, exo-boot-settle 640ms var(--ease-spring) both;
+  animation: exo-boot-fade var(--dur-base) var(--ease-out) both, exo-boot-settle var(--dur-flight) var(--ease-spring) both;
 }
 
 @keyframes exo-boot-fade {
@@ -124,7 +121,8 @@
   from { transform: translateY(8px) scale(0.94); }
 }
 
-:root[data-exo-motion='reduce'] :is(.exo-boot::before, .exo-boot .exo-boot-icon) {
+:root[data-exo-motion='reduce'] .exo-boot::before,
+:root[data-exo-motion='reduce'] .exo-boot .exo-boot-icon {
   opacity: 1;
   animation: none;
 }
@@ -292,7 +290,7 @@
   opacity: 0;
   width: 100%;
   height: 100%;
-  transition: opacity 180ms var(--ease-out);
+  transition: opacity var(--dur-base) var(--ease-out);
   position: absolute;
   inset: 0;
 }
@@ -413,7 +411,7 @@
 /* Arrive (DESIGN.md › Motion): the cover, then each part of the page in turn. */
 .exo-game-page .exo-game-cover-col,
 .exo-game-page .exo-game-info > * {
-  animation: exo-arrive 280ms var(--ease-out) backwards;
+  animation: exo-arrive var(--dur-arrive) var(--ease-out) backwards;
 }
 
 .exo-game-page .exo-game-info > :nth-child(1) { animation-delay: 24ms; }

@@ -1,12 +1,13 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { browser, holdInput, isFirstRun, local, onHost, send, setSetting, useBrowserValue, type Tab } from './host'
-import { engineOf, hostOf, isNewTab, looksLikeUrl, siteSearches, siteSearchOf, siteSearchUrl, toUrl, type SiteSearch } from './search'
+import { bare, engineOf, historyIndex, hostOf, isNewTab, looksLikeUrl, queryWords, siteSearches, siteSearchOf, siteSearchUrl, toUrl, type SiteSearch } from './search'
 import * as I from './icons'
 import { openVault } from './vault/store'
 import { closeMenu, menuKind, newSpace, openMenu, pageEdges, type Item } from './menus'
 import { markInk, spaceIcon } from './look'
 import { boostSite } from './Boosts'
 import { newFolder } from './Folders'
+import { fromKeyboard } from '../lib/motionPreference'
 
 /*
  * Search lives in the address: clicking it (or Ctrl+L, Ctrl+K) opens Exo's Search panel in place, the field over
@@ -44,7 +45,6 @@ const COMMANDS: { title: string; Icon: I.Icon; run: () => void }[] = [
   { title: 'Close other tabs', Icon: I.Close, run: () => send('closeOthers', browser().active) },
   { title: 'Tabs down the side', Icon: I.SideTabs, run: () => setSetting('tabs', 'vertical') },
   { title: 'Tabs across the top', Icon: I.TopTabs, run: () => setSetting('tabs', 'horizontal') },
-  { title: 'Hide the toolbar', Icon: I.TopTabs, run: () => setSetting('autohide', browser().settings.autohide === 'on' ? 'off' : 'on') },
   { title: 'Extensions', Icon: I.Puzzle, run: () => openSettingsAt('extensions') },
   { title: 'Exo Shield', Icon: I.Shield, run: () => openSettingsAt('privacy') },
   { title: 'Exo Vault', Icon: I.Vault, run: () => openVault() },
@@ -56,39 +56,43 @@ const COMMANDS: { title: string; Icon: I.Icon; run: () => void }[] = [
   { title: 'Get extensions', Icon: I.Puzzle, run: () => send('navigate', 'https://chromewebstore.google.com/', 'new') },
 ]
 
-const frecency = (item: [string, string, number, number], now: number) => {
+const frecency = (item: readonly [string, string, number, number], now: number) => {
   const days = (now - item[3]) / 86400
   return item[2] * (days < 1 ? 100 : days < 4 ? 70 : days < 14 ? 50 : days < 31 ? 30 : days < 90 ? 10 : 2)
 }
-function matchScore(text: string, query: string) {
-  if (!query) return 1
-  const t = text.toLowerCase()
+/** How well lowercased words match what's typed (its words, queryWords): 0 unless every word is in them, more where
+ *  one starts them or starts a word in them. Nothing typed matches everything. */
+function scoreLower(t: string, words: string[]) {
+  if (!words.length) return 1
   let score = 0
-  for (const word of query.toLowerCase().split(/\s+/).filter(Boolean)) {
+  for (const word of words) {
     const at = t.indexOf(word)
     if (at < 0) return 0
     score += at === 0 ? 3 : /[\s./:-]/.test(t[at - 1]) ? 2 : 1
   }
   return score
 }
+const matchScore = (text: string, words: string[]) => scoreLower(text.toLowerCase(), words)
 const title = (t: Tab) => isNewTab(t.url) ? 'New tab' : t.title || hostOf(t.url) || 'New tab'
-const bare = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '')
 
 // Commands matching what's typed: Exo Browser's own, then the spaces'.
 type Searched = Pick<ReturnType<typeof browser>, 'history' | 'tabs' | 'bookmarks' | 'favicons' | 'settings' | 'archive' | 'spaces' | 'space' | 'active'>
 
-function commandRows(text: string, b: Searched): Row[] {
-  const spaces = [
+function commandRows(words: string[], b: Searched): Row[] {
+  const hidden = b.settings.autohide === 'on'
+  const more = [
+    // Named for what it does now: while the toolbar hides, it shows it.
+    { title: hidden ? 'Show the toolbar' : 'Hide the toolbar', Icon: I.TopTabs, run: () => setSetting('autohide', hidden ? 'off' : 'on') },
     { title: 'New space', Icon: I.Plus, run: () => newSpace() },
     ...(b.spaces.length > 1 ? b.spaces.filter(s => s.id !== b.space).map(s => ({ title: `Switch to ${s.name}`, Icon: spaceIcon(s.icon), run: () => send('space', s.id) })) : []),
   ]
-  const cmds = [...COMMANDS, ...spaces].filter(c => matchScore(c.title, text) > 0).slice(0, 4)
+  const cmds = [...COMMANDS, ...more].filter(c => matchScore(c.title, words) > 0).slice(0, 4)
   return cmds.length ? [{ group: 'Commands' }, ...cmds.map(c => ({ kind: 'cmd' as const, Icon: c.Icon, main: c.title, run: c.run }))] : []
 }
 
 // Tabs the archive closed, found by what's typed (not ones open again).
-function archivedRows(text: string, b: Searched, open: Set<string>): Row[] {
-  const found = b.archive.filter(a => !open.has(a[0])).map(a => ({ a, s: matchScore(`${a[1]} ${bare(a[0])}`, text) })).filter(x => x.s > 0).slice(0, 3)
+function archivedRows(words: string[], b: Searched, open: Set<string>): Row[] {
+  const found = b.archive.filter(a => !open.has(a[0])).map(a => ({ a, s: matchScore(`${a[1]} ${bare(a[0])}`, words) })).filter(x => x.s > 0).slice(0, 3)
   // Chosen, it comes back as the tab it was, in the space it left, and leaves the archive.
   return found.length ? [{ group: 'Archived' }, ...found.map(({ a }) => ({ kind: 'go' as const, Icon: I.Archive, main: a[1] || hostOf(a[0]), sub: bare(a[0]), url: a[0], archived: a[2] }))] : []
 }
@@ -96,9 +100,13 @@ function archivedRows(text: string, b: Searched, open: Set<string>): Row[] {
 // Searching one site (its chip in the field): what's typed searches it, its pages from history under that.
 function siteRows(text: string, site: SiteSearch, b: Searched): Row[] {
   const rows: Row[] = text ? [{ kind: 'go', Icon: I.Search, main: text, sub: `Search ${site.name}`, url: siteSearchUrl(site, text) }] : []
-  const host = hostOf(site.url)
-  const hist = b.history.filter(h => hostOf(h[0]) === host).map(h => ({ h, s: matchScore(`${h[1]} ${bare(h[0])}`, text) })).filter(x => x.s > 0).slice(0, 6)
-  if (hist.length) rows.push({ group: 'History' }, ...hist.map(({ h }) => ({ kind: 'go' as const, Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0], hist: true })))
+  const host = hostOf(site.url), words = queryWords(text), index = historyIndex(b.history)
+  const hist: Row[] = []
+  for (let i = 0; i < b.history.length && hist.length < 6; i++) {
+    const h = b.history[i]
+    if (index.host[i] === host && scoreLower(index.words[i], words) > 0) hist.push({ kind: 'go', Icon: I.History, main: h[1] || host, sub: index.bare[i], url: h[0], hist: true })
+  }
+  if (hist.length) rows.push({ group: 'History' }, ...hist)
   return rows
 }
 
@@ -172,34 +180,43 @@ function opensActions(e: KeyboardEvent<HTMLInputElement>) {
   return (e.key === 'Tab' && !e.shiftKey) || e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey) || (e.key === 'ArrowRight' && end)
 }
 
+/** History by how well it matches and how often and lately you went there, read from its index (search.ts). */
+function historyRows(words: string[], b: Searched, skip: Set<string>, max: number): Row[] {
+  const now = Date.now() / 1000, index = historyIndex(b.history)
+  const found: { i: number; score: number }[] = []
+  b.history.forEach((h, i) => {
+    if (skip.has(h[0])) return
+    const s = scoreLower(index.words[i], words)
+    if (s > 0) found.push({ i, score: s * 10 + Math.log2(1 + frecency(h, now)) })
+  })
+  return found.sort((a, z) => z.score - a.score).slice(0, max).map(({ i }) => {
+    const [url, name] = b.history[i]
+    return { kind: 'go', Icon: I.History, main: name || hostOf(url), sub: index.bare[i], url, hist: true }
+  })
+}
+
 function rowsFor(text: string, mode: Mode, b: Searched, site: SiteSearch | null): Row[] {
   if (site) return siteRows(text, site, b)
-  const now = Date.now() / 1000
+  const words = queryWords(text)
   const rows: Row[] = text ? [firstRow(text, b)] : []
   const open = new Set(b.tabs.map(t => t.url))
   const tabs = b.tabs.filter(t => (t.id !== b.active || mode === 'palette') && !isNewTab(t.url))
-    .map(t => ({ t, s: matchScore(`${t.title} ${t.url}`, text) })).filter(x => x.s > 0).slice(0, text ? 5 : 6)
+    .map(t => ({ t, s: matchScore(`${t.title} ${t.url}`, words) })).filter(x => x.s > 0).slice(0, text ? 5 : 6)
   if (tabs.length) {
     rows.push({ group: 'Switch to tab' })
     // A tab of another space says which: switching to it goes there.
     const spaceName = (t: Tab) => t.space !== b.space ? b.spaces.find(s => s.id === t.space)?.name : ''
     for (const { t } of tabs) rows.push({ kind: 'tab', id: t.id, fav: b.favicons[t.id], Icon: I.Globe, main: title(t), sub: [hostOf(t.url), spaceName(t)].filter(Boolean).join(' · ') })
   }
-  const marks = text ? b.bookmarks.map(m => ({ m, s: matchScore(`${m[1]} ${m[0]}`, text) })).filter(x => x.s > 0).slice(0, 4) : []
+  const marks = text ? b.bookmarks.map(m => ({ m, s: matchScore(`${m[1]} ${m[0]}`, words) })).filter(x => x.s > 0).slice(0, 4) : []
   if (marks.length) {
     rows.push({ group: 'Bookmarks' })
     for (const { m } of marks) rows.push({ kind: 'go', Icon: I.Star, fav: m[2], main: m[1] || hostOf(m[0]), sub: hostOf(m[0]), url: m[0] })
   }
-  if (text) rows.push(...archivedRows(text, b, open))
-  const marked = new Set(marks.map(x => x.m[0]))
-  const hist = b.history.filter(h => !open.has(h[0]) && !marked.has(h[0]))
-    .map(h => ({ h, s: matchScore(`${h[1]} ${bare(h[0])}`, text) })).filter(x => x.s > 0)
-    .map(x => ({ ...x, score: x.s * 10 + Math.log2(1 + frecency(x.h, now)) })).sort((a, z) => z.score - a.score).slice(0, text ? 7 : 6)
-  if (hist.length) {
-    rows.push({ group: text ? 'History' : 'Recent' })
-    for (const { h } of hist) rows.push({ kind: 'go', Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0], hist: true })
-  }
-  if (text && !looksLikeUrl(text)) rows.push(...commandRows(text, b))
+  if (text) rows.push(...archivedRows(words, b, open))
+  const hist = historyRows(words, b, new Set([...open, ...marks.map(x => x.m[0])]), text ? 7 : 6)
+  if (hist.length) rows.push({ group: text ? 'History' : 'Recent' }, ...hist)
+  if (text && !looksLikeUrl(text)) rows.push(...commandRows(words, b))
   if (text) rows.push(...fallbackRows(text, b))
   return rows
 }
@@ -223,7 +240,9 @@ export function useSearch() {
   }
   const ref = useRef(controller)
   ref.current = controller
-  useEffect(() => onHost('overlay', m => ref.current.open(m.mode as Mode, (m.text as string) || '')), [])
+  // The host opens it for a key (Ctrl+L, Ctrl+K, Alt+D, F6, typing on the new tab page): it lands at once, as what the
+  // keyboard does in Exo (data-exo-input, browser.css); a click on the address keeps its grow.
+  useEffect(() => onHost('overlay', m => { document.documentElement.dataset.exoInput = 'key'; ref.current.open(m.mode as Mode, (m.text as string) || '') }), [])
   // Ctrl+K again closes Search; with Settings or a menu open instead, it leaves them be.
   useEffect(() => onHost('close', () => { if (ref.current.mode) ref.current.close() }), [])
   useEffect(() => onHost('overlay.closed', () => ref.current.close()), [])
@@ -235,59 +254,87 @@ export function SearchBox({ controller }: { controller: ReturnType<typeof useSea
   return controller.mode ? <Panel controller={controller} mode={controller.mode} /> : null
 }
 
+/** What Search opens with: the address of the tab on screen to edit, or what was typed elsewhere. */
+function openingText(mode: Mode, seed: string) {
+  const b = browser()
+  const tab = b.tabs.find(t => t.id === b.active)
+  return mode === 'edit' && tab?.url && !isNewTab(tab.url) ? tab.url : seed
+}
+
+/** Where the panel goes: over the address it opens from. */
+function placeOf() {
+  const b = browser()
+  const cap = document.getElementById('exb-address')!.getBoundingClientRect()
+  // Where the address rests: a hidden Bar is slid up by `translate` while it waits to come in.
+  const slide = getComputedStyle(document.getElementById('exb-bar')!).translate
+  const [dx = 0, dy = 0] = slide === 'none' ? [] : slide.split(' ').map(parseFloat)
+  // Over the page only: never over the side tabs or the Bar's capsules still showing (the tabs step aside for it, so
+  // they never count, even measured before they have), whose words would show through it (the window frosts the page
+  // under it, not the chrome). Where they leave it under 360 px, it opens under the Bar, which Search holds shown even
+  // with the toolbar hidden (read as hidden, the Bar's band was 0 and it opened over the Bar's tools).
+  const edges = pageEdges(true), floor = edges.left ? edges.left + 10 : 12
+  const beside = [...document.querySelectorAll('#exb-bar .exo-glass')]
+    .filter(e => e.id !== 'exb-address' && !e.closest('.exb-strip') && e.checkVisibility({ visibilityProperty: true }))
+    .map(e => e.getBoundingClientRect())
+  const lo = Math.max(floor, ...beside.filter(r => r.right <= cap.left + 1).map(r => r.right - dx + 8))
+  const hi = Math.min(innerWidth - 12, ...beside.filter(r => r.left >= cap.right - 1).map(r => r.left - dx - 8))
+  const roomy = hi - lo >= 360
+  const [from, to] = roomy ? [lo, hi] : [floor, innerWidth - 12]
+  const width = Math.min(to - from, Math.max(560, cap.width))
+  // It grows out of the address: from its left edge on the left of the Bar, around its middle when it's centered.
+  const centered = b.settings.tabs === 'vertical'
+  const left = centered ? cap.left - dx + cap.width / 2 - width / 2 : cap.left - dx
+  return { left: Math.max(from, Math.min(to - width, left)), top: roomy ? cap.top - dy : edges.top + 6, width }
+}
+
 function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>; mode: Mode }) {
   const { seed } = controller
   // What its rows are made of, each read alone (a download's progress doesn't score them again).
   const history = useBrowserValue(b => b.history), tabs = useBrowserValue(b => b.tabs), bookmarks = useBrowserValue(b => b.bookmarks)
   const favicons = useBrowserValue(b => b.favicons), settings = useBrowserValue(b => b.settings), archive = useBrowserValue(b => b.archive)
   const spaces = useBrowserValue(b => b.spaces), space = useBrowserValue(b => b.space), active = useBrowserValue(b => b.active)
-  const [text, setText] = useState('')
+  // Opening: the address (or what was typed elsewhere), the panel over the address, both in its first render (it mounts
+  // on each open): set by an effect, its first rows were drawn twice, each time scoring all of history.
+  const [text, setText] = useState(() => openingText(mode, seed))
   const [site, setSite] = useState<SiteSearch | null>(null)
   const [sel, setSel] = useState(0)
   const [acting, setActing] = useState(false)  // a row's actions are open
-  const [box, setBox] = useState({ left: 0, top: 0, width: 560 })
+  const [box, setBox] = useState(placeOf)
+  // Opened by a key, it is there at once (is-key, browser.css). Taken as it opens: read from the root on each render,
+  // the first click in it turned the root back to a pointer's and replayed its grow.
+  const [byKey] = useState(fromKeyboard)
   const field = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
+  const opened = useRef({ mode, seed })
+  const pointed = useRef(false)  // the pointer chose the row: the list doesn't move under it
 
-  // Opening: the address (or what was typed elsewhere), selected; the panel over the address.
+  // Asked for again while open (Ctrl+L over Ctrl+K, what was typed on the new tab page): what it opens with.
   useLayoutEffect(() => {
-    const b = browser()
-    const tab = b.tabs.find(t => t.id === b.active)
-    setText(mode === 'edit' && tab?.url && !isNewTab(tab.url) ? tab.url : seed)
+    if (opened.current.mode === mode && opened.current.seed === seed) return
+    opened.current = { mode, seed }
+    setText(openingText(mode, seed))
     setSite(null)
     setSel(0)
-    const place = () => {
-      const cap = document.getElementById('exb-address')!.getBoundingClientRect()
-      // Where the address rests: a hidden Bar is slid up by `translate` while it waits to come in.
-      const slide = getComputedStyle(document.getElementById('exb-bar')!).translate
-      const [dx = 0, dy = 0] = slide === 'none' ? [] : slide.split(' ').map(parseFloat)
-      // Over the page only: never over the side tabs or the Bar's capsules still showing (the tabs step aside for it),
-      // whose words would show through it (the window frosts the page under it, not the chrome). Where they leave it
-      // under 360 px, it opens under the Bar.
-      const edges = pageEdges(), floor = edges.left ? edges.left + 10 : 12
-      const beside = [...document.querySelectorAll('#exb-bar .exo-glass')].filter(e => e.id !== 'exb-address' && e.checkVisibility({ visibilityProperty: true }))
-        .map(e => e.getBoundingClientRect())
-      const lo = Math.max(floor, ...beside.filter(r => r.right <= cap.left + 1).map(r => r.right - dx + 8))
-      const hi = Math.min(innerWidth - 12, ...beside.filter(r => r.left >= cap.right - 1).map(r => r.left - dx - 8))
-      const roomy = hi - lo >= 360
-      const [from, to] = roomy ? [lo, hi] : [floor, innerWidth - 12]
-      const width = Math.min(to - from, Math.max(560, cap.width))
-      // It grows out of the address: from its left edge on the left of the Bar, around its middle when it's centered.
-      const centered = b.settings.tabs === 'vertical'
-      const left = centered ? cap.left - dx + cap.width / 2 - width / 2 : cap.left - dx
-      setBox({ left: Math.max(from, Math.min(to - width, left)), top: roomy ? cap.top - dy : edges.top + 6, width })
-    }
-    place()
-    addEventListener('resize', place)
-    requestAnimationFrame(() => { field.current?.focus(); if (mode === 'ntp') field.current?.setSelectionRange(9e9, 9e9); else field.current?.select() })
-    return () => removeEventListener('resize', place)
   }, [mode, seed])
-  // The selected row stays in view as the arrows move it.
-  useEffect(() => { list.current?.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' }) }, [sel, mode])
-  const rows = useMemo(() => rowsFor(text.trim(), mode, { history, tabs, bookmarks, favicons, settings, archive, spaces, space, active }, site),
-    [text, mode, site, history, tabs, bookmarks, favicons, settings, archive, spaces, space, active])
+  useLayoutEffect(() => {
+    const place = () => setBox(placeOf())
+    addEventListener('resize', place)
+    return () => removeEventListener('resize', place)
+  }, [])
+  // The field takes the keyboard, its words selected (on the new tab page, the caret after what was typed).
+  useLayoutEffect(() => {
+    const frame = requestAnimationFrame(() => { field.current?.focus(); if (mode === 'ntp') field.current?.setSelectionRange(9e9, 9e9); else field.current?.select() })
+    return () => cancelAnimationFrame(frame)
+  }, [mode, seed])
+  const rows = rowsFor(text.trim(), mode, { history, tabs, bookmarks, favicons, settings, archive, spaces, space, active }, site)
   const picks = rows.filter((r): r is Choice => !('group' in r))
   const current = Math.min(sel, Math.max(0, picks.length - 1))
+  // The selected row stays in view as the keys move it (not when the pointer chose it: the list nudged under it).
+  useEffect(() => {
+    if (pointed.current) { pointed.current = false; return }
+    list.current?.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' })
+  }, [current, mode])
+  const point = (i: number) => { if (i !== current) { pointed.current = true; setSel(i) } }
   // A row's actions, hanging just under it: from its right end from the keyboard, from the pointer from a right-click
   // (the row stays whole, the menu under the words it was opened on). The other rows step
   // back meanwhile (is-acting): the menu's glass frosts the page, not this panel, whose words would show through it.
@@ -298,7 +345,8 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
     const items = r ? rowActions(r, browser(), stay => { if (stay) back(); else controller.close() }) : []
     const row = list.current?.querySelectorAll('.exb-search-row')[i]?.getBoundingClientRect()
     if (!items.length || !row) return false
-    setSel(i)
+    if (x === undefined) setSel(i)
+    else point(i)
     setActing(true)
     if (x === undefined) openMenu(items, row.right - 8, row.bottom - 8, true, 'search', back)
     else openMenu(items, x, row.bottom - 8, false, 'search', back)
@@ -319,13 +367,14 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
     const input = field.current!
     if (!value || deleting || /\s/.test(value) || input.selectionStart !== value.length) return
     const lower = value.toLowerCase(), now = Date.now() / 1000
+    const all = browser().history, index = historyIndex(all)
     let best = '', bestScore = 0
-    for (const h of browser().history) {
-      const url = bare(h[0])
-      if (!url.toLowerCase().startsWith(lower)) continue
+    for (let i = 0; i < all.length; i++) {
+      if (!index.lower[i].startsWith(lower)) continue
+      const url = index.bare[i]
       const site = url.split('/')[0]
       const candidate = site.toLowerCase().startsWith(lower) ? site : url
-      const score = frecency(h, now) + (candidate === site ? 50 : 0)
+      const score = frecency(all[i], now) + (candidate === site ? 50 : 0)
       if (score > bestScore) { best = candidate; bestScore = score }
     }
     // Written into the field and selected at once, so the next key replaces it.
@@ -339,7 +388,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
   let n = -1
   return (
     <div className="exb-search-layer" onPointerDown={e => { if (e.target === e.currentTarget) controller.close() }}>
-      <div role="dialog" aria-label="Search" className={`exo-glass is-panel exb-search${acting ? ' is-acting' : ''}`} style={{ left: box.left, top: box.top, width: box.width, '--exb-search-top': `${box.top}px` } as CSSProperties}>
+      <div role="dialog" aria-label="Search" className={`exo-glass is-panel exb-search${byKey ? ' is-key' : ''}${acting ? ' is-acting' : ''}`} style={{ left: box.left, top: box.top, width: box.width, '--exb-search-top': `${box.top}px` } as CSSProperties}>
         <div className="exb-search-field">
           <I.Search className="exb-search-icon" />
           {site ? <span className="exb-search-chip">{site.name}</span> : null}
@@ -372,7 +421,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
               const i = ++n
               return (
                 <div key={k} role="option" aria-selected={i === current} className={`exb-search-row${i === current ? ' is-selected' : ''}`}
-                  onPointerMove={() => { if (i !== current) setSel(i) }}
+                  onPointerMove={() => point(i)}
                   onPointerDown={e => { e.preventDefault(); if (e.button !== 2) choose(i, e.button === 1) }}
                   onContextMenu={e => { e.preventDefault(); showActions(i, e.clientX) }}>
                   {'fav' in r && r.fav ? <img className="exb-search-fav" src={r.fav} alt="" onLoad={e => markInk(e.currentTarget)} /> : <r.Icon className="exb-search-lead" />}

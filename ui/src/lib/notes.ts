@@ -50,15 +50,24 @@ export function watchNotesOpen(onFail: (message: string) => void): () => void {
   })
 }
 
+// Made once: toLocale*String with options builds a new formatter per call, about 0.1 ms, once per note in the list.
+let formats: { time: Intl.DateTimeFormat; day: Intl.DateTimeFormat } | null = null
+
 /** "Today 14:02", "Yesterday 09:10", "12 Oct 18:40". */
 export function noteWhen(iso: string): string {
+  formats ??= {
+    time: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }),
+    day: new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }),
+  }
   const date = new Date(iso)
+  // A formatter throws on a date it can't read, where toLocale*String wrote "Invalid Date".
+  if (Number.isNaN(date.getTime())) return ''
   const today = new Date()
-  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  const time = formats.time.format(date)
   if (date.toDateString() === today.toDateString()) return `Today ${time}`
   const yesterday = new Date(today.getTime() - 86_400_000)
   if (date.toDateString() === yesterday.toDateString()) return `Yesterday ${time}`
-  return `${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })} ${time}`
+  return `${formats.day.format(date)} ${time}`
 }
 
 /** Ctrl+K's notes: New note and Notes, then every note by its title and words, read when the palette opens. */

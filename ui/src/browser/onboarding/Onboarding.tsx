@@ -3,8 +3,8 @@ import { Button } from '../../components/ui/Button'
 import { Switch } from '../../components/Switch'
 import { Row, State } from '../../components/settings/parts'
 import * as I from '../icons'
-import { api, send, setSetting, useBrowserValue } from '../host'
-import { Choice } from '../Settings'
+import { api, onHost, send, setSetting, useBrowserValue } from '../host'
+import { Choice } from '../Choice'
 import { WindowButtons } from '../Chrome'
 import { CreateVault } from '../vault/Gate'
 import { useVault } from '../vault/store'
@@ -56,7 +56,6 @@ function BringStep() {
           {done.includes(key) ? <State on>Brought in</State> : <Button size="sm" className="exo-set-btn is-primary" onPress={() => bring(key)}>Bring in</Button>}
         </Row>
       ))}
-      <Row label="Close those browsers first" detail="So their sign-ins can be read. Nothing is removed from them" />
     </>
   )
 }
@@ -76,14 +75,16 @@ function LookStep() {
   )
 }
 
-/** Windows says whether it's the default; asked again every few seconds while you choose in its Settings. */
+/** Windows says whether it's the default: asked as the step shows, and again as the window comes back from Windows'
+ *  Default apps page (the host's activation), not every two seconds meanwhile. */
 function DefaultStep() {
   const [state, setState] = useState<{ registered?: boolean; isDefault?: boolean }>({})
   useEffect(() => {
-    const check = () => void api<{ registered?: boolean; isDefault?: boolean }>('/state.json').then(s => setState(s ?? {}))
+    let live = true
+    const check = () => void api<{ registered?: boolean; isDefault?: boolean }>('/state.json').then(s => { if (live) setState(s ?? {}) })
     check()
-    const timer = setInterval(check, 2000)
-    return () => clearInterval(timer)
+    const off = onHost('active', m => { if (m.on) check() })
+    return () => { live = false; off() }
   }, [])
   if (state.isDefault) return <Row label="Exo Browser is your default" detail="Links from your other apps open here" icon={<I.Check />}><State on>Default</State></Row>
   return (
@@ -120,7 +121,6 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           {index === 0 ? null : <div className="exo-ob-body">{BODY[step.id]()}</div>}
         </section>
         <footer className={`exo-ob-foot${index === 0 ? ' is-welcome' : ''}`}>
-          <p className="exo-ob-note" role="status">{index > 0 && !last ? 'You can skip this and come back to it in Settings' : ' '}</p>
           <div className="exo-ob-actions">
             {index > 0 ? <Button variant="ghost" onPress={() => go(index - 1)}>Back</Button> : null}
             <Button variant="primary" className="exo-ob-cta" onPress={() => (last ? onDone() : go(index + 1))}>{index === 0 ? 'Get started' : last ? 'Start browsing' : 'Continue'}</Button>

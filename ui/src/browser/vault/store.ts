@@ -65,19 +65,28 @@ export type Vault = {
   sources: [string, string, boolean][]
   importLocked: string
   note: string
+  /** Counts each note shown, so the same note again (a second copy) starts its time again. */
+  noteKey: number
 }
 
 let vault: Vault = {
   state: 'unknown', hello: false, helloReady: false, busy: false, error: '', data: null, open: false, section: 'all', selected: null,
-  editing: null, fill: null, prompt: null, sources: [], importLocked: '', note: '',
+  editing: null, fill: null, prompt: null, sources: [], importLocked: '', note: '', noteKey: 0,
 }
 const listeners = new Set<() => void>()
 export function setVault(patch: Partial<Vault>) {
-  vault = { ...vault, ...patch }
+  vault = { ...vault, ...patch, ...(patch.note ? { noteKey: vault.noteKey + 1 } : {}) }
   for (const l of listeners) l()
 }
 export const vaultNow = () => vault
-export const useVault = () => useSyncExternalStore(l => { listeners.add(l); return () => listeners.delete(l) }, () => vault)
+const subscribe = (l: () => void) => { listeners.add(l); return () => { listeners.delete(l) } }
+export const useVault = () => useSyncExternalStore(subscribe, () => vault)
+/** Whether the vault's sheet is open, alone: the window's root draws again only when that changes. */
+export const useVaultOpen = () => useSyncExternalStore(subscribe, () => vault.open)
+
+// What forgets the vault's things when it locks (the sites' icons its lists asked for).
+const lockWatchers = new Set<() => void>()
+export function whenLocked(forget: () => void) { lockWatchers.add(forget) }
 
 // While the vault shows what's in it, the window stays out of screen captures (HideFromCapture in main.cpp): counted,
 // as its sheet, the fill menu and the save prompt can be up together. A chrome page loading again starts with none.
@@ -104,9 +113,10 @@ export function b64(text: string) {
   return btoa(bin)
 }
 
+// What happened, and what to do about it.
 const REASONS: Record<string, string> = {
-  wrong: 'That master password is not right', corrupt: "The vault file can't be read", nofile: 'There is no vault on this PC yet',
-  write: "The vault couldn't be saved", nohello: "Windows Hello isn't set up on this PC", hellofailed: "Windows Hello couldn't open the vault. Use your master password",
+  wrong: 'That master password is not right', corrupt: "That vault file can't be read. Try again, or open an Exo Vault export instead", nofile: 'There is no vault on this PC yet',
+  write: "Your last change wasn't saved. Try again", nohello: "Windows Hello isn't set up on this PC", hellofailed: "Windows Hello couldn't open the vault. Use your master password",
   cancelled: '',
 }
 
@@ -178,21 +188,28 @@ export function copy(text: string | undefined, what = 'Copied') {
   setVault({ note: `${what}. It clears from the clipboard in 30 seconds` })
 }
 
-/** Logins on the page's site (never in the trash), best match first. */
-export function loginsFor(origin: string) {
-  return (vault.data?.items ?? [])
+/** Logins on the page's site (never in the trash), best match first. A component passes the items it read, so what it
+ *  shows follows them. */
+export function loginsFor(origin: string, items = vault.data?.items) {
+  return (items ?? [])
     .filter(i => i.type === 'login' && !i.trashed && (i.urls ?? []).some(u => sameSite(u, origin)))
     .sort((a, b) => Number(!!b.favorite) - Number(!!a.favorite) || b.modified - a.modified)
 }
 
+/** Something to bring in: a secret, a note or a card's number, or an identity with any of its details (an email and an
+ *  address with no full name were left out). */
+const worthKeeping = (f: Partial<Item>) => !!(f.password || f.note || f.number || f.totp ||
+  (f.type === 'identity' && [f.fullName, f.email, f.phone, f.company, f.address, f.city, f.region, f.postal, f.country].some(Boolean)))
+
 /** Brings in logins from elsewhere, leaving out any already here (same site, username and password). */
 export function addLogins(found: Partial<Item>[], source: string) {
   const items = vault.data?.items ?? []
-  const key = (i: Partial<Item>) => `${i.type ?? 'login'}\n${siteOfUrl(i.urls?.[0] ?? '')}\n${i.username ?? ''}\n${i.password ?? ''}\n${i.number ?? ''}\n${i.note ?? ''}`
+  // An identity is told apart by its name, email and address too: two with none of a login's fields were one.
+  const key = (i: Partial<Item>) => `${i.type ?? 'login'}\n${siteOfUrl(i.urls?.[0] ?? '')}\n${i.username ?? ''}\n${i.password ?? ''}\n${i.number ?? ''}\n${i.note ?? ''}\n${i.fullName ?? ''}\n${i.email ?? ''}\n${i.address ?? ''}`
   const seen = new Set(items.filter(i => !i.trashed).map(key))
   const added: Item[] = []
   for (const f of found) {
-    if (!f.password && !f.note && !f.number && !f.fullName && !f.totp) continue
+    if (!worthKeeping(f)) continue
     if (seen.has(key(f))) continue
     seen.add(key(f))
     const { id: _id, trashed: _trashed, ...fields } = f
@@ -214,15 +231,47 @@ const opened = (m: Message) => {
 const HANDLERS: Record<string, (m: Message) => void> = {
   state: m => setVault({ state: m.state as Vault['state'], hello: !!m.hello, helloReady: !!m.helloReady }),
   opened,
-  locked: () => setVault({ data: null, selected: null, editing: null, fill: null, state: 'locked', error: '', busy: false }),
-  error: m => setVault({ busy: false, error: REASONS[m.reason as string] ?? 'Something went wrong' }),
+  locked: () => {
+    setVault({ data: null, selected: null, editing: null, fill: null, state: 'locked', error: '', busy: false })
+    for (const forget of lockWatchers) forget()
+  },
+  error: m => setVault({ busy: false, error: REASONS[m.reason as string] ?? "Exo Vault couldn't do that. Try again" }),
   saved: () => {},
   passwordChanged: () => setVault({ note: 'Master password changed' }),
   exported: () => setVault({ note: 'Exported. Keep the file and its password somewhere safe' }),
   sources: m => setVault({ sources: (m.items as Vault['sources']) ?? [] }),
   importLocked: m => setVault({ importLocked: m.name as string }),
+  // What an import brings (first run's Bring in sends one too): here, not with the vault's sheet, which loads only when
+  // it first opens.
+  importItems(m) {
+    let found: Found[] = []
+    try { found = JSON.parse(m.items as string) as Found[] } catch { /* nothing readable */ }
+    const source = m.source as string
+    const locked = Number(m.locked) || 0
+    // Nothing saved there: the passwords may live in a password manager instead.
+    if (!found.length && !locked) {
+      setVault({ note: `${source} has no passwords saved on this PC. If a password manager kept them (Proton Pass, Bitwarden), export from it and bring that file in` })
+      return
+    }
+    addLogins(found.map(f => ({ type: 'login', urls: [f.url], username: f.username, password: f.password, created: f.created || undefined })), source)
+    if (locked) setVault({ note: `${vaultNow().note}. ${locked} more couldn't be read here: export them from ${source} as a CSV file and bring that in` })
+  },
+  importText(m) {
+    // The readers of other managers' exports load only when a file comes in.
+    void import('./importers').then(({ readExport }) => {
+      const items = readExport(m.name as string, m.text as string)
+      if (items.length) addLogins(items, m.name as string)
+      else setVault({ note: `${m.name as string} has nothing Exo Vault can read. Export as CSV or unencrypted JSON and try that` })
+    })
+  },
+  importJson(m) {
+    let data: Partial<VaultData> = {}
+    try { data = JSON.parse(m.json as string) as VaultData } catch { /* nothing readable */ }
+    setVault({ importLocked: '' })
+    addLogins((data.items ?? []).filter((i: Item) => !i.trashed), 'the Exo Vault export')
+  },
 }
-export function onVaultMessage(kind: string, handler: (m: Message) => void) { HANDLERS[kind] = handler }
+type Found = { url: string; username: string; password: string; created: number }
 
 export function startVault() {
   const offs = [

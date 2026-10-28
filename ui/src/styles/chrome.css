@@ -46,7 +46,7 @@
   border-radius: 50%;
   background: var(--color-fg);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
-  transition: opacity 120ms var(--ease-out);
+  transition: opacity var(--dur-quick) var(--ease-out);
 }
 
 :is(.exo-app, .exo-game-overlay-presence) input[type="range"]:disabled {
@@ -121,7 +121,7 @@
 
 .exo-key-popover-note {
   margin: -4px 0 0;
-  color: var(--color-muted);
+  color: var(--color-bad);
   font-size: calc(12px * var(--exo-scale, 1));
   line-height: 1.45;
 }
@@ -153,7 +153,7 @@
   width: 100%;
   background: transparent;
   user-select: none;
-  transition: background-color 120ms var(--ease-out);
+  transition: background-color var(--dur-quick) var(--ease-out);
 }
 
 /* Focus lights a row only from the keyboard: a menu opened with the mouse focuses its first row too, which then

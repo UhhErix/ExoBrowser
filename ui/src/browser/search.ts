@@ -75,3 +75,30 @@ export function toUrl(text: string, engine: string | undefined, sites: SiteSearc
 
 export const hostOf = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' } }
 export const isNewTab = (url: string) => hostOf(url) === 'newtab.exo'
+
+/** An address without its scheme and www (how Search shows and fills in addresses). */
+export const bare = (url: string) => url.replace(/^https?:\/\/(www\.)?/, '')
+
+/** The words typed, lowercased: each must be found for a row to match. */
+export const queryWords = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean)
+
+type Visit = readonly [url: string, title: string, visits: number, last: number]
+/** Each visit's words for Search, worked out once per history list (the store keeps one list until it changes): its
+ *  title and address lowercased (what's scored), its bare address (what's shown), that lowercased (what fills in)
+ *  and its site (a site search's own pages). Lowercased again on every key, ~4000 visits held up each one. */
+export type HistoryIndex = { words: string[]; bare: string[]; lower: string[]; host: string[] }
+const indexes = new WeakMap<readonly Visit[], HistoryIndex>()
+export function historyIndex(history: readonly Visit[]): HistoryIndex {
+  const known = indexes.get(history)
+  if (known) return known
+  const index: HistoryIndex = { words: [], bare: [], lower: [], host: [] }
+  for (const [url, title] of history) {
+    const b = bare(url), lower = b.toLowerCase()
+    index.bare.push(b)
+    index.lower.push(lower)
+    index.words.push(`${(title || '').toLowerCase()} ${lower}`)
+    index.host.push(/^https?:/i.test(url) ? lower.split(/[/?#:]/)[0] : '')
+  }
+  indexes.set(history, index)
+  return index
+}

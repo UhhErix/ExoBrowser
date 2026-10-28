@@ -73,6 +73,8 @@ export type Browser = {
   update: Update | null
 }
 
+const HISTORY_MAX = 4000
+
 let store: Browser = {
   tabs: [], active: 0, space: 0, spaces: [], folders: [], back: false, fwd: false, max: false, full: false, favicons: {}, extIcons: {}, history: [], archive: [], bookmarks: [],
   extensions: [], downloads: [], downloaded: false, settings: {}, settingsLoaded: false, theme: 'void', revealTop: true, revealSide: true, update: null,
@@ -117,6 +119,13 @@ export function holdInput(layer: string, open: boolean) {
     holding = want
     send('overlay', want ? 1 : 0)
   }
+}
+/** Moves a space in the list at once (Settings' drag), then asks the host, which sends the same order back. */
+export function moveSpace(from: number, to: number) {
+  const spaces = [...store.spaces]
+  spaces.splice(to, 0, ...spaces.splice(from, 1))
+  update({ spaces })
+  send('spaceMove', from, to)
 }
 export function setSetting(key: string, value: string) {
   update({ settings: { ...store.settings, [key]: value } })
@@ -169,7 +178,10 @@ const fromHost: Record<string, (m: Message) => void> = {
     // Nothing about the tabs changed (the message was about Back or another window state): the same list, so nothing
     // that lists them draws again.
     const tabs = fresh.length === store.tabs.length && fresh.every((t, i) => t === store.tabs[i]) ? store.tabs : fresh
-    const favicons = Object.fromEntries(Object.entries(store.favicons).filter(([id]) => tabs.some(t => t.id === Number(id))))
+    // The site icons keep their object unless a tab they belong to closed: Search and the strips read it whole.
+    const ids = new Set(tabs.map(t => t.id))
+    const favicons = Object.keys(store.favicons).some(id => !ids.has(Number(id)))
+      ? Object.fromEntries(Object.entries(store.favicons).filter(([id]) => ids.has(Number(id)))) : store.favicons
     // The spaces keep their array while unchanged, so what lists them doesn't draw again for a tab's news.
     const spaces = JSON.stringify(m.spaces) === JSON.stringify(store.spaces) ? store.spaces : (m.spaces as Space[]) ?? []
     const folders = JSON.stringify(m.folders) === JSON.stringify(store.folders) ? store.folders : (m.folders as Folder[]) ?? []
@@ -185,7 +197,8 @@ const fromHost: Record<string, (m: Message) => void> = {
   update: m => update({ update: m as unknown as Update }),
   visit(m) {
     const item = m.item as Visit
-    update({ history: [item, ...store.history.filter(h => h[0] !== item[0])] })
+    // As many as the host keeps (its newest 4000): a long session's visits no longer pile up past it.
+    update({ history: [item, ...store.history.filter(h => h[0] !== item[0])].slice(0, HISTORY_MAX) })
   },
   bookmarks: m => update({ bookmarks: m.items as Mark[] }),
   settings: m => update({ settings: m.values as Settings, settingsLoaded: true, theme: (m.theme as Browser['theme']) ?? store.theme }),
@@ -204,6 +217,12 @@ const fromHost: Record<string, (m: Message) => void> = {
     update({ downloads, downloaded: store.downloaded || started })
   },
   revealed: m => update({ revealTop: !!m.top, revealSide: !!m.side }),
+  // The window activated or not (the host's WM_ACTIVATEAPP), not this page's focus, which a click on a tab takes:
+  // Exo's loops (spinners, the address's sweep) pause while it's in the background (tokens.css, browser.css).
+  active(m) {
+    if (m.on) delete document.documentElement.dataset.exoInactive
+    else document.documentElement.dataset.exoInactive = 'true'
+  },
   api(m) {
     const done = waits.get(m.id as string)
     waits.delete(m.id as string)

@@ -222,6 +222,9 @@ void Uninstall(bool removeData) {
         DeleteFileW(DesktopLink().c_str());
         if (removeData) {
             Post(R"({"type":"progress","value":0.9,"status":"Removing your data"})");
+            // Exo Vault's file first: the keeper holding its key across the browser's close then lets go (its copy in
+            // Keeper is in use until it does).
+            for (const wchar_t* f : {L"\\vault.exovault", L"\\vault.exovault.bak", L"\\vault.exovault.tmp"}) DeleteFileW((g_root + f).c_str());
             // WebView2's own processes let go of the profile a moment after the browser closes.
             for (int i = 0; i < 50 && Exists(g_root); i++) { DeleteTree(g_root); if (Exists(g_root)) Sleep(200); }
         }

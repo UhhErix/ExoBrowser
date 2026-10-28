@@ -31,6 +31,16 @@ type Data = {
 const webview = (window as unknown as { chrome?: { webview?: { postMessage: (m: string) => void; addEventListener: (t: 'message', f: (e: MessageEvent) => void) => void; removeEventListener: (t: 'message', f: (e: MessageEvent) => void) => void } } }).chrome?.webview
 const send = (...parts: string[]) => webview?.postMessage(parts.join('\t'))
 
+/** The page's data: the first time, the answer newtab.html asked for as it began (null when the host isn't there);
+ *  after that (a refresh), asked again. */
+const early = (window as unknown as { exbNtp?: Promise<Data | null> }).exbNtp
+let first: Promise<Data | null> | undefined = early
+function readData(): Promise<Data | null> {
+  const answer = first ?? fetch('https://api.newtab.exo/ntp.json', { cache: 'no-store' }).then(r => r.json() as Promise<Data>)
+  first = undefined
+  return answer
+}
+
 const QUOTES: [string, string][] = [
   ['Simplicity is the ultimate sophistication.', 'Leonardo da Vinci'],
   ['The best way out is always through.', 'Robert Frost'],
@@ -169,8 +179,8 @@ function Page() {
     const load = async () => {
       const n = ++asked
       try {
-        const next = await (await fetch('https://api.newtab.exo/ntp.json', { cache: 'no-store' })).json() as Data
-        if (n === asked) setData(next)
+        const next = await readData()
+        if (next && n === asked) setData(next)
       } catch { /* the host isn't there */ }
     }
     void load()

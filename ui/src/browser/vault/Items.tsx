@@ -4,6 +4,7 @@ import { Menu } from '../../components/ui/Menu'
 import { Row, Section } from '../../components/settings/parts'
 import * as I from '../icons'
 import { send } from '../host'
+import { ask } from '../ask'
 import { deleteForever, emptyTrash, newItem, restoreItem, setVault, toggleFavorite, trashItem, useVault, type Item, type ItemType } from './store'
 import { Act, ItemRow, OtpRow, Plain, Secret } from './parts'
 import { strength } from './generate'
@@ -21,15 +22,37 @@ export const LISTS: Record<string, { title: string; keep: (i: Item) => boolean; 
 
 const NEW: { id: ItemType; label: string }[] = [{ id: 'login', label: 'Login' }, { id: 'card', label: 'Card' }, { id: 'note', label: 'Note' }, { id: 'identity', label: 'Identity' }]
 
-const matches = (i: Item, q: string) =>
-  [i.name, i.username, i.email, i.note, i.cardholder, i.fullName, ...(i.urls ?? [])].some(v => (v ?? '').toLowerCase().includes(q))
+// Sorted by name once per change to the items (not on every key typed into the search), with one collator, and each
+// item's words to search lowercased once per item.
+const NAMES = new Intl.Collator()
+const sorted = new WeakMap<Item[], Item[]>()
+const sortedOf = (items: Item[]) => {
+  let list = sorted.get(items)
+  if (!list) { list = [...items].sort((a, b) => NAMES.compare(a.name || '', b.name || '')); sorted.set(items, list) }
+  return list
+}
+const words = new WeakMap<Item, string>()
+const wordsOf = (i: Item) => {
+  let w = words.get(i)
+  if (w === undefined) { w = [i.name, i.username, i.email, i.note, i.cardholder, i.fullName, ...(i.urls ?? [])].filter(Boolean).join('\n').toLowerCase(); words.set(i, w) }
+  return w
+}
+const SHOWN = 100
+
+/** Ask first: nothing comes back from these. */
+const deleteForeverAsked = async (i: Item) => { if (await ask({ title: `Delete ${i.name || 'this item'} forever?`, action: 'Delete' })) deleteForever(i.id) }
+const emptyTrashAsked = async (n: number) => {
+  if (await ask({ title: 'Empty the trash?', body: n === 1 ? 'The item in it is deleted forever.' : `The ${n} items in it are deleted forever.`, action: 'Empty trash' })) emptyTrash()
+}
 
 export function ItemList({ section }: { section: string }) {
   const v = useVault()
   const [query, setQuery] = useState('')
+  const [all, setAll] = useState(false)
   const list = LISTS[section] ?? LISTS.all
   const q = query.trim().toLowerCase()
-  const items = (v.data?.items ?? []).filter(i => list.keep(i) && (!q || matches(i, q))).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  const items = sortedOf(v.data?.items ?? []).filter(i => list.keep(i) && (!q || wordsOf(i).includes(q)))
+  const shown = all ? items : items.slice(0, SHOWN)
   const isTrash = section === 'trash'
   return (
     <Section id={`vault-${section}`} title={list.title} action={
@@ -37,18 +60,23 @@ export function ItemList({ section }: { section: string }) {
         <input className="exo-field exb-field" type="search" placeholder={`Search ${items.length} ${items.length === 1 ? 'item' : 'items'}`} aria-label="Search the vault" value={query} spellCheck={false}
           onChange={e => setQuery(e.target.value)} />
         {isTrash
-          ? <Button size="sm" className="exo-set-btn is-danger" isDisabled={!items.length} onPress={emptyTrash}>Empty trash</Button>
+          ? <Button size="sm" className="exo-set-btn is-danger" isDisabled={!items.length} onPress={() => void emptyTrashAsked(items.length)}>Empty trash</Button>
           : <Menu label="New item" anchor="--exb-vault-new" offset={4} triggerClassName="exo-set-btn exb-vault-new" trigger={<><I.Plus size={14} />New</>}
               items={NEW} onAction={id => setVault({ editing: newItem(id as ItemType, section === 'favorite' ? { favorite: true } : {}), selected: null })} />}
       </div>}>
-      {items.length ? items.map(i => (
+      {items.length ? shown.map(i => (
         <ItemRow key={i.id} item={i}>{isTrash ? (
           <>
             <Act label="Restore" onPress={() => restoreItem(i.id)}><I.Undo /></Act>
-            <Act label="Delete forever" onPress={() => deleteForever(i.id)}><I.Trash /></Act>
+            <Act label="Delete forever" onPress={() => void deleteForeverAsked(i)}><I.Trash /></Act>
           </>
         ) : undefined}</ItemRow>
       )) : <Row label={q ? `Nothing matches “${query}”` : list.empty} />}
+      {items.length > shown.length ? (
+        <Row label={`${items.length - shown.length} more`}>
+          <Button size="sm" className="exo-set-btn" onPress={() => setAll(true)}>Show all</Button>
+        </Row>
+      ) : null}
     </Section>
   )
 }
@@ -113,7 +141,7 @@ function Actions({ item }: { item: Item }) {
     <div className="exb-set-actions">
       {back}
       <Button size="sm" className="exo-set-btn" onPress={() => restoreItem(item.id)}>Restore</Button>
-      <Button size="sm" className="exo-set-btn is-danger" onPress={() => deleteForever(item.id)}>Delete forever</Button>
+      <Button size="sm" className="exo-set-btn is-danger" onPress={() => void deleteForeverAsked(item)}>Delete forever</Button>
     </div>
   )
   return (

@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '../../components/ui/Button'
 import { Switch } from '../../components/Switch'
 import { Row, Section } from '../../components/settings/parts'
 import * as I from '../icons'
 import { send, setSetting, useBrowserValue } from '../host'
-import { Choice } from '../Settings'
+import { Choice } from '../Choice'
 import { allowSave, b64, lock, useVault } from './store'
 import { health } from './health'
 import { ItemRow } from './parts'
-import { strength } from './generate'
+import { strength, type Strength } from './generate'
 
 /** Password health: what to change first. */
 export function HealthView() {
@@ -37,25 +37,32 @@ export function HealthView() {
   )
 }
 
+/** Uncontrolled fields, read once and cleared, as the master password's are everywhere (Gate.tsx): only how they
+ *  read (typed, how strong, whether they match) is state. */
 function ChangePassword() {
   const v = useVault()
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [again, setAgain] = useState('')
-  const s = strength(next)
-  const ready = !!current && next.length >= 10 && s.score >= 2 && next === again
+  const current = useRef<HTMLInputElement>(null), next = useRef<HTMLInputElement>(null), again = useRef<HTMLInputElement>(null)
+  const [read, setRead] = useState<{ has: boolean; length: number; s: Strength; match: boolean }>({ has: false, length: 0, s: strength(''), match: true })
+  const measure = () => {
+    const n = next.current?.value ?? ''
+    setRead({ has: !!current.current?.value, length: n.length, s: strength(n), match: n === (again.current?.value ?? '') })
+  }
+  const { s } = read
+  const ready = read.has && read.length >= 10 && s.score >= 2 && read.match
   const change = () => {
-    send('vaultPassword', b64(current), b64(next))
-    setCurrent(''); setNext(''); setAgain('')
+    if (!ready || !current.current || !next.current || !again.current) return
+    send('vaultPassword', b64(current.current.value), b64(next.current.value))
+    for (const el of [current.current, next.current, again.current]) el.value = ''
+    measure()
   }
   return (
-    <Row label="Master password" detail={next ? `New one: ${s.label}` : 'Change it with the one you use now'} error={v.error || null}>
-      <input className="exo-field exb-field" type="password" autoComplete="current-password" aria-label="Current master password" placeholder="Current" value={current}
-        onChange={e => setCurrent(e.target.value)} />
-      <input className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="New master password" placeholder="New" value={next}
-        onChange={e => setNext(e.target.value)} />
-      <input className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="New master password again" placeholder="Again" value={again}
-        onChange={e => setAgain(e.target.value)} />
+    <Row label="Master password" detail={read.length ? `New one: ${s.label}` : 'Change it with the one you use now'} error={v.error || null}>
+      <input ref={current} className="exo-field exb-field" type="password" autoComplete="current-password" aria-label="Current master password" placeholder="Current"
+        onChange={measure} />
+      <input ref={next} className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="New master password" placeholder="New"
+        onChange={measure} />
+      <input ref={again} className="exo-field exb-field" type="password" autoComplete="new-password" aria-label="New master password again" placeholder="Again"
+        onChange={measure} />
       <Button size="sm" className="exo-set-btn" isDisabled={!ready} onPress={change}>Change</Button>
     </Row>
   )

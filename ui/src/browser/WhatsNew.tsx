@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useDismiss } from '../lib/dismiss'
 import { holdInput, send, setSetting, useBrowserValue, type Update } from './host'
 import * as I from './icons'
-import data from './whatsNew.json'
 
 /*
  * What's New, as in Exo Launcher: after an update, the first window shows what changed since the version you last saw,
@@ -14,7 +13,16 @@ import data from './whatsNew.json'
 
 type Item = { icon: string; title: string; detail: string }
 type Release = { version: string; items: Item[] }
-const RELEASES = data as Release[]
+
+// Every release's notes, read from whatsNew.json the first time they're needed: most windows open on a version already
+// seen and never show them, so they no longer load with the Bar.
+let releases: Release[] | null = null
+let loading: Promise<Release[]> | null = null
+function loadReleases() {
+  loading ??= import('./whatsNew.json').then(m => { releases = m.default as Release[]; return releases })
+  return loading
+}
+const known = () => releases
 
 /** The window event Settings › About sends to open the sheet. */
 export const WHATS_NEW = 'exb-whats-new'
@@ -33,9 +41,9 @@ const compare = (a: string, b: string) => {
 }
 
 /** Since the version last seen, up to this one; a new install sees only its own; nothing once this one is seen. */
-const missed = (version: string, seen: string) =>
-  seen === version ? [] : !seen ? RELEASES.filter(r => r.version === version) : RELEASES.filter(r => compare(r.version, seen) > 0 && compare(r.version, version) <= 0)
-const through = (version: string) => { const all = RELEASES.filter(r => compare(r.version, version) <= 0); return all.length ? all : RELEASES }
+const missed = (all: Release[], version: string, seen: string) =>
+  seen === version ? [] : !seen ? all.filter(r => r.version === version) : all.filter(r => compare(r.version, seen) > 0 && compare(r.version, version) <= 0)
+const through = (all: Release[], version: string) => { const upTo = all.filter(r => compare(r.version, version) <= 0); return upTo.length ? upTo : all }
 
 /** An update's notes as the host fetched them, checked: its version, 1 to 30 items, short plain words. */
 export function upcomingOf(u: Update | null): Release | null {
@@ -54,8 +62,12 @@ export function WhatsNew({ blocked }: { blocked: boolean }) {
   const version = update?.version ?? ''
   const seen = useBrowserValue(b => b.settings.whatsNewSeen) ?? ''
   const [open, setOpen] = useState<'missed' | 'all' | null>(null)
+  const [all, setAll] = useState(known)
   const shown = useRef(false)
-  const due = settingsLoaded && !!version && missed(version, seen).length > 0
+  // Only a version not yet seen (or About's What's new) needs the notes: read then.
+  const unseen = settingsLoaded && !!version && seen !== version && !blocked
+  useEffect(() => { if ((unseen || open) && !all) void loadReleases().then(setAll) }, [unseen, open, all])
+  const due = unseen && !!all && missed(all, version, seen).length > 0
   useEffect(() => {
     if (!due || blocked || shown.current) return
     const timer = window.setTimeout(() => { shown.current = true; setOpen('missed') }, 600)
@@ -66,9 +78,9 @@ export function WhatsNew({ blocked }: { blocked: boolean }) {
     window.addEventListener(WHATS_NEW, show)
     return () => window.removeEventListener(WHATS_NEW, show)
   }, [])
-  if (!open || !version) return null
+  if (!open || !version || !all) return null
   const close = () => { setOpen(null); if (seen !== version) setSetting('whatsNewSeen', version) }
-  return <Sheet releases={open === 'missed' ? missed(version, seen) : through(version)} upcoming={upcomingOf(update)} update={update} onClose={close} />
+  return <Sheet releases={open === 'missed' ? missed(all, version, seen) : through(all, version)} upcoming={upcomingOf(update)} update={update} onClose={close} />
 }
 
 function Sheet({ releases, upcoming, update, onClose }: { releases: Release[]; upcoming: Release | null; update: Update | null; onClose: () => void }) {
@@ -95,7 +107,8 @@ function Sheet({ releases, upcoming, update, onClose }: { releases: Release[]; u
                 {release.items.map(({ icon: name, title, detail }) => {
                   const Icon = icon(name)
                   return (
-                    <li key={title} style={{ animationDelay: `${Math.min(n++, 8) * 30}ms` }}>
+                    // Exo's arrive: 24ms apart, the eighth and later together.
+                    <li key={title} style={{ animationDelay: `${Math.min(n++, 7) * 24}ms` }}>
                       <span className="exo-whats-new-icon"><Icon size={20} /></span>
                       <span className="exo-whats-new-words"><strong>{title}</strong><span>{detail}</span></span>
                     </li>

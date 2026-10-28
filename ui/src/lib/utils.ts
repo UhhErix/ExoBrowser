@@ -102,25 +102,21 @@ export function installVerb(
   return installProgressLabel(progress && { phase: progress.phase, status: progress.status }, action).replace(/….*$/, '')
 }
 
+/** Anything but printable ASCII. */
+const NOT_PLAIN = /[^ -~]/
+const ASCII_GAPS = /[^a-z0-9]+/g
+const MARKS = /\p{Mark}+/gu
+const GAPS = /[^\p{Letter}\p{Number}]+/gu
+
 /**
  * Title normalization deliberately treats punctuation, spacing, and accents as
- * cosmetic so the same game folds together across stores.
+ * cosmetic so the same game folds together across stores. Whole-string passes, not a
+ * test per character (a whole library is folded at once); a plain-ASCII title, most
+ * of them, skips the decomposition, which leaves ASCII as it is.
  */
 function normalizeSearchText(value: string): string {
-  const decomposed = value.normalize('NFD').toLowerCase()
-  let output = ''
-  let lastWasSpace = true
-  for (const char of decomposed) {
-    if (/\p{Mark}/u.test(char)) continue
-    if (/\p{Letter}|\p{Number}/u.test(char)) {
-      output += char
-      lastWasSpace = false
-    } else if (!lastWasSpace) {
-      output += ' '
-      lastWasSpace = true
-    }
-  }
-  return output.trim()
+  if (!NOT_PLAIN.test(value)) return value.toLowerCase().replace(ASCII_GAPS, ' ').trim()
+  return value.normalize('NFD').toLowerCase().replace(MARKS, '').replace(GAPS, ' ').trim()
 }
 
 /** Same-game fold across stores. */

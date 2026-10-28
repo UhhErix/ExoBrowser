@@ -6,6 +6,7 @@ import type { PlayerAction, PlayerActOptions, PlayerRoomState, PlayerView, Playe
 import type { DiscordChannel, DiscordChannels, DiscordPlace, DiscordEvent, DiscordGuide, DiscordInvite, DiscordMemberSearch, DiscordResource, DiscordRole, DiscordUser, DiscordEmojis, DiscordFriend, DiscordRestricted, DiscordRoleIcon, DiscordSavedMessage, DiscordGif, DiscordFavoriteGif, DiscordMemberList, DiscordProfile, DiscordProfileExtras, DiscordGuildProfile, DiscordStickerGroup, DiscordThread, DiscordPresence, DiscordCallSong, DiscordHome, DiscordReactionEvent, DiscordVoice, DiscordMessage, DiscordMessageEvent, DiscordSignInStep, DiscordState, DiscordStatus, DiscordUnread, DiscordNotice, DiscordForumTag, DiscordForYouItem, DiscordUnreadChannel, DiscordSearchFilters, DiscordShopCatalog, DiscordShopProduct, DiscordPaymentChoice, DiscordShopPrice, DiscordRailItem, DiscordThreadState } from './discord'
 import type { CaptureExport, CaptureItem, CaptureSettings, CaptureState } from './capture'
 import type { NoteInfo } from './notes'
+import type { ExoCatalog, ExoJob, ExoListing, ExoPublishAnswer, ExoReview } from './exoStore'
 import type { AccountSettings, DiscordAccount, DiscordAccountAction, DiscordClientSettings } from './discordPrefs'
 import type { AppCommand, AppInfo, InteractionEvent } from './discordApps'
 import { HOST_PROTOCOL_VERSION, validHostEvent, validateHostResult } from './hostContract'
@@ -415,6 +416,8 @@ export type ColorControl = { key: string; label: string; value: number; min: num
 /** System > Display: a change applies and keeps itself. */
 /** A graphics driver update's progress. */
 export type DriverProgress = { stage: 'idle' | 'downloading' | 'unpacking' | 'waiting' | 'installing' | 'done' | 'failed'; percent: number; message: string | null }
+/** A step of a graphics driver install Exo runs (gpu.driverInstall). done: restored lists what went back, notRestored what didn't (each a sentence that says what to do). */
+export type DriverInstallStep = { phase: 'waiting' | 'installing' | 'reloading' | 'restoring' | 'done' | 'failed'; version: string | null; message: string | null; restored?: string[] | null; notRestored?: string[] | null }
 
 /**
  * System > Graphics > Driver and profile's driver row: the installed driver and the newest one for this card, from the
@@ -614,6 +617,21 @@ export type PcAbout = {
   drives: { letter: string; model?: string | null; kind: string; totalGb: number; freeGb: number }[]
   network?: string | null
   networkMbps?: number | null
+  /**
+   * Windows against the newest feature version Microsoft lists for everyone (its page read at most once a day). name:
+   * "Windows 11" or "Windows 10"; version "26H2"; build "26300.9711" (with the monthly update); newest "26H2" and
+   * newestBuild 26300, null while Microsoft's page can't be read. upToDate compares feature versions (major builds)
+   * only, never monthly updates; null when unknown. insider: a Windows Insider channel, or a build above every release.
+   */
+  windowsRelease?: {
+    name: string
+    version?: string | null
+    build: string
+    newest?: string | null
+    newestBuild?: number | null
+    upToDate?: boolean | null
+    insider: boolean
+  } | null
 }
 
 /** System > This PC > Interrupts: one PCI device, its interrupt now (msi, line, or none when it isn't running) and what Optimize does to it. */
@@ -629,7 +647,8 @@ export type InterruptDevice = {
   changed: boolean
 }
 /** restart: Exo changed something since Windows started. result: after the restart, what took. */
-export type Interrupts = { ok: boolean; message?: string | null; restart: boolean; result?: string | null; canUndo: boolean; devices: InterruptDevice[] }
+/** reset: a driver update put Exo's interrupt values back and Windows would ask to set them again: PC's Needs you offers Switch back (systemInterrupts('reapply')). */
+export type Interrupts = { ok: boolean; message?: string | null; restart: boolean; result?: string | null; canUndo: boolean; reset?: boolean; devices: InterruptDevice[] }
 
 /**
  * Exo Mouse's CPU core panel (through mouseRelay's exo.mouseCore): one test of the moving mouse. rate: its polling rate (Hz); checked: the gaps
@@ -1333,6 +1352,8 @@ export interface HostEventMap {
   'shaders.changed': Record<string, never>
   /** The store's home page or the wishlist changed. */
   'store.changed': { what: 'home' | 'wishlist' }
+  /** An Exo Store job moved: a game's download, check and unpack, a build's upload, or a reviewer's check; idle when it ended. */
+  'store.exo.progress': ExoJob
   /** A step of a Steam or Riot account change ("Closing Steam…"), for the row that started it. */
   'accounts.progress': { store: SwitchStore; line: string }
   /** A store's servers went down or came back (once per outage). */
@@ -1365,6 +1386,8 @@ export interface HostEventMap {
   'shaders.event': { name: string; data?: unknown }
   /** System > Display: a change nobody kept was put back when its countdown ran out. */
   'gpu.driver': DriverProgress
+  /** A graphics driver install Exo runs, step by step: waiting (a game, a call or an Exo Shaders compile), installing, reloading, restoring (what the install reset), then done (restored: what went back; notRestored: what didn't, each a sentence) or failed. */
+  'gpu.driverInstall': DriverInstallStep
   /** A runtimes.install moved on: a download's bytes, a check, or the next installer in Windows' run. */
   'runtimes.progress': RuntimesProgress
   /** Exo's own Discord client: connection state, QR sign-in steps, list changes, unread marks, messages and typing. */
@@ -2276,7 +2299,7 @@ export const host = {
   /** PC › Overview: what this PC is (processor, memory, drives, board, BIOS, Windows, security, connection). */
   systemAbout: () => rawCall<PcAbout>('system.about', {}, 15_000),
   /** System > This PC > Interrupts: the devices; apply switches every one that can to MSI mode, undo puts all back, revert one. Waits on Windows' permission prompt. */
-  systemInterrupts: (action?: 'apply' | 'undo' | 'revert', device?: string) =>
+  systemInterrupts: (action?: 'apply' | 'undo' | 'revert' | 'reapply', device?: string) =>
     rawCall<Interrupts>('system.interrupts', action ? { action, ...(device ? { device } : {}) } : {}, 120_000),
   /**
    * Exo Mouse's CPU core panel, relayed by mouseRelay (exo.mouseCore): where Exo's change stands; measure runs the 10-second test (the mouse moving in
@@ -2303,6 +2326,20 @@ export const host = {
   storeGameReviews: (appId: string) => rawCall<StoreRecentReviews>('store.gameReviews', { appId }, 10_000),
   storeWishlist: (action: 'get' | 'add' | 'remove' | 'check', item?: { appId: string; name?: string }) =>
     rawCall<{ ok: boolean; message?: string; items: WishItem[] }>('store.wishlist', { action, ...(item ?? {}) }, 60_000),
+  /** Exo Store's checked catalog (Services/ExoStore); enabled false when no store is set up, and then nothing is contacted. */
+  storeExoCatalog: (refresh = false) => rawCall<ExoCatalog>('store.exo.catalog', refresh ? { refresh: true } : {}, 60_000),
+  storeExoListing: (id: string) => rawCall<ExoListing>('store.exo.listing', { id }, 60_000),
+  /** Get (the newest build), update or uninstall an Exo Store game; answers when it is done (store.exo.progress meanwhile). */
+  storeExoGet: (id: string, action: 'install' | 'update' | 'uninstall') =>
+    rawCall<{ ok: boolean; message?: string }>('store.exo.get', { id, action }, 6 * 60 * 60_000),
+  storeExoReport: (id: string, reason: string, text: string, contact?: string) =>
+    rawCall<{ ok: boolean; message?: string }>('store.exo.report', { id, reason, text, ...(contact ? { contact } : {}) }, 30_000),
+  /** Publish: me, profile, save, art and zip (a file picked), build (an upload waits for it), removeBuild, submit. */
+  storeExoPublish: (action: 'me' | 'profile' | 'save' | 'art' | 'zip' | 'build' | 'removeBuild' | 'submit', params: Record<string, unknown> = {}) =>
+    rawCall<ExoPublishAnswer>('store.exo.publish', { action, ...params }, action === 'build' ? 6 * 60 * 60_000 : action === 'art' || action === 'zip' ? 15 * 60_000 : 60_000),
+  /** The admin's review: queue; approve, reject, delist, relist; report (a decision); check (a build downloaded and checked). */
+  storeExoReview: (action: 'queue' | 'approve' | 'reject' | 'delist' | 'relist' | 'report' | 'check', params: Record<string, unknown> = {}) =>
+    rawCall<ExoReview>('store.exo.review', { action, ...params }, action === 'check' ? 6 * 60 * 60_000 : 60_000),
   /** HID for the Devices room's mouse module: devices by opaque key, report bytes as base64. */
   hidList: (p: Record<string, unknown>) => rawCall<HidReply>('hid.list', p, 15_000),
   hidOpen: (p: Record<string, unknown>) => rawCall<HidReply>('hid.open', p, 15_000),

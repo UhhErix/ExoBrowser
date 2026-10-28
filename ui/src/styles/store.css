@@ -99,6 +99,7 @@
   width: 14px;
   height: 14px;
   margin: 0;
+  /* design-disable-next-line exo/motion-token -- a loop's period, set apart from its animation shorthand */
   animation-duration: 1600ms;
 }
 
@@ -312,7 +313,7 @@
   color: var(--color-muted);
   text-align: left;
   cursor: pointer;
-  transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out);
+  transition: background-color var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
 }
 
 .exo-store-hero-pick.is-on {
@@ -779,7 +780,7 @@ button.exo-sgp-thumb::after {
   border-radius: inherit;
   box-shadow: inset 0 0 0 1px transparent;
   pointer-events: none;
-  transition: box-shadow 160ms var(--ease-out);
+  transition: box-shadow var(--dur-base) var(--ease-out);
 }
 
 .exo-sgp-thumb img {
