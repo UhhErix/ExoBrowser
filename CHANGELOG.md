@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.6 — October 28, 2026
+
+Exo Vault stays out of screen shares and recordings, every result in Search gets its own actions, and everything Exo Browser is built from is at its newest.
+
+- **Exo Vault stays off your stream.** While Exo Vault shows what's in it (its window, the menu beside a sign-in field, the offer to save a login), Exo Browser leaves screen captures: a stream, a call's screen share, a recording or a screenshot shows nothing there, and you see it as always. Locked, it shows nothing of yours, so it stays in them. _Verified: the window left captures as the vault unlocked, as the fill menu opened and as the save prompt showed, and came back as each went; a Windows.Graphics.Capture capture, the API OBS and Discord use, got no frame while the vault was open._
+- **Actions on every result.** In Search, right-click a result, or press Tab, → at the end of the line or the menu key: open it in a new tab, beside this tab, in Peek or in a private tab, copy its link without trackers, switch to, mute or close an open tab, or remove a page from your history or the archive. The other results step back while its menu is open. _Verified: eight checks on a throwaway profile, and a right-click through the window opened a tab's actions under it._
+- **Other sites, one step away.** Under what you type, Search offers it to the first three sites in Settings › Search (YouTube, Wikipedia and GitHub unless you change them). _Verified on a throwaway profile._
+- **The newest parts.** Exo Shield is now uBlock Origin Lite 2026.1026.1812 with HaGeZi's Multi PRO list of October 28 (210,731 domains, up from 207,507); the interface moves to Tabler Icons 3.50.0, PostCSS 8.5.32, typescript-eslint 8.72.1 and oxc-transform-react 0.156.0. The WebView2 SDK (1.0.4314.35), NSIS (3.13), Argon2 (20190702) and TTV LOL PRO (2.6.2) were already the newest. _Checked against each project's latest release, then built and tested on them._
+
 ## 1.1.5 — October 28, 2026
 
 Exo Browser steps aside while you play, working with Exo Launcher, and keeps itself up to date without a switch to forget.

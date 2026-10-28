@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@iconify-json/tabler": "1.2.42",
+    "@iconify-json/tabler": "1.2.43",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "26.6.5",
     "@types/react": "19.3.0",
@@ -27,11 +27,11 @@
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.13.0",
-    "oxc-transform-react": "0.155.0",
-    "postcss": "8.5.31",
+    "oxc-transform-react": "0.156.0",
+    "postcss": "8.5.32",
     "tailwindcss": "4.3.3",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "typescript-eslint": "8.72.0",
+    "typescript-eslint": "8.72.1",
     "vite": "8.3.5"
   }
 }

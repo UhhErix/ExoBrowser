@@ -8,9 +8,9 @@ Exo Shield is Exo Browser's built-in blocker, installed in `app\extensions\exo-s
 
 | Component | Version | License | Source |
 | --- | --- | --- | --- |
-| uBlock Origin Lite, by Raymond Hill and contributors | 2026.1021.1354 | GPL-3.0 | <https://github.com/uBlockOrigin/uBOL-home> |
+| uBlock Origin Lite, by Raymond Hill and contributors | 2026.1026.1812 | GPL-3.0 | <https://github.com/uBlockOrigin/uBOL-home> |
 | TTV LOL PRO, by Younes Aassila and contributors | 2.6.2 | GPL-3.0 | <https://github.com/younesaassila/ttv-lol-pro> |
-| HaGeZi's DNS blocklists (Multi PRO) | October 22, 2026 | GPL-3.0 | <https://github.com/hagezi/dns-blocklists> |
+| HaGeZi's DNS blocklists (Multi PRO) | October 28, 2026 | GPL-3.0 | <https://github.com/hagezi/dns-blocklists> |
 
 uBlock Origin Lite carries the filter lists it was built with (EasyList, EasyPrivacy, AdGuard, uBlock filters and others), each under its own license, listed in its `rulesets` folder.
 

@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { browser, holdInput, isFirstRun, local, onHost, send, setSetting, useBrowserValue, type Tab } from './host'
 import { engineOf, hostOf, isNewTab, looksLikeUrl, siteSearches, siteSearchOf, siteSearchUrl, toUrl, type SiteSearch } from './search'
 import * as I from './icons'
 import { openVault } from './vault/store'
-import { newSpace, pageEdges } from './menus'
+import { closeMenu, menuKind, newSpace, openMenu, pageEdges, type Item } from './menus'
 import { markInk, spaceIcon } from './look'
 import { boostSite } from './Boosts'
 import { newFolder } from './Folders'
@@ -17,7 +17,7 @@ import { newFolder } from './Folders'
 type Mode = 'edit' | 'palette' | 'ntp' | 'new'
 type Row =
   | { group: string }
-  | { kind: 'go'; Icon: I.Icon; fav?: string; main: string; sub: string; url: string; archived?: number }
+  | { kind: 'go'; Icon: I.Icon; fav?: string; main: string; sub: string; url: string; archived?: number; hist?: boolean }
   | { kind: 'tab'; id: number; Icon: I.Icon; fav?: string; main: string; sub: string }
   | { kind: 'cmd'; Icon: I.Icon; main: string; run: () => void }
 
@@ -98,22 +98,78 @@ function siteRows(text: string, site: SiteSearch, b: Searched): Row[] {
   const rows: Row[] = text ? [{ kind: 'go', Icon: I.Search, main: text, sub: `Search ${site.name}`, url: siteSearchUrl(site, text) }] : []
   const host = hostOf(site.url)
   const hist = b.history.filter(h => hostOf(h[0]) === host).map(h => ({ h, s: matchScore(`${h[1]} ${bare(h[0])}`, text) })).filter(x => x.s > 0).slice(0, 6)
-  if (hist.length) rows.push({ group: 'History' }, ...hist.map(({ h }) => ({ kind: 'go' as const, Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0] })))
+  if (hist.length) rows.push({ group: 'History' }, ...hist.map(({ h }) => ({ kind: 'go' as const, Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0], hist: true })))
   return rows
 }
 
 // What Enter does with the line: a site's search named first ("yt cats"), an address (with Tab to search that site,
 // if it has one), or the engine's search.
+function namedSite(text: string, sites: SiteSearch[]) {
+  const at = text.indexOf(' ')
+  return at > 0 && text.slice(at + 1).trim() ? siteSearchOf(text.slice(0, at), sites) : null
+}
+
 function firstRow(text: string, b: Searched): Row {
   const sites = siteSearches(b.settings.siteSearches)
   const url = toUrl(text, b.settings.engine, sites)!
   const at = text.indexOf(' ')
-  const named = at > 0 && text.slice(at + 1).trim() ? siteSearchOf(text.slice(0, at), sites) : null
+  const named = namedSite(text, sites)
   if (named) return { kind: 'go', Icon: I.Search, main: text.slice(at + 1).trim(), sub: `Search ${named.name}`, url }
   const address = looksLikeUrl(text)
   const tabTo = !/\s/.test(text) ? siteSearchOf(text, sites) : null
   return { kind: 'go', Icon: address ? I.Globe : I.Search, main: text, url,
     sub: [address ? 'Open' : `Search ${engineOf(b.settings.engine).short}`, tabTo ? `Tab to search ${tabTo.name}` : ''].filter(Boolean).join(' · ') }
+}
+
+// Last, what's typed searched on other sites (Raycast's fallbacks): the first few of Settings › Search, not the engine's
+// own, when it's words rather than an address or a site's search already.
+function fallbackRows(text: string, b: Searched): Row[] {
+  const sites = siteSearches(b.settings.siteSearches)
+  if (looksLikeUrl(text) || namedSite(text, sites)) return []
+  const engine = hostOf(engineOf(b.settings.engine).url(''))
+  const others = sites.filter(s => hostOf(s.url) !== engine).slice(0, 3)
+  return others.length ? [{ group: 'Search with' }, ...others.map(s => ({ kind: 'go' as const, Icon: I.Search, main: text, sub: `Search ${s.name}`, url: siteSearchUrl(s, text) }))] : []
+}
+
+type Choice = Exclude<Row, { group: string }>
+
+// What else a row does (Raycast's actions), in its menu. `done` closes Search, or keeps it (stay) for the next row.
+function rowActions(r: Choice, b: ReturnType<typeof browser>, done: (stay: boolean) => void): Item[] {
+  const go = (f: () => void, stay = false) => () => { done(stay); f() }
+  if (r.kind === 'cmd') return []
+  if (r.kind === 'tab') {
+    const t = b.tabs.find(x => x.id === r.id)
+    if (!t) return []
+    return [
+      { label: 'Switch to tab', Icon: I.Globe, run: go(() => send('activate', r.id)) },
+      ...(r.id !== b.active && !t.split ? [{ label: 'Open beside this tab', Icon: I.Columns, run: go(() => send('split', r.id)) }] : []),
+      { label: 'Copy link', Icon: I.Link, run: go(() => send('copyLink', r.id)) },
+      { label: t.muted ? 'Unmute' : 'Mute', Icon: t.muted ? I.Volume : I.VolumeOff, run: go(() => send('mute', r.id), true) },
+      '-',
+      { label: 'Close tab', Icon: I.Close, run: go(() => send('close', r.id), true) },
+    ]
+  }
+  const { url, archived } = r
+  const opens: Item[] = archived ? [{ label: 'Open again', Icon: I.Archive, run: go(() => send('archiveOpen', url, archived)) }] : [
+    { label: 'Open in a new tab', Icon: I.Plus, run: go(() => send('navigate', url, 'new')) },
+    ...(b.active ? [{ label: 'Open beside this tab', Icon: I.Columns, run: go(() => send('split', 0, url)) }] : []),
+    { label: 'Open in Peek', Icon: I.Expand, run: go(() => send('peek', url)) },
+    { label: 'Open in a private tab', Icon: I.Private, run: go(() => send('privateTab', url)) },
+  ]
+  return [
+    ...opens,
+    '-',
+    { label: 'Copy link', Icon: I.Link, run: go(() => send('copyUrl', url)) },
+    ...(archived ? [{ label: 'Remove from the archive', Icon: I.Trash, run: go(() => send('archiveRemove', url, archived), true) }] : []),
+    ...(r.hist ? [{ label: 'Remove from history', Icon: I.Trash, run: go(() => send('historyDelete', url), true) }] : []),
+  ]
+}
+
+// The keys that open the selected row's actions: Tab (when it isn't a site's keyword), → at the end of the line, the
+// menu key or Shift+F10.
+function opensActions(e: KeyboardEvent<HTMLInputElement>) {
+  const f = e.currentTarget, end = f.selectionStart === f.value.length && f.selectionEnd === f.value.length
+  return (e.key === 'Tab' && !e.shiftKey) || e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey) || (e.key === 'ArrowRight' && end)
 }
 
 function rowsFor(text: string, mode: Mode, b: Searched, site: SiteSearch | null): Row[] {
@@ -141,9 +197,10 @@ function rowsFor(text: string, mode: Mode, b: Searched, site: SiteSearch | null)
     .map(x => ({ ...x, score: x.s * 10 + Math.log2(1 + frecency(x.h, now)) })).sort((a, z) => z.score - a.score).slice(0, text ? 7 : 6)
   if (hist.length) {
     rows.push({ group: text ? 'History' : 'Recent' })
-    for (const { h } of hist) rows.push({ kind: 'go', Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0] })
+    for (const { h } of hist) rows.push({ kind: 'go', Icon: I.History, main: h[1] || hostOf(h[0]), sub: bare(h[0]), url: h[0], hist: true })
   }
   if (text && !looksLikeUrl(text)) rows.push(...commandRows(text, b))
+  if (text) rows.push(...fallbackRows(text, b))
   return rows
 }
 
@@ -187,6 +244,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
   const [text, setText] = useState('')
   const [site, setSite] = useState<SiteSearch | null>(null)
   const [sel, setSel] = useState(0)
+  const [acting, setActing] = useState(false)  // a row's actions are open
   const [box, setBox] = useState({ left: 0, top: 0, width: 560 })
   const field = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -228,8 +286,25 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
   useEffect(() => { list.current?.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' }) }, [sel, mode])
   const rows = useMemo(() => rowsFor(text.trim(), mode, { history, tabs, bookmarks, favicons, settings, archive, spaces, space, active }, site),
     [text, mode, site, history, tabs, bookmarks, favicons, settings, archive, spaces, space, active])
-  const picks = rows.filter((r): r is Exclude<Row, { group: string }> => !('group' in r))
+  const picks = rows.filter((r): r is Choice => !('group' in r))
   const current = Math.min(sel, Math.max(0, picks.length - 1))
+  // A row's actions, hanging just under it: from its right end from the keyboard, from the pointer from a right-click
+  // (the row stays whole, the menu under the words it was opened on). The other rows step
+  // back meanwhile (is-acting): the menu's glass frosts the page, not this panel, whose words would show through it.
+  // Search closing takes its menu with it.
+  const showActions = (i: number, x?: number) => {
+    const r = picks[i]
+    const back = () => { setActing(false); field.current?.focus() }
+    const items = r ? rowActions(r, browser(), stay => { if (stay) back(); else controller.close() }) : []
+    const row = list.current?.querySelectorAll('.exb-search-row')[i]?.getBoundingClientRect()
+    if (!items.length || !row) return false
+    setSel(i)
+    setActing(true)
+    if (x === undefined) openMenu(items, row.right - 8, row.bottom - 8, true, 'search', back)
+    else openMenu(items, x, row.bottom - 8, false, 'search', back)
+    return true
+  }
+  useEffect(() => () => { if (menuKind() === 'search') closeMenu(true) }, [])
   const choose = (i: number, newTab = false) => {
     const r = picks[i]
     if (!r) return
@@ -264,7 +339,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
   let n = -1
   return (
     <div className="exb-search-layer" onPointerDown={e => { if (e.target === e.currentTarget) controller.close() }}>
-      <div role="dialog" aria-label="Search" className="exo-glass is-panel exb-search" style={{ left: box.left, top: box.top, width: box.width, '--exb-search-top': `${box.top}px` } as CSSProperties}>
+      <div role="dialog" aria-label="Search" className={`exo-glass is-panel exb-search${acting ? ' is-acting' : ''}`} style={{ left: box.left, top: box.top, width: box.width, '--exb-search-top': `${box.top}px` } as CSSProperties}>
         <div className="exb-search-field">
           <I.Search className="exb-search-icon" />
           {site ? <span className="exb-search-chip">{site.name}</span> : null}
@@ -286,6 +361,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
               else if (e.key === 'ArrowDown') { e.preventDefault(); setSel((current + 1) % Math.max(1, picks.length)) }
               else if (e.key === 'ArrowUp') { e.preventDefault(); setSel((current - 1 + picks.length) % Math.max(1, picks.length)) }
               else if (e.key === 'Enter') { e.preventDefault(); choose(current, e.altKey || e.shiftKey) }
+              else if (opensActions(e) && showActions(current)) e.preventDefault()
               else if (e.key === 'Escape') { e.preventDefault(); controller.close() }
             }} />
         </div>
@@ -297,7 +373,8 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
               return (
                 <div key={k} role="option" aria-selected={i === current} className={`exb-search-row${i === current ? ' is-selected' : ''}`}
                   onPointerMove={() => { if (i !== current) setSel(i) }}
-                  onPointerDown={e => { e.preventDefault(); if (e.button !== 2) choose(i, e.button === 1) }}>
+                  onPointerDown={e => { e.preventDefault(); if (e.button !== 2) choose(i, e.button === 1) }}
+                  onContextMenu={e => { e.preventDefault(); showActions(i, e.clientX) }}>
                   {'fav' in r && r.fav ? <img className="exb-search-fav" src={r.fav} alt="" onLoad={e => markInk(e.currentTarget)} /> : <r.Icon className="exb-search-lead" />}
                   <span className="exb-search-text">
                     <span className="exb-search-main">{r.main}</span>

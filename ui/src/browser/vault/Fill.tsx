@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { Button } from '../../components/ui/Button'
 import * as I from '../icons'
 import { local, onHost, send, useBrowserValue } from '../host'
-import { b64, helloUnlock, loginsFor, neverSave, openVault, saveItem, newItem, setVault, unlock, useVault, vaultNow, type FillTarget, type Item, type Prompt } from './store'
+import { b64, helloUnlock, loginsFor, neverSave, openVault, saveItem, newItem, setVault, unlock, useOutOfCaptures, useVault, vaultNow, type FillTarget, type Item, type Prompt } from './store'
 import { Avatar, summary, useOtp } from './parts'
 import { generate } from './generate'
 import { useRecipe } from './Editor'
@@ -187,6 +187,8 @@ function FillMenu({ target }: { target: FillTarget }) {
   }, [target.y, target.h, logins.length, offers])
   useLayoutEffect(reportHot)
   useEffect(() => reportHot, [])
+  // Open, it lists your logins, codes or cards, or a new password in full; locked, only the master password's field.
+  useOutOfCaptures(offers && v.state === 'unlocked')
   if (!offers) return null
   return (
     <div ref={ref} className="exo-shelf-sort-menu exb-menu exb-vault-fill" role="menu" aria-label="Exo Vault" style={style}
@@ -218,6 +220,7 @@ function SavePrompt({ prompt }: { prompt: Prompt }) {
   const locked = v.state !== 'unlocked'
   const unlockFirst = () => { pending = prompt; saveOnOpen = true }
   const action = prompt.update ? 'Update' : 'Save'
+  useOutOfCaptures(true)  // it names the login
   useLayoutEffect(reportHot)
   useEffect(() => reportHot, [])
   // Exo's notice (its NoticeStack): the question and the login, the choices under them at the right.

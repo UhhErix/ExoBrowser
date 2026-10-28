@@ -371,6 +371,9 @@ body,
 .exb-search-row { min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--exo-row-radius, 12px); transition: background-color 120ms; }
 /* The selected row is lifted like a hovered one, so its secondary words go full ink as Exo's do on a hovered row. */
 .exb-search-row.is-selected { background: var(--hover-fill); --color-muted: var(--color-fg); --color-faint: var(--color-fg); }
+/* A row's actions open: the other rows step back, so none shows through the menu's glass. */
+.exb-search-list > * { transition: background-color 120ms, opacity var(--dur-quick) var(--ease-out); }
+.exb-search.is-acting .exb-search-list > :not(.is-selected) { opacity: 0; }
 .exb-search-lead { color: var(--color-muted); }
 .exb-search-fav { width: 16px; height: 16px; flex: none; border-radius: 4px; object-fit: contain; }
 .exb-search-text { min-width: 0; flex: 1; display: flex; flex-direction: column; }

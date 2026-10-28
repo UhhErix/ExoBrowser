@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useGlide } from '../../lib/glide'
 import * as I from '../icons'
-import { closeVault, lock, setVault, useVault, vaultNow } from './store'
+import { closeVault, lock, setVault, useOutOfCaptures, useVault, vaultNow } from './store'
 import { Gate } from './Gate'
 import { Items, LISTS } from './Items'
 import { HealthView, Prefs } from './Prefs'
@@ -29,6 +29,7 @@ function Sheet() {
   const v = useVault()
   const glide = useGlide<HTMLUListElement>()
   const unlocked = v.state === 'unlocked' && !!v.data
+  useOutOfCaptures(unlocked)
   // A result line (copied, imported) fades on its own.
   useEffect(() => {
     if (!v.note) return

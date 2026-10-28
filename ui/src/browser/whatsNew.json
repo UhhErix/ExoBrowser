@@ -1,5 +1,25 @@
 [
   {
+    "version": "1.1.6",
+    "items": [
+      {
+        "icon": "EyeOff",
+        "title": "Off your stream",
+        "detail": "While Exo Vault shows your logins, screen shares, recordings and screenshots leave Exo Browser out."
+      },
+      {
+        "icon": "Search",
+        "title": "Actions on every result",
+        "detail": "Right-click a result in Search, or press Tab: open it beside this tab, in Peek or privately, copy it clean, or close it."
+      },
+      {
+        "icon": "Shield",
+        "title": "Exo Shield, up to date",
+        "detail": "The newest uBlock Origin Lite and today's HaGeZi list."
+      }
+    ]
+  },
+  {
     "version": "1.1.5",
     "items": [
       {

@@ -2,8 +2,8 @@ Exo Shield, Exo Browser's built-in blocker
 Copyright (C) Raymond Hill and contributors (uBlock Origin Lite), Younes Aassila and contributors (TTV LOL PRO),
 HaGeZi (HaGeZi DNS blocklists), and Erix (UhhErix) for the changes below.
 
-Exo Shield is a modified version of uBlock Origin Lite 2026.1021.1354, combined with TTV LOL PRO 2.6.2 and HaGeZi's
-Multi PRO list (207507 sites). It is free software under the GNU General Public License version 3 (LICENSE.txt),
+Exo Shield is a modified version of uBlock Origin Lite 2026.1026.1812, combined with TTV LOL PRO 2.6.2 and HaGeZi's
+Multi PRO list (210731 sites). It is free software under the GNU General Public License version 3 (LICENSE.txt),
 with no warranty.
 
 Changes, made by tools/build-shield.mjs (October 2026 and later):

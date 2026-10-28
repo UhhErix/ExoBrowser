@@ -239,7 +239,7 @@
 {"action":{"type":"block"},"condition":{"urlFilter":"||ip.sb/assets/js/wwads_blocked.js"},"id":238,"priority":10},
 {"action":{"type":"block"},"condition":{"urlFilter":"||jsdelivr.net/npm/ad-compass@latest/dist/ad-compass.umd.js"},"id":239,"priority":10},
 {"action":{"type":"block"},"condition":{"urlFilter":"||cined.com/content/plugins/abss-adblock"},"id":240,"priority":10},
-{"action":{"type":"block"},"condition":{"urlFilter":"||vidwish.live/lib/devtools-detector"},"id":241,"priority":10},
+{"action":{"type":"block"},"condition":{"urlFilter":"/lib/devtools-detector"},"id":241,"priority":10},
 {"action":{"type":"block"},"condition":{"resourceTypes":["stylesheet"],"urlFilter":"||unic.com.vn/css/chongcopy.css"},"id":242,"priority":10},
 {"action":{"type":"block"},"condition":{"resourceTypes":["image"],"urlFilter":"||oggiscuola.com/*/banner"},"id":243,"priority":10},
 {"action":{"type":"block"},"condition":{"resourceTypes":["image"],"urlFilter":"||coffeeforums.co.uk/banners/"},"id":244,"priority":10},

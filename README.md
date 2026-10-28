@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.5">What's new in 1.1.5</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.6">What's new in 1.1.6</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.5/ExoBrowser-Setup.exe) | 1.1.5 | `0b2b414788e05a9c9c59fdc0ebd0008c3cbec4fea6e259890e408cefbbf92c2a` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.6/ExoBrowser-Setup.exe) | 1.1.6 | `d7b1acadc7192e16e5d80776ba5702931d8b045fd2f982e6474a5b211d7918ac` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.5):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.6):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -57,7 +57,7 @@ Exo Shield blocks before anything loads, on every site:
 
 It's locked on: it has no settings, can't be turned off or removed, and every start puts its rules back exactly. It runs in private tabs too. Settings > About lists its parts and when its lists were built.
 
-**Check it yourself.** Exo Shield is uBlock Origin Lite 2026.1021.1354, TTV LOL PRO 2.6.2 and HaGeZi's Multi PRO list, merged into one extension. Its lists ship with the browser, so it fetches nothing to block. Everything it runs is in [`extensions/exo-shield`](extensions/exo-shield), built by [`tools/build-shield.mjs`](tools/build-shield.mjs), and [`NOTICE.txt`](extensions/exo-shield/NOTICE.txt) lists every change from the upstream projects. The HaGeZi ruleset in this release holds 207,507 domains ([`hagezi-pro.json`](extensions/exo-shield/hagezi-pro.json)).
+**Check it yourself.** Exo Shield is uBlock Origin Lite 2026.1026.1812, TTV LOL PRO 2.6.2 and HaGeZi's Multi PRO list, merged into one extension. Its lists ship with the browser, so it fetches nothing to block. Everything it runs is in [`extensions/exo-shield`](extensions/exo-shield), built by [`tools/build-shield.mjs`](tools/build-shield.mjs), and [`NOTICE.txt`](extensions/exo-shield/NOTICE.txt) lists every change from the upstream projects. The HaGeZi ruleset in this release holds 210,731 domains ([`hagezi-pro.json`](extensions/exo-shield/hagezi-pro.json)).
 
 ## Exo Vault
 
@@ -69,6 +69,7 @@ A password manager in the browser, with everything kept on this PC:
 - **Signing in:** a menu on sign-in fields fills your login, and Exo Vault offers to save a new one or update a changed one.
 - **Password health:** weak passwords, passwords reused across sites, and sites that offer 2FA where you haven't set it up, all worked out on your PC.
 - **Locked when you're away:** after the time you choose, when Windows locks and when the PC sleeps. A copied password leaves the clipboard after 30 seconds and never reaches Windows' clipboard history.
+- **Off your stream:** while it shows what's in it, screen shares, recordings and screenshots leave Exo Browser out, and you see it as always.
 - **Moving in and out:** import from the browsers on this PC, or from a Proton Pass, Bitwarden, 1Password, LastPass, Dashlane, KeePass, Safari or any browser's export. Export everything as one encrypted file to open on another PC.
 
 > [!IMPORTANT]
@@ -99,6 +100,7 @@ One field for everything: an address opens, anything else goes to your search en
 
 - **Search one site:** type its keyword and a space ("yt cats" searches YouTube), or its address and Tab. **Settings > Search** keeps the list and adds your own.
 - **Everything at once:** **Ctrl+K** finds a tab, bookmark, page from your history or one of the browser's actions.
+- **Actions on every result:** right-click one, or press **Tab** or **→**, to open it beside this tab, in Peek or privately, copy its link clean, close a tab or remove a page from your history. Under what you type, Search offers it to other sites too.
 - **Clean links:** every page opens without the tracking parts that share buttons and ads add to its address (`utm_` tags, click ids), whether you click it, paste it or it comes from another app, and **Ctrl+Shift+C** or a link's **Copy link** copies it the same way.
 
 ## Make it yours

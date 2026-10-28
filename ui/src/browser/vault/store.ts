@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { holdInput, isFirstRun, onHost, send } from '../host'
 import { sameSite, siteName, siteOfUrl } from './sites'
 
@@ -78,6 +78,23 @@ export function setVault(patch: Partial<Vault>) {
 }
 export const vaultNow = () => vault
 export const useVault = () => useSyncExternalStore(l => { listeners.add(l); return () => listeners.delete(l) }, () => vault)
+
+// While the vault shows what's in it, the window stays out of screen captures (HideFromCapture in main.cpp): counted,
+// as its sheet, the fill menu and the save prompt can be up together. A chrome page loading again starts with none.
+let showing = 0
+function showingBy(by: number) {
+  const was = showing > 0
+  showing += by
+  if (was !== showing > 0) send('hideFromCapture', showing > 0 ? '1' : '0')
+}
+send('hideFromCapture', '0')
+export function useOutOfCaptures(on: boolean) {
+  useEffect(() => {
+    if (!on) return
+    showingBy(1)
+    return () => showingBy(-1)
+  }, [on])
+}
 
 /** Text as base64 of its UTF-8 (secrets and notes may hold the tabs the host splits on). */
 export function b64(text: string) {

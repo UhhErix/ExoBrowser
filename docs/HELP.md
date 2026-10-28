@@ -21,6 +21,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 - **Search or go:** click the address, or press **Ctrl+L** or **F6**, and type. An address opens; anything else is searched with your search engine (**Settings > General > Search engine**). Suggestions come from your open tabs, bookmarks and history.
 - **Search one site:** type its keyword and a space ("yt cats" searches YouTube, "wp" Wikipedia, "gh" GitHub), "@" and its name, or its address and **Tab**. It shows as a chip in the field, with that site's pages from your history under it; **Backspace** in the empty field takes it off. **Settings > Search** keeps the list and adds your own with a %s address.
 - **Everything at once:** **Ctrl+K** finds a tab, bookmark, page from your history or action.
+- **Actions on a result:** right-click it, or press **Tab** (after anything but a site's keyword), **→** at the end of the line or the menu key: open it in a new tab, beside this tab, in Peek or in a private tab, copy its link without trackers, switch to, mute or close an open tab, or remove a page from your history or the archive. Under what you type, the first three sites in **Settings > Search** offer to search it.
 - **Tabs:** across the top or down the side (**Settings > Look > Tabs**). Drag a tab to move it; right-click it to pin, mute, duplicate, copy its link or close others. **Ctrl+T** opens a new tab, **Ctrl+Shift+T** reopens the last one you closed, **Ctrl+W** closes one, and **Ctrl+1** to **9** go to the first nine.
 - **Ctrl+Tab** goes back through the tabs in the order you used them, as Alt+Tab does with windows: a quick press returns to the tab before, and held, it lists the space's tabs. **Settings > General > Ctrl+Tab in recent order** makes it follow the strip instead.
 - **Clean links:** every page opens without the tracking parts that share buttons and ads add to its address (`utm_` tags, click ids), whether you click it, paste it or it comes from another app, and **Ctrl+Shift+C** or a link's **Copy link** copies it the same way.
@@ -64,6 +65,7 @@ Twitch: a stream can take a second longer to start, since its playlist comes thr
 - **Bring your passwords in:** **Import and export** brings them from the browsers on this PC (close that browser first), or from a file: an export from Proton Pass, Bitwarden, 1Password, LastPass, Dashlane, KeePass, Safari or any browser (CSV or JSON), or an Exo Vault export. Proton Pass: in Proton Pass, **Settings > Export**, choose CSV, then import that file.
 - **Moving to another PC:** **Import and export > Encrypted export** saves everything as one file locked with a password you choose; import it in Exo Vault on the other PC.
 - **Locking:** after the time you set in **Vault settings**, when Windows locks and when the PC sleeps, or with **Lock**.
+- **Off your stream:** while the vault shows what's in it (its window, the menu beside a sign-in field, the offer to save a login), Exo Browser is left out of screen shares, recordings and screenshots, and shows as always on your screen. Locked, it shows nothing of yours, so it stays in them.
 
 ## Bringing your things from another browser
 

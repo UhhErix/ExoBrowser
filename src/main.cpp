@@ -4473,10 +4473,14 @@ static bool CopyText(const std::wstring& text) {
     return ok;
 }
 
+static void CopyUrl(const std::wstring& url) {
+    if (url.empty() || IsNewTab(url)) return;
+    std::wstring clean = CleanUrl(url);
+    if (CopyText(clean)) Toast(clean == url ? L"Link copied" : L"Link copied without its trackers");
+}
+
 static void CopyLink(Tab* t) {
-    if (!t || t->url.empty() || IsNewTab(t->url)) return;
-    std::wstring clean = CleanUrl(t->url);
-    if (CopyText(clean)) Toast(clean == t->url ? L"Link copied" : L"Link copied without its trackers");
+    if (t) CopyUrl(t->url);
 }
 
 // Every page goes without the tracking parts of its address, wherever it came from (a shared link, an ad's redirect, a
@@ -5893,6 +5897,13 @@ static void SetUiHot(const std::wstring& spec) {
     }
 }
 
+// While Exo Vault shows what's in it (its sheet, the fill menu beside a sign-in, the offer to save one), the window
+// stays out of screen captures: a stream, a call's screen share, a recording or a screenshot shows nothing there, and
+// you see it as always. Windows 10 before 2004 can't leave a window out, so there it shows black.
+static void HideFromCapture(bool hide) {
+    if (!SetWindowDisplayAffinity(g.hwnd, hide ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE) && hide) SetWindowDisplayAffinity(g.hwnd, WDA_MONITOR);
+}
+
 // What a page's sign-in fields report (ui/vault-page.js): the field you're in, where it is, and what was
 // submitted. The page's own words reach the vault window as a string to parse, beside what the host knows
 // for certain (which tab, which site, where the tab sits), so a page can't speak for another site.
@@ -5915,6 +5926,7 @@ static void OnUiMessage(const std::wstring& msg) {
     if (v.rfind(L"vault", 0) == 0) { OnVaultMessage(p); return; }
     if (v == L"hot") { SetUiHot(p.size() > 1 ? p[1] : std::wstring()); return; }
     if (v == L"pageMenuPick") { EndPageMenu(p.size() > 1 ? _wtoi(p[1].c_str()) : -1); return; }
+    if (v == L"hideFromCapture") { HideFromCapture(p.size() > 1 && p[1] == L"1"); return; }
     auto arg = [&](size_t i) { return i < p.size() ? p[i] : std::wstring(); };
     auto argId = [&](size_t i) { return _wtoi(arg(i).c_str()); };
     Tab* a = Active();
@@ -6113,8 +6125,9 @@ static void OnUiMessage(const std::wstring& msg) {
             if (!a2->split) a2->split = g.nextSplit++;
             int group = a2->split;
             if (std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 4) {
+                // Or an address (Search's row actions) in a new tab beside it.
                 Tab* t = FindTab(argId(1));
-                if (!t) t = AddTab(kNewTab, false, IndexOf(a2->id) + 1);
+                if (!t) t = AddTab(arg(2).empty() ? kNewTab : arg(2), false, IndexOf(a2->id) + 1);
                 if (t != a2 && !t->peek) {
                     if (t->split && t->split != group)
                         if (int old = t->split; std::count_if(g.tabs.begin(), g.tabs.end(), [old](auto& x) { return x->split == old; }) <= 2)
@@ -6204,9 +6217,12 @@ static void OnUiMessage(const std::wstring& msg) {
     } else if (v == L"zapEnd") {
         EndZap();
     } else if (v == L"privateTab") {
-        AddTab(kNewTab, true, NextPlace(), true);
+        // A new private tab, or an address in one (Search's row actions).
+        AddTab(arg(1).empty() ? kNewTab : arg(1), true, NextPlace(), true);
     } else if (v == L"copyLink") {
         CopyLink(FindTab(argId(1)));
+    } else if (v == L"copyUrl") {
+        CopyUrl(arg(1));
     } else if (v == L"switchTo") {
         SwitcherEnd(false);
         Activate(argId(1));
@@ -6291,6 +6307,8 @@ static void OnUiMessage(const std::wstring& msg) {
         if (g.pinned) { Reveal(true, true); FocusTarget(kUi); }  // the find field types even when Search just closed
         else { POINT pt; GetCursorPos(&pt); ScreenToClient(g.hwnd, &pt); AutoHideTrack(pt, false); }
     } else if (v == L"peek") {
+        // An address in Peek (Search's row actions).
+        if (!arg(1).empty()) { CloseOverlay(); OpenPeek(arg(1)); }
     } else if (v == L"bookmarkAdd") {
         if (std::none_of(g.bookmarks.begin(), g.bookmarks.end(), [&](auto& b) { return b.url == arg(1); })) {
             g.bookmarks.push_back({arg(1), arg(2).empty() ? SiteOf(arg(1)) : arg(2)});
