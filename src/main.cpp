@@ -5169,7 +5169,8 @@ static void OnUpdateNews(UpdateNews* raw) {
         STARTUPINFOW si{sizeof si};
         PROCESS_INFORMATION pi{};
         std::wstring line = L"\"" + news->file + L"\" /S";
-        if (CreateProcessW(news->file.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+        std::wstring updates = g.dataDir + L"\Updates";
+        if (CreateProcessW(news->file.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, updates.c_str(), &si, &pi)) {
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
         } else {
@@ -6872,6 +6873,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     OleInitialize(nullptr);  // COM for this thread, and drag and drop
     g.exeDir = ExeDir();
     g.dataDir = DataDir();
+    // Working in the data folder, never the app folder it was started in (a shortcut's Start in, Setup's Launch): a
+    // process's current folder can't be renamed, and the app folder is what an update swaps. The engine's helpers and
+    // the Setup an update starts inherit it.
+    SetCurrentDirectoryW(g.dataDir.c_str());
     for (auto& row : ReadTable(L"settings.tsv"))
         if (row.size() >= 2) g.settings[row[0]] = row[1];
     LoadSpaces();

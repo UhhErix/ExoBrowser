@@ -6183,15 +6183,10 @@ button.exo-dc-gifv {
   border-radius: var(--exo-panel-radius);
   background: var(--exo-float);
   box-shadow: inset 0 0 0 1px var(--exo-float-line);
-  outline: 2px solid transparent;
-  outline-offset: -2px;
-  transition: box-shadow var(--dur-quick) var(--ease-out), outline-color var(--dur-quick) var(--ease-out);
 }
 
 /* A tile with art (their light, a camera) has nothing under it and no line on its edge: a fill and a hairline
-   under the same rounded clip antialias the corner twice and show through as a light rim. The speaking ring
-   is an outline on the tile's own edge, on every tile alike, as the call's members wear theirs: 2px outside it,
-   the page's black showed between the ring and the tile as a second, dark line. */
+   under the same rounded clip antialias the corner twice and show through as a light rim. */
 .exo-dc-voice-tile:has(> .exo-dc-voice-backdrop, > .exo-dc-voice-video:not([hidden])) {
   background: transparent;
   box-shadow: none;
@@ -6199,8 +6194,23 @@ button.exo-dc-gifv {
 
 /* Speaking, everywhere (the call's members, its tiles and faces, the Island, the Bar's call): a green ring
    that comes and goes on the quick time, so a voice that flickers on and off never strobes. */
-.exo-dc-voice-tile.is-speaking {
-  outline-color: var(--color-good);
+.exo-dc-voice-tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--color-good);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-quick) var(--ease-out);
+}
+
+/* The ring is a layer of its own over the tile, on its edge, as the call's members wear theirs: an outline 2px
+   outside showed the page's black between it and the tile as a second, dark line, and one inside the edge was drawn
+   under their light and camera. Their picture doesn't light up as well. */
+.exo-dc-voice-tile.is-speaking::after {
+  opacity: 1;
 }
 
 /* Their own picture, blurred and dimmed, lights the tile behind them. */

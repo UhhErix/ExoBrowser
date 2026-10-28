@@ -240,9 +240,19 @@ Section "Exo Browser" SecApp
   !insertmacro Status "Installing"
   StrCpy $R7 "0"
   IfFileExists "$INSTDIR\ExoBrowser.exe" 0 no_old
+    ; Exo Browser's WebView2 helpers can outlive its window by a few seconds, and before 1.1.3 it ran them (and the
+    ; Setup an update starts) from inside the app folder, which holds it open: try again for up to 20 seconds as they
+    ; close. (Every update from Settings stopped here with "the folder is in use".)
+    StrCpy $R2 0
+    swap_prepare_retry:
     ClearErrors
     Rename "$INSTDIR" "$R5"
-    IfErrors swap_prepare_fail
+    IfErrors 0 swap_prepare_done
+    IntOp $R2 $R2 + 1
+    IntCmp $R2 40 swap_prepare_fail
+    Sleep 500
+    Goto swap_prepare_retry
+    swap_prepare_done:
     StrCpy $R7 "1"
   no_old:
   CreateDirectory "$R8"

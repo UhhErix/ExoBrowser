@@ -222,6 +222,10 @@ button.exo-glass:hover {
   .exo-capture-corner-btn, .exo-dc-alt-tag, .exo-dc-alt, .exo-dc-hidden-label, .exo-dc-voice-tile-name, .exo-dc-watch,
   .exo-dc-stream-bar :is(.exo-dc-stream-tools > .exo-dc-voice-btn, .exo-dc-stream-name, .exo-dc-stream-sound)) {
   --exo-control-glass: blur(10px) brightness(0.34) contrast(0.9) saturate(1.6);
+  /* One shape, no line: over light art the glass's line drew a grey ring around the dimmed pill, which read as a second
+     edge, or a shadow (a call tile's name over a bright avatar's light). */
+  --exo-rim: 0 0 0 0 transparent;
+  --exo-glass-rim: 0 0 0 0 transparent;
 }
 
 /* Controls repeated down a scrolling list (a song's or a library row's More, a friend's Message and More, a

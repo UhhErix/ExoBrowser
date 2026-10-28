@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.1.3",
+    "items": [
+      {
+        "icon": "Download",
+        "title": "Updates install themselves again",
+        "detail": "Install update in Settings › About closes Exo Browser, puts the new version in place and opens it again."
+      }
+    ]
+  },
+  {
     "version": "1.1.2",
     "items": [
       {

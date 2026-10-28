@@ -256,7 +256,8 @@ void OnMessage(const std::wstring& message) {
         STARTUPINFOW si{sizeof(si)};
         PROCESS_INFORMATION pi{};
         std::wstring line = L"\"" + exe + L"\"";
-        if (CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, g_app.c_str(), &si, &pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
+        // Started in Exo Browser's own folder, not the app folder: the next update renames that one.
+        if (CreateProcessW(exe.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, g_root.c_str(), &si, &pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
         PostMessageW(g_window, WM_CLOSE, 0, 0);
     } else if (Has(message, L"\"close\"") && !g_busy) PostMessageW(g_window, WM_CLOSE, 0, 0);
     else if (Has(message, L"\"minimize\"")) ShowWindow(g_window, SW_MINIMIZE);
@@ -368,6 +369,12 @@ bool Arg(int argc, wchar_t** argv, const wchar_t* name) {
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    // Not in the folder it was started from: an update from Settings starts Setup from inside the app folder, and a
+    // process's current folder can't be renamed, so the install engine's swap of it always failed ("in use").
+    {
+        wchar_t temp[MAX_PATH];
+        if (GetTempPathW(MAX_PATH, temp)) SetCurrentDirectoryW(temp);
+    }
     wchar_t self[MAX_PATH * 4];
     GetModuleFileNameW(nullptr, self, ARRAYSIZE(self));
     g_self = self;

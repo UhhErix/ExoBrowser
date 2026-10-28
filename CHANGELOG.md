@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3 — October 27, 2026
+
+Install update in Settings › About works: it closes Exo Browser, puts the new version in place and opens it again.
+
+- **Install update works.** Settings › About's Install update downloaded the new version, closed the window and stopped: Setup was started from inside the app folder, and Exo Browser and its engine's helpers worked from it too, so Windows wouldn't let the folder be swapped ("Exo Browser's folder is in use"). Setup now lets go of the folder it was started from and waits for the helpers to close, and Exo Browser no longer works from its app folder. _Verified: a silent install over a test copy whose app folder was held open, as an update from 1.1.1 or 1.1.2 holds it._
+
 ## 1.1.2 — October 27, 2026
 
 Exo Vault unlocks right where it's asked for, in the menu beside a sign-in field and in the offer to save one, and two things the build broke work again.
