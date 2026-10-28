@@ -152,6 +152,11 @@ Every bundled library, font and tool is listed in [Third-party notices](THIRD_PA
 
 **Not affiliated.** Exo Browser is independent and not affiliated with or endorsed by Microsoft, Google, Cloudflare, Twitch, YouTube, The Browser Company (Arc), the uBlock Origin, HaGeZi or TTV LOL PRO projects, or any password manager or website it works with. Their names and logos belong to their owners, as do the pages of NASA, Wikipedia and GitHub in the pictures above. Your use of each site and service stays under its own terms.
 
+## Also from Exo
+
+- **[Exo Launcher](https://github.com/UhhErix/ExoLauncher)** — every game store, Discord, music, captures and mouse in one app
+- **[Exo Cinema](https://github.com/UhhErix/ExoCinema)** — Jellyfin library with a native mpv player (HDR / Dolby Vision)
+
 ---
 
 [Help](docs/HELP.md) · [Report an issue](https://github.com/UhhErix/ExoBrowser/issues) · [Support development](https://www.buymeacoffee.com/UhhErix)
