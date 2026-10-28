@@ -88,9 +88,8 @@ jobs:
             echo "::warning::Variable DISCORD_RELEASE_ROLE_ID is not a Discord snowflake; posting without a role mention."
             role=""
           fi
-          # Discord blocks phantom pings: <@&id> has to be in content on POST
-          # (flags 4096 = silent). The post step immediately clears content
-          # so the card is embed-only — spoilers and ZWSP still leave a line.
+          # The role mention stays in visible content so Discord notifies that
+          # role. allowed_mentions.roles limits the ping to this role id.
           jq -n \
             --arg product "$PRODUCT" \
             --arg icon "$icon_url" \
@@ -101,15 +100,13 @@ jobs:
             | {
                 username: "\($product) Releases",
                 avatar_url: $icon,
-                content: (if $role != "" then "<@&\($role)>" else "" end),
+                content: (if $role != "" then "<@&\($role)> A new version of \($product) is out. The full changelog is built into the app." else "" end),
                 allowed_mentions: (if $role != "" then { parse: [], roles: [$role] } else { parse: [] } end),
-                flags: 4096,
                 embeds: [
                   {
                     color: 1118740,
                     title: ("\($product) \($r.tag_name)" + (if $pre then " (Pre-release)" else "" end))[0:256],
                     url: $r.html_url,
-                    description: "A new version of \($product) is out. The full changelog is built into the app.",
                     fields: [
                       {
                         name: "Channel",
@@ -168,9 +165,6 @@ jobs:
           if [[ "$DRY_RUN" == "true" ]]; then
             echo "Dry run: not posting. Payload (application/json):"
             jq . "$payload"
-            if jq -e '.content != null and .content != ""' "$payload" > /dev/null; then
-              echo "Would then PATCH content to empty (hide the role mention after it fires)."
-            fi
             echo "Would then delete previous card: ${PREV_ID:-<none stored>}"
             if [[ -z "${WEBHOOK_URL:-}" ]]; then
               echo "::warning::Secret DISCORD_RELEASES_WEBHOOK is not set; a real run would fail."
@@ -210,15 +204,6 @@ jobs:
           echo "message_id=$new_id" >> "$GITHUB_OUTPUT"
           mkdir -p "$RUNNER_TEMP/state"
           printf '%s\n' "$new_id" > "$RUNNER_TEMP/state/message-id.txt"
-          # Mention already fired; strip the markup so the card has no content line.
-          if jq -e '.content != null and .content != ""' "$payload" > /dev/null; then
-            printf '%s\n' '{"content":""}' > "$RUNNER_TEMP/strip.json"
-            strip_code="$(discord PATCH "/messages/$new_id" "" -H "Content-Type: application/json" --data-binary "@$RUNNER_TEMP/strip.json")"
-            case "$strip_code" in
-              2*) echo "Cleared role markup from card $new_id." ;;
-              *) echo "::warning::Posted the card but could not hide the role mention (HTTP $strip_code)." ;;
-            esac
-          fi
           if [[ -n "${PREV_ID:-}" && "$PREV_ID" != "$new_id" ]]; then
             code="$(discord DELETE "/messages/$PREV_ID" "")"
             case "$code" in
