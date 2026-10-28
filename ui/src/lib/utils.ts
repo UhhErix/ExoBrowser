@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
-import type { Game, SortMode } from './host'
+import { isPreloaded, type Game, type SortMode } from './host'
 
 /** Joins class names. No Tailwind conflict merging: no call site passes conflicting utilities. */
 export function cn(...inputs: ClassValue[]) {
@@ -9,10 +9,6 @@ export function cn(...inputs: ClassValue[]) {
 /** Null is unknown; a validated zero belongs to the current phase. */
 export function visibleInstallPercent(percent: number | null | undefined): number | null {
   return typeof percent === 'number' && Number.isFinite(percent) && percent >= 0 && percent <= 100 ? percent : null
-}
-
-export function formatTransferPercent(percent: number): string {
-  return percent === 100 ? '100' : percent >= 99 ? (Math.floor(percent * 10) / 10).toFixed(1) : String(Math.floor(percent))
 }
 
 /** Download bytes cannot be used as installation/verification progress. */
@@ -96,6 +92,14 @@ export function installProgressLabel(
   if (phase === 'installing') return action === 'update' ? 'Applying…' : 'Installing…'
   if (phase === 'finalizing') return 'Finalizing…'
   return `${verb}…`
+}
+
+/** The work a transfer is doing in one word ("Updating", "Applying", "Waiting"), for a working word's moving dots. */
+export function installVerb(
+  progress: { phase?: string | null; status?: string | null } | null | undefined,
+  action: 'install' | 'update' | 'download',
+): string {
+  return installProgressLabel(progress && { phase: progress.phase, status: progress.status }, action).replace(/….*$/, '')
 }
 
 /**
@@ -202,13 +206,15 @@ export function sortGames(games: Game[], mode: SortMode | string, recent: string
       // lastPlayedUtc already carries Exo's own launch stamps. Exo's launch order only
       // breaks ties, so a game played outside Exo is not held behind an older Exo launch.
       const rank = new Map(recent.map((id, i) => [id.toLowerCase(), i]))
+      // Each game's stamp is parsed once: inside the comparator it would be parsed per comparison (~log n × more).
+      const keyOf = new Map(rest.map((g) => [g, {
+        played: g.lastPlayedUtc ? Date.parse(g.lastPlayedUtc) : 0,
+        rank: rank.get(g.id.toLowerCase()) ?? 9999,
+      }] as const))
       ordered = [...rest].sort((a, b) => {
-        const la = a.lastPlayedUtc ? Date.parse(a.lastPlayedUtc) : 0
-        const lb = b.lastPlayedUtc ? Date.parse(b.lastPlayedUtc) : 0
-        if (la !== lb) return lb - la
-        const ra = rank.get(a.id.toLowerCase()) ?? 9999
-        const rb = rank.get(b.id.toLowerCase()) ?? 9999
-        if (ra !== rb) return ra - rb
+        const ka = keyOf.get(a)!, kb = keyOf.get(b)!
+        if (ka.played !== kb.played) return kb.played - ka.played
+        if (ka.rank !== kb.rank) return ka.rank - kb.rank
         return cmpTitle(a, b)
       })
       break
@@ -224,10 +230,12 @@ export function sortGames(games: Game[], mode: SortMode | string, recent: string
     case 'store':
       ordered = [...rest].sort((a, b) => a.store.localeCompare(b.store) || cmpTitle(a, b))
       break
-    case 'installed':
-      // What you can play now first, A to Z; then what you own but haven't installed, A to Z.
-      ordered = [...rest].sort((a, b) => Number(b.installed) - Number(a.installed) || cmpTitle(a, b))
+    case 'installed': {
+      // What's on this PC first (installed, or preloaded for its release), A to Z; then what you own but haven't installed.
+      const here = (game: Game) => Number(game.installed || isPreloaded(game))
+      ordered = [...rest].sort((a, b) => here(b) - here(a) || cmpTitle(a, b))
       break
+    }
     case 'name':
     default:
       ordered = [...rest].sort(cmpTitle)

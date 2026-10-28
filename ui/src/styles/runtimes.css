@@ -1,0 +1,51 @@
+/* Game runtimes (components/runtimes/RuntimesPanel.tsx): one status line with its two buttons (the Exo bar in the line's
+   place while they install), then Settings' rows under a quiet heading per group. */
+
+.exo-runtimes,
+.exo-runtimes-list {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.exo-runtimes-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-height: 36px;
+}
+
+.exo-runtimes-status {
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+.exo-runtimes-status.is-bad {
+  color: var(--color-bad);
+}
+
+.exo-runtimes-run {
+  display: grid;
+  flex: 1 1 320px;
+  gap: 8px;
+  max-width: 560px;
+}
+
+.exo-runtimes-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.exo-runtimes-group {
+  margin: 0 0 6px;
+  color: var(--color-muted);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+/* A row's own download, where its state was. */
+.exo-runtimes .exo-set-item-control .exo-progress {
+  width: 120px;
+}

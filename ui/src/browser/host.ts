@@ -24,7 +24,7 @@ export type Visit = [url: string, title: string, visits: number, last: number]
 export type Archived = [url: string, title: string, at: number]
 export type Mark = [url: string, title: string, icon: string, sharp?: boolean]
 export type Extension = { id: string; name: string; enabled: boolean; builtIn?: boolean; manifest?: string }
-export type Download = { id: number; name: string; url: string; state: string; received: number; total: number }
+export type Download = { id: number; name: string; url: string; state: string; received: number; total: number; opens?: boolean }
 export type Settings = Record<string, string>
 /** Updates, as the host tells them: checking, current, available, downloading (percent), installing, error. */
 export type Update = { state: string; version: string; latest: string; message: string; percent: number; checked: number; installable: boolean; notes?: string }
@@ -124,7 +124,7 @@ export function setSetting(key: string, value: string) {
 }
 
 // Messages the page reacts to beyond the store (Search opening, Settings opening, toasts, imports).
-type Message = { t: string } & Record<string, unknown>
+export type Message = { t: string } & Record<string, unknown>
 const handlers = new Map<string, Set<(message: Message) => void>>()
 export function onHost(type: string, handler: (message: Message) => void) {
   if (!handlers.has(type)) handlers.set(type, new Set())

@@ -60,6 +60,9 @@ export function takeMusicLink(): string | null {
 
 export type MusicAction = 'play' | 'pause' | 'toggle' | 'previous' | 'next' | 'seek'
 
+/** A song as listen-along matches it across services: its name, its artists as each service writes them, its length. */
+export type MatchSong = { title: string; artists: string[]; durationMs?: number | null }
+
 /** The selected provider's song, from its own page or its own Windows media session. */
 export type MusicPlayback = {
   /** Host publish order; an older answer never replaces a newer event. */

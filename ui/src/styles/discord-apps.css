@@ -189,10 +189,6 @@
   background: var(--exo-primary-hover);
 }
 
-.exo-dc-cv-button.is-primary .exo-dc-typing-dots i {
-  background: rgb(var(--exo-ink-rgb) / 0.04);
-}
-
 .exo-dc-cv-button.is-success {
   color: var(--color-good);
 }
@@ -213,10 +209,6 @@
 
 .exo-dc-cv-button.is-busy:disabled {
   color: var(--color-fg);
-}
-
-.exo-dc-cv-button .exo-dc-typing-dots {
-  margin: 0;
 }
 
 .exo-dc-cv-emoji {
@@ -402,6 +394,7 @@
   transform: rotate(-90deg);
 }
 
+/* A select's choices are a menu: large glass (Components.tsx gives it the glass), 14px as menus are. */
 .exo-dc-cv-select-list {
   position: absolute;
   top: calc(100% + 4px);
@@ -414,9 +407,7 @@
   max-height: 300px;
   padding: 6px;
   overflow-y: auto;
-  border: 1px solid var(--exo-float-line);
   border-radius: 14px;
-  background: var(--exo-float);
 }
 
 .exo-dc-cv-select-list .exo-dc-modal-input {
@@ -466,7 +457,8 @@
   white-space: nowrap;
 }
 
-/* An answer still coming, and an answer only you see. */
+/* An answer only you see. */
+/* An app's answer still on its way: Discord's typing dots and "is thinking", muted. */
 .exo-dc-thinking {
   display: flex;
   align-items: center;
@@ -551,6 +543,7 @@
 .exo-dc-app-check {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   color: var(--color-fg);
 }
@@ -560,4 +553,109 @@
   font: inherit;
 }:root[data-exo-motion="reduce"] :is(.exo-dc-cv-button, .exo-dc-cv-select-arrow) {
   transition: none;
+}
+
+/* ---- Discord's report: its steps, what's reported, the choices and questions, and how it went ---- */
+.exo-dc-report-head {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.exo-dc-report-head strong {
+  font-size: calc(20px * var(--exo-scale, 1));
+}
+
+.exo-dc-report-head p,
+.exo-dc-report-info,
+.exo-dc-report-sub {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+.exo-dc-report-mark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgb(61 214 140 / 0.16);
+  color: var(--color-good);
+}
+
+.exo-dc-report-mark.is-bad {
+  background: rgb(255 92 92 / 0.16);
+  color: var(--color-bad);
+}
+
+.exo-dc-report-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--exo-row-radius);
+  box-shadow: var(--exo-glass-rim);
+}
+
+.exo-dc-report-preview img {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.exo-dc-report-preview > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.exo-dc-report-picked {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.exo-dc-report-choices .exo-dc-option {
+  justify-content: space-between;
+}
+
+.exo-dc-report-check {
+  display: grid;
+  gap: 2px;
+}
+
+.exo-dc-report-check > span {
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-dc-report-check > span.is-bad {
+  color: var(--color-bad);
+}
+
+.exo-dc-report-switch {
+  padding: 6px 0;
+}
+
+.exo-dc-report-link {
+  justify-content: space-between;
+  box-shadow: var(--exo-glass-rim);
+}
+
+.exo-dc-report-link.is-danger {
+  color: var(--color-bad);
+}
+
+.exo-dc-report-text {
+  display: grid;
+  gap: 4px;
+}
+
+.exo-dc-report-text p {
+  margin: 0;
 }

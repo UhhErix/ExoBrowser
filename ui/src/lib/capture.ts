@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { host, onHostEvent } from './host'
+import type { NotesRequest } from './notes'
 import { report } from './report'
 
 /** What Exo Capture is doing (capture.state). */
@@ -36,6 +37,8 @@ export type CaptureSettings = {
   folder: string
   keepGb: number
   keepDays: number
+  /** New recordings are re-encoded to smaller files that look the same, while no game runs. */
+  autoShrink: boolean
 }
 
 /** One file in the captures folder. */
@@ -110,12 +113,13 @@ export function clock(ms: number): string {
 }
 
 // The Captures sheet opens over any room; the title bar, a game page and a new
-// snip (straight into its editor) all open it here.
-type SheetRequest = { open: boolean; gameId?: string | null; itemId?: string | null; edit?: boolean; seq: number }
+// snip (straight into its editor) all open it here, the Capture menu straight
+// into its settings, and Notes (lib/notes.ts) on its notes.
+type SheetRequest = { open: boolean; gameId?: string | null; itemId?: string | null; edit?: boolean; settings?: boolean; notes?: NotesRequest; seq: number }
 let sheet: SheetRequest = { open: false, seq: 0 }
 const sheetListeners = new Set<() => void>()
 
-export function openCaptures(options: { gameId?: string | null; itemId?: string | null; edit?: boolean } = {}) {
+export function openCaptures(options: { gameId?: string | null; itemId?: string | null; edit?: boolean; settings?: boolean; notes?: NotesRequest } = {}) {
   sheet = { open: true, ...options, seq: sheet.seq + 1 }
   for (const listener of sheetListeners) listener()
 }

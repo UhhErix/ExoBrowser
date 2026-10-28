@@ -92,11 +92,6 @@
   font-size: calc(13px * var(--exo-scale, 1));
   color: var(--color-muted);
 }
-/* Update all with anti-cheat games: the game page's consent line, inset like the tabs above it. */
-.exo-upscalers-risk {
-  margin: 0 20px 12px;
-}
-
 /* Library > Upscalers: Games and DLSS presets in the hub frame, the same size as Shaders. */
 .exo-upscalers-body {
   flex: 1 1 auto;
@@ -106,25 +101,6 @@
   gap: 14px;
   overflow-y: auto;
   padding: 6px 20px 20px;
-}
-.exo-upscalers-progress {
-  height: 2px;
-  margin-top: 8px;
-  background: var(--color-line);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-/* A fill slides in from the left inside its rounded track (transform only: no layout each frame, so it stays smooth
-   while the page is busy; its rounded end keeps its shape, as a scale would not). */
-.exo-upscalers-progress > span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-fg);
-  transform: translateX(calc(var(--fill, 0) * 100% - 100%));
-  transition: transform 120ms linear;
 }
 
 /* Games: one poster per game, like the Shaders grid, its cover the picture. */
@@ -199,7 +175,7 @@
   display: block;
 }
 
-/* The cover's motion layer (DESIGN.md › Motion): Work while it updates, Done when it lands. */
+/* The cover's motion layer (DESIGN.md › Motion): Done when its update lands. */
 .exo-upscalers-card-cover > .exo-upscalers-card-motion {
   position: absolute;
   inset: 0;

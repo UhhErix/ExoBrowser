@@ -301,10 +301,10 @@
 .exo-dc .exo-dc-golive-stop {
   justify-content: center;
   background: var(--color-bad);
-  color: #fff;
+  color: var(--color-on-bad);
 }
 
 .exo-dc .exo-dc-golive-stop:hover {
   background: var(--color-bad);
-  color: #fff;
+  color: var(--color-on-bad);
 }

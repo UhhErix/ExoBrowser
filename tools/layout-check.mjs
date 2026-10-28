@@ -9,12 +9,13 @@
 // crop of it is saved.
 //
 //   set EXO_BROWSER_DATA=<scratch folder> & set EXO_BROWSER_CDP=9337 & out\ExoBrowser.exe
-//   node tools/layout-check.mjs [--port 9337] [--out <folder>] [--quick]
+//   node tools/layout-check.mjs [--port 9337] [--out <folder>] [--quick] [--shots]
 //
 // --quick: Void only, at the window's own size. It changes settings only as Settings does and puts each back; the
 // second space it adds (so the spaces switcher shows) and the split it opens are taken away again at the end.
 // Exit code 0: no faults; 1: faults (listed); 2: the browser couldn't be reached.
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 
 const argv = process.argv.slice(2)
@@ -22,6 +23,9 @@ const opt = (name, fallback) => { const i = argv.indexOf('--' + name); return i 
 const port = Number(opt('port', 9337))
 const out = opt('out', join(process.cwd(), 'layout-report'))
 const quick = argv.includes('--quick')
+// --shots: also the whole window as it is drawn (the window's frost under the glass included) at every state, into
+// <out>/shots, through out/tools/wincap.exe, to look the looks over by eye.
+const shots = argv.includes('--shots')
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 const version = await fetch(`http://127.0.0.1:${port}/json/version`).then(r => r.json()).catch(() => null)
@@ -85,6 +89,10 @@ async function look(label, page = ui) {
       if (shot) writeFileSync(join(out, `${name.replace(/\W+/g, '-')}-${f.kind}-${i + 1}.png`), Buffer.from(shot.data, 'base64'))
     }
     faults.push({ label: name, ...f })
+  }
+  if (shots) {
+    mkdirSync(join(out, 'shots'), { recursive: true })
+    try { execFileSync(join(import.meta.dirname, '../out/tools/wincap.exe'), ['ExoBrowserWindow', join(out, 'shots', `${name.replace(/\W+/g, '-')}.png`)]) } catch { /* not built: no shot */ }
   }
   console.log(`${found.length ? 'FAIL' : 'ok  '} ${name}${found.length ? `: ${found.length}` : ''}`)
 }
@@ -205,7 +213,7 @@ try {
   where = 'void-large-text-'
   await setting('textSize', 'large'); await surfaces(true); await setting('textSize', settings.textSize || 'standard')
   if (!quick) {
-    for (const [w, h] of [[900, 640], [1920, 1080]]) {
+    for (const [w, h] of [[540, 420], [900, 640], [1920, 1080]]) {
       await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 0, mobile: false })
       for (const tabs of ['horizontal', 'vertical']) {
         where = `void-${w}x${h}-${tabs === 'vertical' ? 'side' : 'top'}-`
@@ -346,9 +354,14 @@ function layoutFaults() {
   }
   // Controls cut by what holds them.
   for (const c of controls) {
+    // Past a list that scrolls, what counts is the list: a row scrolled out of it is reached by scrolling, and only the
+    // list itself cut by what holds it hides rows for good.
+    const r = { left: c.r.left, right: c.r.right, top: c.r.top, bottom: c.r.bottom }
     for (const k of c.list) {
-      const cutX = k.x && !k.sx && (c.r.left < k.r.left - 1 || c.r.right > k.r.right + 1)
-      const cutY = k.y && !k.sy && (c.r.top < k.r.top - 1 || c.r.bottom > k.r.bottom + 1)
+      const cutX = k.x && !k.sx && (r.left < k.r.left - 1 || r.right > k.r.right + 1)
+      const cutY = k.y && !k.sy && (r.top < k.r.top - 1 || r.bottom > k.r.bottom + 1)
+      if (k.sx) { r.left = Math.max(r.left, k.r.left); r.right = Math.min(r.right, k.r.right) }
+      if (k.sy) { r.top = Math.max(r.top, k.r.top); r.bottom = Math.min(r.bottom, k.r.bottom) }
       if (!cutX && !cutY) continue
       // A carousel or a list moved by script hides whole items past its edge too: only a lone cut control is a fault.
       const past = [...k.el.querySelectorAll(SEL)].filter(o => o !== c.el && !o.contains(c.el) && !c.el.contains(o)).some(o => {

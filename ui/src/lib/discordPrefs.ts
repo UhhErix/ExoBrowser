@@ -57,6 +57,9 @@ export type AccountSettings = {
   friendSourceFlags: number
   defaultGuildsActivityRestricted: number
   messageRequestRestrictedGuildIds: string[]
+  /** Servers where your activity status isn't shared, and where people can't join your activity. */
+  activityRestrictedGuildIds: string[]
+  activityJoiningRestrictedGuildIds: string[]
   defaultMessageRequestRestricted: boolean
   dropsOptedOut: boolean
   allowGameFriendDmsInDiscord: boolean
@@ -64,6 +67,10 @@ export type AccountSettings = {
   /** 0 unset, 1 share in all servers, 2 only in servers of 200 or fewer, 3 in none. */
   defaultGuildsActivityRestrictedV2: number
   quests3pDataOptedOut: boolean
+  /** Your messages in Discoverable channels kept off Discord's server web pages (Data & Privacy). */
+  swpMessagePromotionOptedOut: boolean
+  /** When a status chosen for a while goes back to Online (ms since 1970); null when it's for good. */
+  statusExpiresAtMs: number | null
   /** 0 unset (friends and all servers), 1 friends only, 2 friends and small servers, 3 friends and all servers. */
   profileVisibility: number
   hideFriendRequestNotes: boolean
@@ -76,7 +83,12 @@ export type AccountSettings = {
   audioUsers: Record<string, AudioUser>
   /** Stream Volume and Mute for each person's Go Live sound changed from 100 and unmuted. */
   audioStreams: Record<string, AudioUser>
+  /** The custom status (null: none), until expiresAtMs when it clears itself. */
+  customStatus: CustomStatus | null
 }
+
+/** A custom status as Discord keeps it: its words, an emoji (a server one's id with its name, or a Unicode one). */
+export type CustomStatus = { text: string; emojiId: string | null; emojiName: string | null; expiresAtMs: number | null }
 
 export type AudioUser = { muted: boolean; volume: number }
 
@@ -98,19 +110,21 @@ export type DiscordAccount = {
   premium: boolean
 }
 
-export type DiscordAccountAction = 'me' | 'name' | 'profile' | 'avatar' | 'banner' | 'consent' | 'setConsent' | 'sessions' | 'logoutSessions' | 'apps' | 'deauthorize' | 'connections'
+export type DiscordAccountAction = 'me' | 'name' | 'profile' | 'avatar' | 'banner' | 'consent' | 'setConsent' | 'sessions' | 'logoutSessions' | 'apps' | 'deauthorize' | 'connections' | 'tags' | 'setTag'
 
 /** What Exo keeps for its Discord client (Voice & Video, Keybinds, Notifications, Sounds). */
 export type DiscordClientSettings = {
   inputProfile: 'exo' | 'custom'
   noiseSuppression: boolean
-  noiseSuppressionKind?: 'ai' | 'standard'
+  noiseSuppressionKind?: 'exo' | 'ai' | 'standard'
   /** The same on everyone else's voice in a call, each their own; off by default. */
   othersNoiseSuppression: boolean
   /** Only My Voice: voices that aren't the learned one are held back in calls (needs myVoiceLearned). */
   onlyMyVoice: boolean
-  /** Whether Exo has learned this user's voice (from a Voice Check take); read-only. */
+  /** Whether Exo has learned this user's voice (from the live meter); read-only. */
   myVoiceLearned?: boolean
+  /** How many seconds of the user's speech the voiceprint is from: the teach, then what calls added. */
+  myVoiceSeconds?: number
   /** Each person's voice in a call brought toward one speaking level, for you; on by default. */
   evenVoices: boolean
   /** Exo's echo cancellation, which runs only on speakers that aren't on your head. */
@@ -153,9 +167,10 @@ const ACCOUNT_DEFAULTS: AccountSettings = {
   notifyFriendsOnProfileUpdate: true, notifyFriendsOnComeOnline: true, notifyServerMembersOnGoLive: true,
   allowActivityPartyPrivacyFriends: true, allowActivityPartyPrivacyVoiceChannel: true, restrictedGuildIds: [],
   defaultGuildsRestricted: false, friendSourceFlags: 14, defaultGuildsActivityRestricted: 0, messageRequestRestrictedGuildIds: [],
+  activityRestrictedGuildIds: [], activityJoiningRestrictedGuildIds: [],
   defaultMessageRequestRestricted: false, dropsOptedOut: false, allowGameFriendDmsInDiscord: true, defaultGuildsRestrictedV2: null,
-  defaultGuildsActivityRestrictedV2: 0, quests3pDataOptedOut: false, profileVisibility: 0, hideFriendRequestNotes: false,
-  showCurrentGame: true, locale: '', developerMode: false, timestampHourCycle: 0, audioUsers: {}, audioStreams: {},
+  defaultGuildsActivityRestrictedV2: 0, quests3pDataOptedOut: false, swpMessagePromotionOptedOut: false, statusExpiresAtMs: null, profileVisibility: 0, hideFriendRequestNotes: false,
+  showCurrentGame: true, locale: '', developerMode: false, timestampHourCycle: 0, audioUsers: {}, audioStreams: {}, customStatus: null,
 }
 
 let account: AccountSettings = ACCOUNT_DEFAULTS
@@ -353,6 +368,8 @@ export function startDiscordSettings() {
  * and Off, and the Toggle Streamer Mode keybind. Returns the cleanup.
  */
 export function startDiscordShell() {
+  // Saved Streamer Mode reaches the host at start, not only once the Discord room has been opened.
+  syncStreamerMode()
   const offs = [
     onHostEvent('discord.camera', event => {
       if (event.state === 'live' || event.state === 'off') void host.discordSound(event.state === 'live' ? 'camera_on' : 'camera_off').catch(() => { })

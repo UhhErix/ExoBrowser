@@ -56,7 +56,9 @@ body,
 .exb-bar-row {
   height: var(--exb-bar-h);
   display: grid;
-  grid-template-columns: 1fr minmax(0, auto) 1fr;
+  /* The outer capsules keep their own width and the middle is centered between them; in a narrow window the address
+     and the tabs give way (each shrinks to what is left) instead of running over the capsules beside them. */
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);
   align-items: center;
   gap: var(--exb-gap);
   padding: 0 var(--exb-gap);
@@ -74,6 +76,7 @@ body,
 .exb-address {
   position: relative;
   width: clamp(300px, 27vw, 440px);
+  max-width: 100%;
   height: var(--exb-cap-h);
   justify-self: start;
   display: flex;
@@ -145,7 +148,7 @@ body,
 .exb-load.is-loading, .exb-load.is-landed { visibility: visible; }
 .exb-load.is-loading::before { animation: exb-sweep 1.1s cubic-bezier(0.45, 0, 0.25, 1) infinite; }
 .exb-load.is-loading::after { animation: exb-grow 1.1s cubic-bezier(0.45, 0, 0.25, 1) infinite alternate; }
-.exb-load.is-landed::after { transform: scaleX(1); background: linear-gradient(90deg, transparent, rgb(var(--exo-ink-rgb) / 0) 50%, transparent); transition: background 420ms var(--ease-out); }
+.exb-load.is-landed::after { transform: scaleX(1); background: linear-gradient(90deg, transparent, rgb(var(--exo-ink-rgb) / 0) 50%, transparent); transition: background var(--dur-flight) var(--ease-out); }
 @keyframes exb-sweep { to { transform: translateX(330%); } }
 @keyframes exb-grow { from { transform: scaleX(0.08); } to { transform: scaleX(1); } }
 
@@ -162,7 +165,7 @@ body,
 .exb-dl.is-busy .exb-ring .exb-arc { stroke: var(--color-fg); stroke-linecap: round; stroke-dasharray: 50.27; transition: stroke-dashoffset var(--dur-base) var(--ease-out); }
 
 /* On glass, lines are ink at 10% as in Exo (glass.css): the solid surfaces' opaque line read as a black bar on it. */
-.exb :is(.exo-glass, .exo-shelf-sort-menu, .exb-search, .exb-side, .exb-vault-fill, .exb-vault-prompt, .exo-toast) { --exo-float-line: rgb(var(--exo-ink-rgb) / 0.1); }
+.exb :is(.exo-glass, .exo-shelf-sort-menu, .exb-search, .exb-side, .exb-vault-fill) { --exo-float-line: rgb(var(--exo-ink-rgb) / 0.1); }
 
 /* ---------------------------------------------------------------- Tabs across the top: Exo's Rooms capsule */
 
@@ -244,7 +247,7 @@ body,
 
 /* ---------------------------------------------------------------- Spaces: their icons beside the tabs */
 
-.exb-spaces { display: flex; flex: none; align-items: center; gap: 2px; }
+.exb-spaces { display: flex; flex: 0 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; align-items: center; gap: 2px; }
 .exb-spaces.exo-glass { height: var(--exb-cap-h); padding: 3px; border-radius: 999px; }
 .exb-space {
   height: var(--exb-btn-h);
@@ -331,10 +334,12 @@ body,
 
 /* ---------------------------------------------------------------- Auto-hide: each slides in from its own edge */
 
-.is-autohide .exb-bar.exo-titlebar { opacity: 0; translate: 0 -10px; transition: opacity 140ms var(--ease-out), translate 140ms var(--ease-out); }
-.is-autohide.reveal-top .exb-bar.exo-titlebar { opacity: 1; translate: none; transition: opacity 180ms var(--ease-out), translate 260ms var(--ease-out); }
-.is-autohide .exb-side { opacity: 0; translate: -14px 0; transition: opacity 140ms var(--ease-out), translate 140ms var(--ease-out); }
-.is-autohide.reveal-side .exb-side { opacity: 1; translate: none; transition: opacity 180ms var(--ease-out), translate 260ms var(--ease-out); }
+/* On Exo's times (the host's frost under them runs the same, AnimateGlass): in on the base time as it travels on the
+   move time, out on the quick time. */
+.is-autohide .exb-bar.exo-titlebar { opacity: 0; translate: 0 -10px; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-out); }
+.is-autohide.reveal-top .exb-bar.exo-titlebar { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-out); }
+.is-autohide .exb-side { opacity: 0; translate: -14px 0; transition: opacity var(--dur-quick) var(--ease-out), translate var(--dur-quick) var(--ease-out); }
+.is-autohide.reveal-side .exb-side { opacity: 1; translate: none; transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-out); }
 
 /* ---------------------------------------------------------------- Search, opened in the address */
 
@@ -347,7 +352,8 @@ body,
   position: absolute;
   display: flex;
   flex-direction: column;
-  max-height: min(560px, calc(100vh - 24px));
+  /* Never past the window's foot, wherever it opens (under the Bar in a short window it ran off it). */
+  max-height: min(560px, calc(100vh - var(--exb-search-top, 12px) - 12px));
   overflow: hidden;
   border-radius: 18px;
   transform-origin: top center;
@@ -394,9 +400,14 @@ body,
    and tabs, whose titles showed through the sheet's section list. The dim still covers them; a press there closes it. */
 .exb-set-room.exo-set-room { inset: var(--exb-bar-h) 0 0; }
 .is-vertical .exb-set-room.exo-set-room { padding-left: calc(var(--exb-side-w) + 24px); }
+/* A window too narrow for a sheet beside the side tabs: the sheet takes the window's width and the tabs step aside
+   while it's open (beside them it was 310px wide, its rows cut off; over them their titles would read through it). */
+@media (max-width: 760px) {
+  .is-vertical .exb-set-room.exo-set-room { padding-left: 24px; }
+  .exb.is-vertical:has(.exb-set-room) .exb-side { visibility: hidden; }
+}
 .exb-whats-new.exo-whats-new-back { top: var(--exb-bar-h); }
 .is-vertical .exb-whats-new.exo-whats-new-back { padding-left: calc(var(--exb-side-w) + var(--exb-gap)); }
-.is-vertical .exb-toasts.exo-toast-stack { left: calc(var(--exb-side-w) + var(--exb-gap)); }
 .exb-set-actions { display: flex; align-items: center; gap: 8px; }
 .exb-field.exo-field { width: 200px; user-select: text; }
 .exo-set-item-control:has(.exb-field + .exb-field) .exb-field { width: 160px; }
@@ -413,9 +424,33 @@ body,
 .exb-mark { transition: transform var(--dur-move) var(--ease-out); }
 .exb-mark.is-dragging { position: relative; z-index: 2; transition: none; cursor: grabbing; border-radius: 12px; background: var(--glassy-overlay); box-shadow: var(--glassy-shadow-raised); }
 
-/* ---------------------------------------------------------------- Toasts: Exo's, under the Bar */
+/* ---------------------------------------------------------------- A link's address, at the foot of its page (Status.tsx) */
 
-.exb-toasts.exo-toast-stack { top: calc(var(--exb-bar-h) + 10px); pointer-events: none; }
+.exb-status.exo-glass {
+  position: fixed;
+  z-index: 64;
+  height: 26px;
+  padding: 0 10px;
+  overflow: hidden;
+  line-height: 26px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--exo-scale, 1));
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: exb-status-in var(--dur-quick) var(--ease-out);
+}
+@keyframes exb-status-in { from { opacity: 0; } }
+:root[data-exo-motion="reduce"] .exb-status.exo-glass { animation: none; }
+
+/* ---------------------------------------------------------------- Notices: Exo's, at the top right under the Bar */
+
+.exb-notices.exo-notices { top: calc(var(--exb-bar-h) + var(--exb-gap)); right: var(--exb-gap); }
+/* None has Exo's Dismiss in its corner (they go by themselves, or by their own choices): the words take that room. */
+.exb-notices .exo-notice-main { padding-right: 12px; }
+/* A menu, Search or Ctrl+Tab's switcher over a notice: the window frosts only the page under glass, not this page's
+   own notices, so a notice's words read through the menu over it. They step aside while it's open and come back. */
+.exb:has(.exo-shelf-sort-menu:popover-open, .exb-search-layer, .exb-switcher) .exb-notices { visibility: hidden; }
 
 /* ---------------------------------------------------------------- The accent (Settings › Look, or a space's color) */
 

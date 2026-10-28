@@ -97,14 +97,19 @@
     const old = pws.find(p => p.kind === 'password');
     pending = { e: 'submit', username, password: fresh[0] || (old && old.value) || '', previous: fresh.length && old ? old.value : '' };
     clearTimeout(wait);
-    wait = setTimeout(() => {
-      const m = stringify(pending);
-      if (m !== lastSent || Date.now() - lastAt > 5000) send(pending);
-      lastSent = m;
-      lastAt = Date.now();
-      pending = null;
-    }, 250);
+    wait = setTimeout(flush, 250);
   };
+  const flush = () => {
+    clearTimeout(wait);
+    if (!pending) return;
+    const m = stringify(pending);
+    if (m !== lastSent || Date.now() - lastAt > 5000) send(pending);
+    lastSent = m;
+    lastAt = Date.now();
+    pending = null;
+  };
+  // A form that signs in by going to the next page leaves before the wait is up: what it sent goes as the page goes.
+  addEventListener('pagehide', flush, true);
   // A button that signs in, not the page's show-password eye or "Forgot password?".
   const NOT_SUBMIT = /show|hide|reveal|toggle|visib|forgot|reset|eye|clear|cancel|back/i;
   const submits = el => {

@@ -145,7 +145,11 @@ export type JamSession = {
   guestVolume?: boolean | null
 }
 /** words: the line word by word, where the service times each word. */
-export type LyricsLine = { start: number; text: string; words?: Array<{ start: number; end: number; text: string }> }
+/**
+ * A lyric line: when it starts, its words (Apple's word-timed lyrics; bg: a background vocal, sung under the line), and
+ * who sings it (agent, "v1", "v2": a duet's other singer is drawn from the right).
+ */
+export type LyricsLine = { start: number; text: string; words?: Array<{ start: number; end: number; text: string; bg?: boolean }>; agent?: string }
 
 /** One answer shape for every view; each view fills its own fields. */
 export type PlayerViewData = {

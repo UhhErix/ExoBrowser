@@ -135,7 +135,11 @@ function FillMenu({ target }: { target: FillTarget }) {
   const offers = v.state !== 'unlocked' ? target.kind === 'password' || target.pw : target.signup || target.kind === 'new-password' ||
     (target.kind === 'otp' ? logins.some(i => i.totp) : target.kind === 'card' ? (v.data?.items ?? []).some(i => i.type === 'card' && !i.trashed) : logins.length > 0)
   const width = Math.max(280, Math.min(target.w, 420))
-  const side = pageEdges().left
+  // Beside the side tabs, and moved out from under them when auto-hidden ones slide in while it's open (it was placed
+  // once, as it opened, and the tabs came in over it).
+  const revealSide = useBrowserValue(b => b.revealSide)
+  const [side, setSide] = useState(() => pageEdges().left)
+  useLayoutEffect(() => setSide(pageEdges().left), [revealSide])
   const left = Math.max(side ? side + 6 : 8, Math.min(target.x, innerWidth - 8 - width))
   const style = (above ? { left, bottom: innerHeight - target.y + 6, width } : { left, top: target.y + target.h + 6, width }) as CSSProperties
   // Placed here, not by the window's menu fitting: it would flip the menu over the field it belongs under.
@@ -173,18 +177,33 @@ function SavePrompt({ prompt }: { prompt: Prompt }) {
   const action = v.state !== 'unlocked' ? 'Unlock to save' : prompt.update ? 'Update' : 'Save'
   useLayoutEffect(reportHot)
   useEffect(() => reportHot, [])
+  // Exo's notice (its NoticeStack): the question and the login, the choices under them at the right.
   return (
-    <div className="exo-toast exb-vault-prompt" role="dialog" aria-label="Save to Exo Vault" onAnimationEnd={reportHot}>
-      <span className="exb-vault-avatar" aria-hidden="true"><I.Vault size={14} /></span>
-      <p className="min-w-0 flex-1">
-        <strong>{prompt.update ? `Update the password for ${prompt.username || siteName(prompt.origin)}?` : `Save this login for ${siteOfUrl(prompt.origin)}?`}</strong>
-        <span>{prompt.username || 'No username'}</span>
-      </p>
-      <Button size="sm" className="exo-set-btn" onPress={() => { neverSave(prompt.origin); close() }} isDisabled={v.state !== 'unlocked'}>Never here</Button>
-      <Button size="sm" className="exo-set-btn" onPress={close}>Not now</Button>
-      <Button size="sm" className="exo-set-btn is-primary" onPress={() => (v.state === 'unlocked' ? save() : unlockFirst())}>{action}</Button>
+    <div className="exo-notice-slot" onAnimationEnd={reportHot}>
+      <div className="exo-notice exo-glass is-panel exb-vault-prompt" role="dialog" aria-label="Save to Exo Vault">
+        <div className="exo-notice-main">
+          <span className="exo-notice-glyph" aria-hidden="true"><I.Vault size={18} /></span>
+          <span className="exo-notice-text">
+            <span className="exo-notice-head">
+              <strong>{prompt.update ? `Update the password for ${prompt.username || siteName(prompt.origin)}?` : `Save this login for ${siteOfUrl(prompt.origin)}?`}</strong>
+            </span>
+            <span className="exo-notice-where">{prompt.username || 'No username'}</span>
+          </span>
+        </div>
+        <div className="exo-notice-actions">
+          <Button className="exo-set-btn is-compact" onPress={() => { neverSave(prompt.origin); close() }} isDisabled={v.state !== 'unlocked'}>Never here</Button>
+          <Button className="exo-set-btn is-compact" onPress={close}>Not now</Button>
+          <Button className="exo-set-btn is-compact is-primary" onPress={() => (v.state === 'unlocked' ? save() : unlockFirst())}>{action}</Button>
+        </div>
+      </div>
     </div>
   )
+}
+
+/** Exo Vault's offer to save a sign-in, in the window's notices (main.tsx). */
+export function VaultPrompt() {
+  const v = useVault()
+  return v.prompt && !v.open ? <SavePrompt prompt={v.prompt} /> : null
 }
 
 export function VaultFill() {
@@ -206,7 +225,6 @@ export function VaultFill() {
   return (
     <>
       {target && !v.open ? <FillMenu target={target} /> : null}
-      {v.prompt && !v.open ? <SavePrompt prompt={v.prompt} /> : null}
     </>
   )
 }

@@ -1,8 +1,9 @@
 import { spotifyMock } from './spotifyMock'
 import { mockAdmin, mockAppMessages, mockApps, mockChannels, mockFriends, mockHome, mockMembers, mockMessages, mockProfile } from './discordMock'
 /** Browser development fixtures. Dynamically loaded only outside the packaged host. */
-import type { Game, GameProperties, LauncherSettings, InstallProgress, ReplacedApp, StoreGift } from './host'
+import type { Game, GameProperties, LauncherSettings, InstallProgress, InstalledApp, ReplacedApp, RuntimeItem, StoreGift } from './host'
 import type { CaptureItem } from './capture'
+import type { NoteInfo } from './notes'
 import { emitHostEvent } from './host'
 const MOCK_GAMES: Game[] = [
   {
@@ -169,6 +170,7 @@ const mockSettings: LauncherSettings = {
   appVersion: mockWhatsNew ? '3.14.1' : '1.0.0-dev',
   whatsNewSeen: mockWhatsNew ? '3.13.2' : '1.0.0-dev',
   reduceMotion: false,
+  dictation: true,
   framelessPinTop: false,
   framelessPinSide: false,
   textColour: 'white',
@@ -180,7 +182,6 @@ const mockSettings: LauncherSettings = {
   riotHoursImported: false,
   recent: [],
   showLibraryTools: false,
-  countHoursAcrossAccounts: false,
   hdrForGames: false,
     hdrSdrGamma: true,
     discordNoiseSuppression: true,
@@ -311,11 +312,13 @@ function mockDlssStatus(params?: Record<string, unknown>) {
 
 /** Shaders per demo game, as the Exo Shaders engine would list them. */
 function mockShadersStatus(params?: Record<string, unknown>) {
-  switch (String(params?.id ?? '')) {
+  const id = String(params?.id ?? '')
+  if (!mockShaders) return { ok: true, state: 'noApp' }
+  switch (id) {
     case 'mock:valorant': return { ok: true, state: 'unsupported', reason: 'Needs a recording, which its anti-cheat blocks.' }
     case 'mock:control': return { ok: true, state: 'warmed', reason: 'Compiled for driver 617.42.', warmed: { at: '2026-10-12T21:04:00-05:00', driver: '617.42' } }
-    case 'mock:disco': return { ok: true, state: 'stale', reason: 'Driver changed' }
-    default: return { ok: true, state: 'ready' }
+    case 'mock:disco': return { ok: true, state: 'stale', reason: 'Driver changed', engineId: 'disco' }
+    default: return { ok: true, state: 'ready', engineId: id.replace(/^mock:/, '') }
   }
 }
 
@@ -329,13 +332,24 @@ let MOCK_GIFTS: StoreGift[] = [
   { store: 'epic', id: 'a1b2c3d4e5f6', title: 'Night Harbor', image: null, sender: 'Mira', message: 'Happy birthday! Saw you wishlisted this.' },
 ]
 
+const NONE_LEFT = { folders: 0, files: 0, registry: 0, shortcuts: 0, bytes: 0 }
+const MOCK_APP = { publisher: null, version: null, installedOn: null, bytes: null, store: false, removable: true, uninstaller: true, care: null, replaces: null } as const
+let MOCK_PROGRAMS = [
+  { ...MOCK_APP, id: 'HKLM:7-Zip', name: '7-Zip 26.01 (x64)', publisher: 'Igor Pavlov', version: '26.01', bytes: 5_200_000 },
+  { ...MOCK_APP, id: 'HKCU:Discord', name: 'Discord', publisher: 'Discord Inc.', bytes: 412_000_000, replaces: 'discord' },
+  { ...MOCK_APP, id: 'HKLM:Steam', name: 'Steam', publisher: 'Valve Corporation', bytes: 1_200_000_000, care: 'store' },
+  { ...MOCK_APP, id: 'HKLM:Vanguard', name: 'Riot Vanguard', publisher: 'Riot Games, Inc.', bytes: 273_000_000, care: 'anticheat', removable: false },
+  { ...MOCK_APP, id: 'HKLM:VC14', name: 'Microsoft Visual C++ v14 Redistributable (x64)', publisher: 'Microsoft Corporation', bytes: 21_000_000, care: 'runtime' },
+  { ...MOCK_APP, id: 'store:Clipchamp.Clipchamp_yxz26nhyzhsrt', name: 'Clipchamp', publisher: 'Microsoft Corp.', store: true, installedOn: '2026-10-12', bytes: 160_000_000, replaces: 'clipchamp' },
+  { ...MOCK_APP, id: 'HKCU:Broken', name: 'Old Tool', publisher: 'Somebody', uninstaller: false, bytes: 48_000_000 },
+] as InstalledApp[]
 let MOCK_REPLACED: ReplacedApp[] = [
-  { id: 'discord', name: 'Discord', detail: 'Exo has its own Discord: servers, DMs and calls', installed: true, leftovers: 9, bytes: 412_000_000, needsAdmin: false },
-  { id: 'snipping', name: 'Snipping Tool', detail: 'Exo snips with Print Screen and edits in Captures', installed: true, leftovers: 0, bytes: 0, needsAdmin: false },
-  { id: 'photos', name: 'Photos', detail: 'Exo shows and trims your captures', installed: true, leftovers: 0, bytes: 0, needsAdmin: false },
-  { id: 'gamebar', name: 'Xbox Game Bar', detail: 'Exo records clips and replays', installed: true, leftovers: 0, bytes: 0, needsAdmin: false },
-  { id: 'clipchamp', name: 'Clipchamp', detail: 'Exo trims and shares your clips', installed: false, leftovers: 0, bytes: 0, needsAdmin: false },
-  { id: 'nvidia', name: 'NVIDIA App', detail: 'Exo updates the driver and sets its profile; the driver stays', installed: true, leftovers: 6, bytes: 1_300_000_000, needsAdmin: true },
+  { id: 'discord', name: 'Discord', detail: 'Exo has its own Discord: servers, DMs and calls', installed: true, leftovers: 9, bytes: 412_000_000, needsAdmin: false, found: { folders: 4, files: 0, registry: 4, shortcuts: 1, bytes: 412_000_000 }, cleared: null },
+  { id: 'snipping', name: 'Snipping Tool', detail: 'Exo snips with Print Screen and edits in Captures', installed: true, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: null },
+  { id: 'photos', name: 'Photos', detail: 'Exo shows and trims your captures', installed: true, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: null },
+  { id: 'gamebar', name: 'Xbox Game Bar', detail: 'Exo records clips and replays', installed: true, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: null },
+  { id: 'clipchamp', name: 'Clipchamp', detail: 'Exo trims and shares your clips', installed: false, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: { folders: 1, files: 2, registry: 6, shortcuts: 0, bytes: 38_000_000 } },
+  { id: 'nvidia', name: 'NVIDIA App', detail: 'Exo updates the driver and sets its profile; the driver stays', installed: true, leftovers: 6, bytes: 1_300_000_000, needsAdmin: true, found: { folders: 5, files: 0, registry: 1, shortcuts: 0, bytes: 1_300_000_000 }, cleared: null },
 ]
 
 function mockDepsList() {
@@ -346,6 +360,49 @@ function mockDepsList() {
       { id: 'dotnet', name: '.NET Desktop Runtime', status: 'Present', detail: 'Mock', canOfferInstall: true },
       { id: 'webview2', name: 'WebView2 Runtime', status: 'Present', detail: 'Mock', canOfferInstall: true },
     ],
+  }
+}
+
+/** Game runtimes as on a PC that has most of them: two missing, two older, .NET 6 past its support. */
+let MOCK_RUNTIMES: RuntimeItem[] = [
+  ...(['2005', '2008', '2010', '2012', '2013'] as const).flatMap(year => (['x86', 'x64'] as const).map(arch => ({
+    id: `vc${year}-${arch}`, name: `Visual C++ ${year} (${arch})`, group: 'vc' as const, bulk: true,
+    installed: year === '2005' && arch === 'x86' ? null : '1.0', latest: '1.0', state: year === '2005' && arch === 'x86' ? 'missing' as const : 'current' as const,
+  }))),
+  { id: 'vc14-x86', name: 'Visual C++ 2015–2026 (x86)', group: 'vc', installed: '14.44.35211.0', latest: '14.51.36247.0', state: 'outdated', bulk: true },
+  { id: 'vc14-x64', name: 'Visual C++ 2015–2026 (x64)', group: 'vc', installed: '14.44.35211.0', latest: '14.51.36247.0', state: 'outdated', bulk: true },
+  { id: 'directx', name: 'DirectX (June 2010)', group: 'directx', installed: 'June 2010', latest: 'June 2010', state: 'current', bulk: true },
+  { id: 'gameinput', name: 'GameInput', group: 'directx', installed: null, latest: '4.0.302', state: 'missing', bulk: true },
+  { id: 'd3d12', name: 'DirectX 12', group: 'directx', installed: null, latest: 'Built into Windows', state: 'info', bulk: false, detail: 'DirectX 12 Ultimate · feature level 12_2 · shader model 6.8 on NVIDIA GeForce RTX 3070' },
+  { id: 'directstorage', name: 'DirectStorage', group: 'directx', installed: null, latest: 'Inside the games that use it', state: 'info', bulk: false, detail: 'Games that load with it bring their own copy. Nothing to install.' },
+  { id: 'netfx481', name: '.NET Framework 4.8.1', group: 'dotnet', installed: '4.8.1', latest: '4.8.1', state: 'current', bulk: true },
+  { id: 'dotnet10-x64', name: '.NET Desktop Runtime 10 (x64)', group: 'dotnet', installed: '10.0.14', latest: '10.0.14', state: 'current', bulk: true },
+  { id: 'dotnet6-x64', name: '.NET Desktop Runtime 6 (x64)', group: 'dotnet', installed: null, latest: '6.0.36', state: 'missing', bulk: false, endOfSupport: true },
+  { id: 'xna40', name: 'XNA Framework 4.0', group: 'other', installed: '4.0.30901.0', latest: '4.0.30901.0', state: 'current', bulk: true },
+  { id: 'vulkan', name: 'Vulkan', group: 'other', installed: '1.4.357.0', latest: 'With your graphics driver', state: 'info', bulk: false },
+]
+
+/** runtimes.install in the browser: each download in steps, then the "Windows" run, then all current. */
+async function mockRuntimesInstall(params?: Record<string, unknown>) {
+  const mode = params?.mode as string
+  const ids = params?.ids as string[] | undefined
+  const plan = MOCK_RUNTIMES.filter(item => item.state !== 'info' && (ids ? ids.includes(item.id) : mode === 'repair' ? item.group === 'vc' : item.state === 'missing' && item.bulk || mode === 'update' && item.state === 'outdated'))
+  const size = 20_000_000
+  for (const [at, item] of plan.entries()) {
+    for (let bytes = 0; bytes <= size; bytes += size / 5) {
+      emitHostEvent('runtimes.progress', { phase: 'download', id: item.id, name: item.name, index: at + 1, count: plan.length, bytes, total: size, doneBytes: at * size + bytes, allBytes: plan.length * size })
+      await new Promise(resolve => setTimeout(resolve, 150))
+    }
+  }
+  for (const [at, item] of plan.entries()) {
+    emitHostEvent('runtimes.progress', { phase: 'install', id: item.id, name: item.name, index: at + 1, count: plan.length, bytes: 0, total: null, doneBytes: 0, allBytes: 0 })
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  MOCK_RUNTIMES = MOCK_RUNTIMES.map(item => plan.includes(item) ? { ...item, installed: item.latest, state: 'current' } : item)
+  return {
+    ok: true,
+    results: plan.map((item, at) => ({ id: item.id, name: item.name, outcome: at === 0 && mode !== 'repair' ? 'restart' : 'installed', message: at === 0 && mode !== 'repair' ? 'Installed. Restart Windows to finish.' : 'Installed.', code: at === 0 ? 3010 : 0 })),
+    items: MOCK_RUNTIMES,
   }
 }
 
@@ -443,17 +500,41 @@ function mockSettingsSet(params?: Record<string, unknown>) {
   Object.assign(mockSettings, next)
   delete (mockSettings as { steamWebApiKey?: string }).steamWebApiKey
   delete (mockSettings as { itchApiKey?: string }).itchApiKey
+  if ('dictation' in next) emitHostEvent('dictation.state', mockDictationState())
   return { ...mockSettings }
+}
+
+// Dictation in the browser build: a voice line that rises and falls while it "listens", and one sentence back.
+let mockDictationLevels: number | undefined
+const mockDictationState = () => ({ on: mockSettings.dictation !== false, available: true, ready: true, size: 487_170_055 })
+function mockDictationStart() {
+  window.clearInterval(mockDictationLevels)
+  const started = performance.now()
+  mockDictationLevels = window.setInterval(() => {
+    const t = (performance.now() - started) / 1000
+    emitHostEvent('dictation.level', { level: Math.max(0, Math.sin(t * 2.3) * 0.5 + Math.sin(t * 7.1) * 0.25 + 0.2) })
+  }, 50)
+  return { ok: true, message: null }
+}
+function mockDictationStop(params?: Record<string, unknown>) {
+  window.clearInterval(mockDictationLevels)
+  // Spaced as the host spaces it (Dictation.Join): after a word, a space first.
+  const before = typeof params?.before === 'string' ? params.before : ''
+  return { ok: true, text: (before && !/[\s([{"'@#/]$/.test(before) ? ' ' : '') + 'This is what you said.', message: null }
 }
 
 // Discord settings > Voice & Video and the rest, kept for the session so the pages can be clicked through.
 let mockDiscordClient: Record<string, unknown> = {
-  inputProfile: 'exo', noiseSuppression: true, noiseSuppressionKind: 'ai', othersNoiseSuppression: false, onlyMyVoice: false, myVoiceLearned: false, evenVoices: true, echoCancellation: true, voiceFocus: true, pushToTalk: false, pttDelay: 20,
+  inputProfile: 'exo', noiseSuppression: true, noiseSuppressionKind: 'ai', othersNoiseSuppression: false, onlyMyVoice: false, myVoiceLearned: false, myVoiceSeconds: 0, evenVoices: true, echoCancellation: true, voiceFocus: true, pushToTalk: false, pttDelay: 20,
   autoSensitivity: true, sensitivity: -60, attenuation: 0, attenuateSelf: false, attenuateOthers: true, keybinds: [], desktopNotifications: true,
   unreadBadge: true, taskbarFlash: true, disabledSounds: [], disableAllSounds: false, selectedChannelSound: false, soundVolume: 60,
 }
 
 const mockOk: MockHandler = () => ({ ok: true })
+// What the mock has saved for later: bookmarked messages and reminders (message id -> due, ms).
+const mockSaved = { bookmarks: new Set<string>(), reminders: new Map<string, number>() }
+// Hide Muted Channels in the mock's server, as its menu sets it.
+let mockHideMuted = false
 
 const GB = 1024 ** 3
 /** Properties as the host builds them: Marvel Rivals' real Steam shape (its High-Resolution Pack switched off), an Epic game's optional content. */
@@ -570,6 +651,19 @@ const mockCaptureSettings: Record<string, unknown> = {
   folder: 'C:\\Users\\Player\\Videos\\Exo Captures', keepGb: 0, keepDays: 0,
 }
 
+/** Exo Notes in the browser: notes kept in memory, one to start from. */
+const mockNotes = new Map<string, { info: NoteInfo; text: string }>()
+const mockNote = (id: string, text: string, kind: NoteInfo['kind'] = 'text') => {
+  const [title = 'New note', ...rest] = text.split('\n').map(line => line.replace(/^[#\s-]*(\[[ x]\] )?/, '').trim()).filter(Boolean)
+  const info: NoteInfo = {
+    id, title, snippet: rest.join(' ').slice(0, 140), kind, name: `${title}.${kind === 'markdown' ? 'md' : 'txt'}`, edited: new Date().toISOString(),
+    size: text.length, pinned: mockNotes.get(id)?.info.pinned ?? false, external: false, unsaved: false, gameId: null, encoding: 'utf-8', eol: 'crlf', spelling: true,
+  }
+  mockNotes.set(id, { info, text })
+  return info
+}
+mockNote('mock-raid', '# Raid night\n- [x] Repair gear\n- [ ] Bring potions\n\nBoss two: **stack** at the pillar.', 'markdown')
+
 /** One Store game with Steam's longest kind of page (a long description and requirements), to lay the game page out against. */
 const MOCK_STORE_TILE = { appId: '1091500', name: 'Cyberpunk 2077', final: 2999, initial: 5999, discount: 50, currency: 'USD', priceText: '$29.99', wasText: '$59.99' }
 function mockStoreGame() {
@@ -580,6 +674,8 @@ function mockStoreGame() {
     developers: ['CD PROJEKT RED'], publishers: ['CD PROJEKT RED'], genres: ['RPG'], metacritic: 86,
     reviewWord: 'Very Positive', reviewPercent: 88, reviewCount: 812345,
     tags: ['Cyberpunk', 'Open World', 'RPG', 'Sci-fi', 'Singleplayer', 'Story Rich', 'Atmospheric'],
+    controller: 'full', playStation: true, drm: null, account: null,
+    languages: ['English', 'French', 'Italian', 'German', 'Spanish - Spain', 'Japanese', 'Korean', 'Polish', 'Portuguese - Brazil', 'Russian', 'Simplified Chinese'],
     offers: [{ store: '1', name: 'Steam', final: 2999, initial: 5999, discount: 50, currency: 'USD', priceText: '$29.99', wasText: '$59.99', url: 'https://store.steampowered.com/app/1091500' }],
     media: [],
     screenshots: Array.from({ length: 10 }, (_, i) => `${art(i % 2 ? 'library_hero.jpg' : 'header.jpg')}?${i}`),
@@ -592,6 +688,36 @@ function mockStoreGame() {
       { label: 'DirectX', minimum: 'DirectX 12', recommended: 'DirectX 12', mine: null, meets: null },
     ],
     fit: 'recommended',
+  }
+}
+
+/** Exo Mouse's CPU core, through the relay: a test that offers CPU 6 after its 10 s; `?mousecore` starts after the restart, measured again. */
+const MOCK_MOUSE_BEFORE = { rate: 1000, checked: 9951, missed: 40, longest: 2.1, p999: 2, refresh: true, cpu: 0 }
+const MOCK_MOUSE_AFTER = { rate: 1000, checked: 9963, missed: 2, longest: 1.6, p999: 1.1, refresh: false, cpu: 6 }
+let mockMouseStage: 'none' | 'restart' | 'set' = typeof location !== 'undefined' && new URLSearchParams(location.search).has('mousecore') ? 'set' : 'none'
+let mockMouseTested = false
+
+async function mockMouseCore(params?: Record<string, unknown>) {
+  if (params?.action === 'measure') {
+    await new Promise(resolve => setTimeout(resolve, 10_000))
+    mockMouseTested = true
+  }
+  if (params?.action === 'apply') mockMouseStage = 'restart'
+  if (params?.action === 'undo') mockMouseStage = 'none'
+  const set = mockMouseStage === 'set'
+  return {
+    ok: true,
+    stage: mockMouseStage,
+    detail: mockMouseStage === 'restart' ? "CPU 6 takes your mouse's input after you restart Windows."
+      : set ? "Fewer late reports since CPU 6 took your mouse's input." : null,
+    cpu: mockMouseStage === 'none' ? null : 6,
+    better: set ? true : null,
+    canUndo: mockMouseStage !== 'none',
+    before: mockMouseStage === 'none' ? null : MOCK_MOUSE_BEFORE,
+    after: set ? MOCK_MOUSE_AFTER : null,
+    test: !mockMouseTested ? null : set
+      ? { verdict: 'fine', detail: '1000 Hz, 2 of 9,963 reports late, the longest 1.6 ms. Too few to matter, so nothing to change.', offer: null, result: MOCK_MOUSE_AFTER }
+      : { verdict: 'fix', detail: "1000 Hz, 40 of 9,951 reports late, the longest 2.1 ms. They come with your screen's refresh. Its input lands on CPU 0, where Windows and most drivers go first. CPU 6 is quiet.", offer: 6, result: MOCK_MOUSE_BEFORE },
   }
 }
 
@@ -621,6 +747,8 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'game.dequeue': mockOk,
   'game.progress': () => mockProgress,
   'stores.auth': () => ({ ok: false, message: 'Browser mock — auth requires host.', requiresUserAction: true }),
+  'stores.outages': () => ({ ok: true, outages: [] }),
+  'stores.playOffline': () => ({ ok: false, message: 'Mock: offline mode needs the Exo host.' }),
   'playtime.refresh': () => ({ ok: false, message: 'Hours are read in the app only.' }),
   'playtime.riotRefresh': () => ({
     ok: false,
@@ -630,7 +758,8 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     profileUrl: 'https://tracker.gg/valorant',
   }),
   'web.preferences.get': () => ({ microphone: 'ask', camera: 'ask', clipboard: 'ask', notifications: 'ask' }),
-  'shaders.addon': () => ({ ok: true, present: mockShaders }),
+  // The state the engine left when it last exited (rev 0), shown until the board is on screen and the engine runs.
+  'shaders.addon': () => ({ ok: true, present: mockShaders, snapshot: mockShaders ? { ...mockShadersSnapshot(), rev: 0 } : undefined }),
   'capture.status': () => ({ ok: true, state: mockCaptureState, settings: mockCaptureSettings }),
   'capture.settings': (params) => {
     Object.assign(mockCaptureSettings, params)
@@ -641,6 +770,34 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'capture.item': mockCaptureItem,
   'capture.edit': () => ({ ok: false, message: 'Mock: no capture add-on.' }),
   'capture.saveImage': () => ({ ok: false, message: 'Mock: no capture add-on.' }),
+  'notes.list': (params) => {
+    const query = typeof params?.query === 'string' ? params.query.toLowerCase() : ''
+    return { ok: true, notes: [...mockNotes.values()].filter(note => !query || note.text.toLowerCase().includes(query)).map(note => note.info), tabs: [], active: null }
+  },
+  'notes.read': (params) => {
+    const note = mockNotes.get(String(params?.id))
+    return note ? { ok: true, text: note.text, note: note.info } : { ok: false, message: 'That note is gone.' }
+  },
+  'notes.save': (params) => {
+    const id = typeof params?.id === 'string' ? params.id : `mock-${mockNotes.size + 1}`
+    const kind = params?.markdown === true ? 'markdown' : mockNotes.get(id)?.info.kind ?? 'text'
+    return { ok: true, note: mockNote(id, String(params?.text ?? ''), kind) }
+  },
+  'notes.act': (params) => {
+    const id = String(params?.id)
+    const note = mockNotes.get(id)
+    if (params?.action === 'delete') { mockNotes.delete(id); return { ok: true } }
+    if (!note) return { ok: params?.action === 'folder' }
+    if (params?.action === 'pin' || params?.action === 'unpin') note.info = { ...note.info, pinned: params.action === 'pin' }
+    if (params?.action === 'markdown' || params?.action === 'text') note.info = { ...note.info, kind: params.action }
+    return { ok: true, note: note.info }
+  },
+  'notes.session': () => ({ ok: true }),
+  'notes.open': () => ({ ok: false, cancelled: true }),
+  'notes.saveAs': () => ({ ok: false, message: 'Mock: no save dialog in the browser.' }),
+  'notes.pending': () => ({ id: null }),
+  'notes.spell': (params) => ({ ok: true, wrong: params?.word === 'teh', suggestions: params?.word === 'teh' ? ['the', 'tech'] : [] }),
+  'notes.textFiles': () => ({ ok: true, offered: false, isDefault: false }),
   'shell.pickProgram': () => ({ ok: false, cancelled: true }),
   'shaders.call': (params) => {
     if (!mockShaders) return { ok: false, message: 'Mock: no shader add-on.' }
@@ -661,7 +818,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'discord.signIn': mockOk,
   'discord.signOut': mockOk,
   'discord.home': () => mockHome,
-  'discord.channels': () => mockChannels,
+  'discord.channels': () => ({ ...mockChannels, hideMuted: mockHideMuted }),
   'discord.admin': mockAdmin,
   'discord.messages': (params?: { before?: string }) => ({ ok: true, messages: params?.before ? [] : [...mockMessages, ...mockAppMessages].reverse() }),
   'discord.apps': (params?: { action?: string }) => params?.action === 'commands' ? mockApps : { ok: true, nonce: '900000000000000001' },
@@ -680,10 +837,12 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     return { ok: true, favorites: [...mockFavoriteEmojis], frequent: ['joy', 'thumbsup', 'fire', '968812152267866172', 'heart', 'skull', 'sob', 'eyes', 'pray', 'copyright'], reactions: ['thumbsup', 'joy', 'heart'] }
   },
   'discord.view': mockOk,
+  // Watching a stream in the mock: always taken (no pictures arrive), so its view, controls and menus can be seen.
+  'discord.stream': () => ({ ok: true }),
   'discord.voice': (params?: { action?: string; guildId?: string; channelId?: string }) => ({ ok: true, voice: params?.action === 'join' ? { state: 'connected', guildId: params.guildId ?? null, channelId: params.channelId ?? null, muted: false, deafened: false, e2ee: true } : { state: 'off', guildId: null, channelId: null, muted: false, deafened: false, e2ee: false } }),
   'discord.ring': mockOk,
   'discord.golive': mockGoLiveHandler,
-  'discord.friends': () => ({ friends: mockFriends }),
+  'discord.friends': () => ({ friends: mockFriends, restricted: { blocked: [{ id: '100000000000000009', name: 'Spammy', username: 'spammy.bot', avatar: null }], ignored: [{ id: '100000000000000008', name: 'Loud Larry', username: 'larry', avatar: null }] } }),
   'discord.friend': mockOk,
   'discord.markRead': mockOk,
   'discord.channel': () => ({ ok: true, muted: true, url: 'https://discord.gg/exo' }),
@@ -699,15 +858,20 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'discord.fileText': () => ({ ok: true, left: 0, text: 'sensitivity "0.42"\nm_yaw "0.022"\nfps_max "0"\ncl_crosshairsize "2"\ncl_crosshairgap "-2"\ncl_crosshaircolor "1"\nbind "mouse4" "+voicerecord"\nbind "f" "+lookatweapon"\nhost_writeconfig\n' }),
   'discord.audio': () => ({ inputs: [{ id: 'mic', name: 'Microphone' }], outputs: [{ id: 'spk', name: 'Speakers' }], input: null, output: null, inputVolume: 100, outputVolume: 100, soundboardVolume: 100, soundboardMuted: false }),
   'discord.userSettings': (params?: { changes?: Record<string, unknown> }) => ({ ok: true, values: params?.changes ?? {} }),
-  'discord.account': (params?: { action?: string }) => params?.action === 'me'
+  'discord.account': (params?: { action?: string }) => params?.action === 'tags'
+    ? { ok: true, mine: null, servers: [{ id: '200000000000000001', name: 'Exo Lab', tag: 'EXO', badge: null }] }
+    : params?.action === 'setTag' ? { ok: true }
+    : params?.action === 'me'
     ? { ok: true, me: { id: '1', username: 'exo', globalName: 'Exo', avatar: null, banner: null, accentColor: null, bio: '', pronouns: '', email: 'e***@example.com', phone: null, verified: true, mfa: false, nsfwAllowed: true, premium: false } }
     : { ok: true, data: params?.action === 'consent' ? { usageStatistics: true, personalization: true } : [] },
   'discord.clientSettings': (params?: Record<string, unknown>) => (mockDiscordClient = { ...mockDiscordClient, ...params }),
   'discord.micTest': mockOk,
+  'discord.micMonitor': () => ({ ok: true, on: false, onHead: true }),
   'discord.voiceTune': () => ({ ok: false, message: 'Voice Tune needs Exo.' }),
-  'discord.voiceCheck': () => ({ ok: false, message: 'Voice Check needs Exo.' }),
   'discord.sound': mockOk,
-  'discord.server': (p?: { action?: string; invite?: string }) => p?.action === 'profile'
+  'discord.server': (p?: { action?: string; invite?: string; hideMuted?: boolean }) => p?.action === 'notify' && p.hideMuted !== undefined
+    ? (mockHideMuted = p.hideMuted, { ok: true })
+    : p?.action === 'profile'
     ? { ok: true, profile: { id: '200000000000000001', name: 'Exo Lab', icon_hash: null, description: 'Where Exo gets built.', member_count: 1204, online_count: 312, tag: 'EXO', traits: [{ label: 'Gaming', emoji_name: '🎮', position: 0 }] } }
     : p?.action === 'invite'
     ? p.invite === 'expired' ? { ok: false, invalid: true, message: 'Discord: Unknown Invite' }
@@ -736,8 +900,22 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'discord.search': (p?: { filters?: { offset?: number } }) => ({ ok: true, result: { messages: mockMessages.slice(0, 4).map(m => [m]), total_results: 87 }, places: {}, offset: p?.filters?.offset }),
   'discord.gifs': () => ({ ok: true, gifs: [] }),
   'discord.members': () => mockMembers,
-  'discord.mentionable': (p?: { query?: string }) => ({ users: mockMessages.map(m => m.author).filter((u, i, all) => all.findIndex(x => x.id === u.id) === i && u.username.startsWith(p?.query ?? '')) }),
-  'discord.colors': () => ({ colors: { '100000000000000002': '#e91e63', '100000000000000004': '#3498db' } }),
+  'discord.saved': (p?: { action?: string; messageId?: string; dueAt?: number }) => {
+    if (p?.action === 'save') { if (p.dueAt) mockSaved.reminders.set(p.messageId ?? '', p.dueAt); else mockSaved.bookmarks.add(p.messageId ?? ''); return { ok: true } }
+    if (p?.action === 'remove') { mockSaved.reminders.delete(p.messageId ?? ''); mockSaved.bookmarks.delete(p.messageId ?? ''); return { ok: true } }
+    const saved = (id: string, due?: number) => ({ message: mockMessages.find(m => m.id === id) ?? null, save_data: { channel_id: '400000000000000002', message_id: id, saved_at: new Date().toISOString(), due_at: due ? new Date(due).toISOString() : null } })
+    if (p?.action === 'bookmarks') return { ok: true, results: [...mockSaved.bookmarks].map(id => saved(id)), hasMore: false, places: {} }
+    return { ok: true, reminders: [...mockSaved.reminders].map(([id, due]) => saved(id, due)), bookmarkIds: [...mockSaved.bookmarks], places: {} }
+  },
+  'discord.mentionable': (p?: { query?: string; channels?: boolean }) => {
+    const q = (p?.query ?? '').toLowerCase()
+    if (p?.channels) return { users: [], channels: mockChannels.channels.filter(c => c.kind !== 'category' && c.name.includes(q)).map(c => ({ id: c.id, name: c.name, type: c.type, kind: c.kind, category: 'Text channels' })) }
+    return {
+      users: mockMessages.map(m => m.author).filter((u, i, all) => all.findIndex(x => x.id === u.id) === i && u.username.startsWith(q)),
+      roles: [{ id: '700000000000000001', name: 'Moderators', color: '#3498db' }, { id: '700000000000000002', name: 'Members', color: null }].filter(r => r.name.toLowerCase().includes(q)),
+    }
+  },
+  'discord.colors': () => ({ colors: { '100000000000000002': '#e91e63', '100000000000000004': '#3498db' }, icons: { '100000000000000002': { name: 'Admins', emoji: '🛡️' } } }),
   'discord.setStatus': mockOk,
   'web.preferences.set': (p) => ({ microphone: 'ask', camera: 'ask', clipboard: 'ask', notifications: 'ask', ...p }),
   'shell.prepare': () => ({ ok: true }),
@@ -750,13 +928,37 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'music.control': () => ({ ok: false, message: 'Open Exo to control music.' }),
   'deps.list': mockDepsList,
   'replaced.scan': () => ({ ok: true, cleared: 2, apps: MOCK_REPLACED }),
+  'apps.list': () => ({ ok: true, programs: MOCK_PROGRAMS, cleared: [{ name: 'Discord', summary: { folders: 3, files: 0, registry: 3, shortcuts: 2, bytes: 20_600_000 } }] }),
+  'apps.icons': () => ({ ok: true, icons: {} }),
+  'apps.uninstall': (p) => {
+    const id = (p as { id?: string } | undefined)?.id
+    const name = MOCK_PROGRAMS.find(app => app.id === id)?.name ?? 'App'
+    MOCK_PROGRAMS = MOCK_PROGRAMS.filter(app => app.id !== id)
+    return {
+      ok: true, token: 'mock', name,
+      items: [
+        { id: 0, kind: 'folder', path: `C:\\Program Files\\${name}`, bytes: 4_100_000, likely: false, machine: true },
+        { id: 1, kind: 'registry', path: `HKCU\\Software\\Classes\\${name}.file`, bytes: 0, likely: false, machine: false },
+        { id: 2, kind: 'shortcut', path: `C:\\Users\\You\\Desktop\\${name}.lnk`, bytes: 1_200, likely: false, machine: false },
+        { id: 3, kind: 'folder', path: `C:\\Users\\You\\AppData\\Roaming\\${name}`, bytes: 820_000, likely: true, machine: false },
+      ],
+      sure: { folders: 1, files: 0, registry: 1, shortcuts: 1, bytes: 4_101_200 },
+      likely: { folders: 1, files: 0, registry: 0, shortcuts: 0, bytes: 820_000 },
+    }
+  },
+  'apps.scan': () => ({ ok: false, message: 'Mock: nothing to scan.' }),
+  'apps.clean': () => ({ ok: true, cleared: { folders: 1, files: 0, registry: 1, shortcuts: 1, bytes: 4_101_200 }, left: 0 }),
+  'apps.allowEdge': () => ({ ok: true }),
   'replaced.remove': (p) => {
     const id = (p as { id?: string } | undefined)?.id
-    MOCK_REPLACED = MOCK_REPLACED.map(app => app.id === id ? { ...app, installed: false, leftovers: 0, bytes: 0, needsAdmin: false } : app)
+    MOCK_REPLACED = MOCK_REPLACED.map(app => app.id === id ? { ...app, installed: false, leftovers: 0, bytes: 0, needsAdmin: false, found: NONE_LEFT, cleared: { ...app.found, registry: app.found.registry + 7 } } : app)
     return { ok: true, removed: 9, left: 0, apps: MOCK_REPLACED }
   },
   'deps.offerInstall': () => ({ ok: true, message: 'Mock: would open official installer page.' }),
   'deps.cancelInstall': () => ({ ok: true, message: 'Download canceled.' }),
+  'runtimes.list': () => ({ ok: true, items: MOCK_RUNTIMES }),
+  'runtimes.install': mockRuntimesInstall,
+  'runtimes.cancel': () => ({ ok: true, message: 'Stopping the downloads.' }),
   'stores.check': mockStoresCheck,
   'stores.matrix': mockStoresMatrix,
   'settings.get': () => ({ ...mockSettings }),
@@ -835,9 +1037,30 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
       headphone: { id: 'lucid_iems', name: 'Lucid IEMs', chosen: true }, favorites: [], gameMode: true, keepOnAltTab: false,
       onlyWhileGaming: false,
       nightShift: false, nightStart: '21:00', nightEnd: '06:00', nightSync: false, notifications: false, discord: false,
+      hotkey: { modifiers: 0, key: 122 }, eqOn: true,
     },
+    eq: { on: 'Headphones (High Definition Audio Device)', playing: 'Headphones (High Definition Audio Device)', covered: true },
   }),
+  'devices.image': () => ({ ok: false, url: null }),
+  'devices.openApp': mockOk,
   'lucid.update': () => ({ version: null }),
+  'dictation.state': mockDictationState,
+  'dictation.prepare': mockOk,
+  'dictation.start': mockDictationStart,
+  'dictation.stop': mockDictationStop,
+  'dictation.cancel': () => { window.clearInterval(mockDictationLevels); return { ok: true } },
+  'devices.list': () => ({
+    ok: true,
+    devices: [
+      { id: 'usb-361d-0300-747353800033', kind: 'mouse', name: 'StarlightX Dongle', maker: 'Finalmouse', model: null, connection: 'wireless', role: null, battery: null, color: null, layout: null },
+      { id: 'usb-31e3-1342-95be6909a013', kind: 'keyboard', name: 'Wooting 60HE v2', maker: 'Wooting', model: '60', connection: 'usb', role: null, battery: null, color: null, layout: 'ansi-split',
+        port: { where: 'chipset', chips: 1, hubs: 0, interrupts: 'msi', better: 'free' }, app: { id: 'wootility', name: 'Wootility', where: 'web' } },
+      { id: 'usb-054c-0df2-5f24d70ab9bc', kind: 'controller', name: 'DualSense Edge Wireless Controller', maker: 'Sony', model: 'dualsense-edge', connection: 'usb', role: null, battery: null, color: 'Midnight Black', layout: null },
+      { id: '{0.0.0.00000000}.{9709e4ab-6969-4817-ad38-1704eab1c079}', kind: 'audio', name: 'Headphones', maker: null, model: 'headphones', connection: 'jack', role: 'output', battery: null, color: null, layout: null },
+      { id: '{0.0.1.00000000}.{0deb347c-90b6-43d6-b549-63e63b1b23a9}', kind: 'audio', name: 'fifine Microphone', maker: 'Fifine', model: 'microphone', connection: 'usb', role: 'input', battery: null, color: null, layout: null },
+    ],
+    cpuPorts: { free: 2, total: 4, freeTypeC: false },
+  }),
   'lucid.headphones': () => ({
     ok: true,
     headphones: [
@@ -857,6 +1080,18 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     status: p?.action === 'apply' ? 'applied' : 'ready', gsync: p?.action === 'apply' && p.gsync === true,
     canUndo: p?.action === 'apply', driverUpdated: false, items: [],
   },
+  'system.about': () => ({
+    name: 'Erix-PC', processor: mockIntelCpu ? 'Intel Core i7-14700K' : 'AMD Ryzen 5 5600X', cores: mockIntelCpu ? 20 : 6, threads: mockIntelCpu ? 28 : 12,
+    graphics: 'NVIDIA GeForce RTX 3070', videoMemoryGb: 8, directX: '12 Ultimate', resizableBar: true,
+    memoryGb: 16, memoryType: 'DDR4', memorySpeed: 3600, memoryRated: 3600, memorySlotsUsed: 2, memorySlots: 4,
+    motherboard: 'ASUS ROG STRIX B550-F GAMING WIFI II', bios: '3636', biosDate: '2026-01-04',
+    windows: 'Windows 11 Pro', windowsVersion: '26H2', build: '26300.9711', secureBoot: true, tpm: '2.0', memoryIntegrity: false,
+    drives: [
+      { letter: 'C:', model: 'Samsung SSD 990 PRO with Heatsink 2TB', kind: 'NVMe SSD', totalGb: 1862.4, freeGb: 1203.7 },
+      { letter: 'D:', model: 'WDC WD20EZRZ-00Z5HB0', kind: 'Hard drive', totalGb: 1863, freeGb: 412.2 },
+    ],
+    network: 'Ethernet', networkMbps: 2500,
+  }),
   'system.health': (p) => {
     const cpu = mockIntelCpu ? 'Core i7-14700K' : 'Ryzen 5 5600X'
     const [label, from, to, drop] = mockIntelCpu
@@ -866,7 +1101,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
       ok: true,
       items: [
         p?.action === 'apply'
-          ? { key: 'power', label: 'Power plan', detail: `Exo's plan, tuned for your ${cpu}`, applied: true, canUndo: true }
+          ? { key: 'power', label: 'Power plan', detail: "Exo's plan", applied: true, canUndo: true }
           : { key: 'power', label: 'Power plan', detail: `Your PC uses “Nexus LiteOS Power Plan”. Exo's plan is tuned for your ${cpu}.`, cpu },
         p?.action === 'chipset'
           ? { key: 'chipset', label, detail: `Updating to ${to}. ${drop} for a moment`, busy: true }
@@ -885,9 +1120,11 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
       ],
     }
   },
+  'system.mouseCore': mockMouseCore,
   'stores.quiet': () => ({ ok: true, message: null }),
   'hdr.state': () => ({ supported: true, on: false, name: 'Mock OLED', peakNits: 1000, calibrated: false, verdict: 'great' }),
   'hdr.game': (p) => ({ ok: true, hdr: 'true', mode: typeof p?.mode === 'string' ? p.mode : 'auto' }),
+  'game.settings': () => ({ ok: true, supported: false }),
   'gpu.display': (p) => ({
     ok: true,
     pending: p?.action === 'set' ? { display: 'DISPLAY1', seconds: 15 } : null,
@@ -913,18 +1150,24 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   }),
   'gpu.import': () => ({ ok: false, cancelled: true, undo: null }),
   'gpu.sensors': () => ({ ok: false }),
+  'gpu.driver': () => ({ ok: true, vendor: 'nvidia', card: 'RTX 3070', installed: '581.42', update: true, latest: { version: '581.57', size: 900_000_000, released: '2026-10-14', kind: 'game' } }),
   'gpu.game': (p) => {
     if (mockGpu === 'intel' && typeof p?.frameGen === 'string') mockFrameGen = p.frameGen
     return mockGpu === 'intel' ? { ok: true, vendor: 'intel', supported: true, frameGen: mockFrameGen }
       : { ok: true, vendor: 'amd', supported: mockGpu === 'amd', afmf: p?.afmf === true, amdSoftware: true }
   },
-  'store.home': () => ({ ok: true, at: new Date().toISOString(), hero: [], shelves: [{ id: 'mock', title: 'Top sellers', items: [MOCK_STORE_TILE] }], free: [] }),
+  'store.home': () => ({ ok: true, at: new Date().toISOString(), hero: [], shelves: [{ id: 'mock', title: 'Top sellers', items: [MOCK_STORE_TILE] }] }),
+  'store.calendar': () => ({
+    ok: true, at: new Date().toISOString(), interests: ['Roguelike', 'Co-op'],
+    days: [{ date: new Date().toISOString().slice(0, 10), entries: [{ tile: MOCK_STORE_TILE, wished: true, owned: false, earlyAccess: false, why: ['On your wishlist', 'Like Roguelike and Co-op'] }] }],
+  }),
   'store.search': () => ({ ok: true, items: [] }),
   'store.open': () => ({ ok: true }),
   'store.gameOffers': () => ({ ok: true, offers: [
     { store: '25', name: 'Epic Games Store', final: 2999, initial: 5999, discount: 50, currency: 'USD', url: 'https://store.epicgames.com/' },
     { store: '7', name: 'GOG', final: 2999, initial: 5999, discount: 50, currency: 'USD', url: 'https://www.gog.com/' },
-  ] }),
+  ], lowest: { final: 1979, at: '2026-06-25T17:00:00Z' } }),
+  'store.gameReviews': () => ({ ok: true, word: 'Mostly Positive', percent: 78, count: 1025 }),
   'store.game': mockStoreGame,
   'store.wishlist': () => ({ ok: true, items: [] }),
   'twitch.connect': () => ({ ok: false, message: 'Twitch sign-in is not available in the browser mock.' }),

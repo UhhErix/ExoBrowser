@@ -32,7 +32,7 @@
 }
 
 .exo-dc-segments .exo-dc-tab {
-  height: 24px;
+  height: 28px;
   border-radius: 999px;
   font-size: calc(12px * var(--exo-scale, 1));
 }
@@ -77,6 +77,27 @@
 
 .exo-dc .exo-dc-search:focus-within {
   width: 320px;
+}
+
+/* A narrow window (a portrait screen): the search folds to its magnifier and opens as you click it (it is the
+   field's label), so the channel's name keeps its room in the header. */
+@media (max-width: 900px) {
+  .exo-dc .exo-dc-search {
+    width: 30px;
+  }
+
+  .exo-dc .exo-dc-search input {
+    min-width: 0;
+  }
+
+  .exo-dc .exo-dc-search:focus-within {
+    width: 200px;
+  }
+
+  /* The topic gives way too: it opens in full from the channel's name. */
+  .exo-dc-chat-head :is(.exo-dc-chat-topic, .exo-dc-head-line) {
+    display: none;
+  }
 }
 
 .exo-dc-search-chip {
@@ -458,6 +479,7 @@ button.exo-dc-foryou:hover {
   border: 0;
   border-radius: 6px;
   background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: var(--color-fg);
   font: inherit;
   font-size: calc(12px * var(--exo-scale, 1));
@@ -479,6 +501,7 @@ button.exo-dc-foryou:hover {
   overflow-y: auto;
   border-radius: 10px;
   background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: var(--color-fg);
   font-size: calc(12px * var(--exo-scale, 1));
 }

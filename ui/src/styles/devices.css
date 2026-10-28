@@ -1,0 +1,672 @@
+/* A room's page list (components/ui/RoomNav.tsx; DESIGN.md › Rooms): a floating pane of glass at the room's left, inset
+   the Bar's gap from the window, one row per page with its glyph, name and a short line; the current page is lit. */
+.exo-room-nav {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 12px 0 var(--exo-gap) var(--exo-gap);
+  padding: 10px 8px;
+  overflow-y: auto;
+  border-radius: var(--exo-panel-radius);
+}
+
+.exo-room-nav-title {
+  margin: 6px 10px 8px;
+  color: var(--color-faint);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+.exo-room-nav ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exo-room-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 6px 10px;
+  border: 0;
+  /* Concentric with the pane: its 18px less the 8px it holds its rows in. */
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-out), color 120ms var(--ease-out);
+}
+
+.exo-room-nav-item:hover { background: var(--hover-fill); }
+.exo-room-nav-item:active { background: var(--exo-pressed); }
+.exo-room-nav-item[aria-current="page"] { box-shadow: var(--glassy-ring); }
+
+.exo-room-nav-item:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+/* Each page's glyph in a small clear tile with the glass's line, so a long list reads as a column of places. */
+.exo-room-nav-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  box-shadow: var(--glassy-ring);
+  color: var(--color-muted);
+}
+
+.exo-room-nav-item[aria-current="page"] .exo-room-nav-icon { color: var(--color-fg); }
+.exo-room-nav-item[aria-current="page"] .exo-room-nav-label { font-weight: 600; }
+
+.exo-room-nav-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.exo-room-nav-label,
+.exo-room-nav-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.exo-room-nav-label {
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 500;
+}
+
+/* Where a page stands, read at 4.5:1 or better on the pane in every Appearance (the faint grey measured 3.4:1 on Void's
+   glass); on the current row's lighter fill it takes the ink itself, a step down (the muted grey fell to 2.5:1 there). */
+.exo-room-nav-sub {
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-room-nav-item[aria-current="page"] .exo-room-nav-sub { color: color-mix(in srgb, var(--color-fg) 80%, transparent); }
+
+.exo-room-nav-foot {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+/* Devices (DevicesRoom.tsx; DESIGN.md › Devices): the room is its devices. The grid of cards fills the room under the
+   Bar, two to a row (one in a narrow window), each row sharing the room's height; a device's page has Devices at its
+   top to go back. Exo Mouse's frame stays loaded (and keeps its size) behind the grid. */
+.exo-devices {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.exo-devices-back {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 12px var(--exo-gutter) 0;
+}
+
+.exo-devices-back .exo-set-btn { gap: 4px; padding-left: 10px; }
+
+.exo-devices-page {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.exo-devices-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 600px;
+  padding: 12px var(--exo-gutter) var(--exo-gutter);
+}
+
+/* Kept while a device's page shows (DevicesRoom), hidden. */
+.exo-devices-overview[hidden] { display: none; }
+
+/* Your audio's page, laid out as Exo Mouse lays out a mouse (mouse/src/mouse.css › room): one screen, no scroll. The
+   hero is Exo Mouse's hero; the controls stand in two columns as wide as Exo Mouse's (420 to 520px, the room's width
+   less the hero's 400 shared out), and the hero takes the rest. A smaller window gives the controls one column that
+   scrolls beside the hero; a narrow one stacks them under it. */
+.exo-device-page {
+  --exo-device-page-column: clamp(calc(420px * var(--exo-scale, 1)), (100vw - 2 * var(--exo-gutter) - 424px) / 2, calc(520px * var(--exo-scale, 1)));
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  gap: 12px;
+  height: 100%;
+  padding: 12px var(--exo-gutter) 16px;
+}
+
+/* The hero: one card, the picture taking all the height its name, readout and credit leave. */
+.exo-device-page-hero {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--exo-panel-radius);
+  background: var(--color-bg);
+  box-shadow: inset 0 0 0 1px var(--exo-float-line);
+}
+
+.exo-device-page-hero .exo-device-hero-art {
+  flex: 1 1 auto;
+  min-height: 120px;
+}
+
+/* Never larger than the picture itself (1200 x 800, framed alike): its 3:2 frame centred in what the hero leaves. */
+.exo-device-page-hero .exo-device-hero-art > .exo-device-render,
+.exo-device-page-hero .exo-device-hero-art > .exo-device-art {
+  inset: 0;
+  width: min(calc(100% - 64px), 900px);
+  height: min(calc(100% - 64px), 600px);
+  margin: auto;
+}
+
+/* The picture's own light: itself, blurred far back, as Exo Mouse and the game page wash their art. */
+.exo-device-hero-art > .exo-device-wash {
+  inset: 12%;
+  width: 76%;
+  height: 76%;
+  object-fit: contain;
+  filter: blur(64px) saturate(1.2);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.exo-device-page-id { padding: 16px 24px 0; }
+
+.exo-device-page-id h1 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: calc(20px * var(--exo-scale, 1));
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.exo-device-page-id p {
+  margin: 4px 0 0;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+/* The readout: figures on hairlines, side by side, under one hairline the whole width (Exo Mouse's battery and signal). */
+.exo-device-page-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(132px * var(--exo-scale, 1)), 1fr));
+  margin: 16px 0 0 -1px;
+  box-shadow: inset 0 1px 0 var(--exo-float-line);
+}
+
+.exo-device-page-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--exo-float-line);
+  border-left: 1px solid var(--exo-float-line);
+}
+
+.exo-device-page-stats dt {
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-device-page-stats dd {
+  margin: 0;
+  overflow: hidden;
+  font-size: calc(20px * var(--exo-scale, 1));
+  line-height: 1.2;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The hero's foot: thanks to Lucid's maker, with a red heart, as Exo Mouse thanks OpenMouse's. */
+.exo-device-page-credit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 24px;
+  border-top: 1px solid var(--exo-float-line);
+  color: var(--color-faint);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-device-page-heart {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  fill: var(--color-bad);
+}
+
+.exo-device-page-panels {
+  display: grid;
+  grid-template-columns: repeat(2, var(--exo-device-page-column));
+  /* Rows stack from the top: stretched, a second row (the keyboard's Settings) sat far below the first. */
+  align-content: start;
+  align-items: start;
+  gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.exo-device-page-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.exo-device-page-panel { padding: 16px 24px 4px; }
+
+.exo-device-page-panel > h2 { padding-bottom: 10px; }
+.exo-device-page-panel .exo-system-panel-body { padding: 0 0 4px; }
+.exo-device-page-panel .exo-set-item { padding: 7px 0; }
+
+@media (width < 1200px) {
+  .exo-device-page-panels { grid-template-columns: var(--exo-device-page-column); }
+}
+
+@media (width < 860px) {
+  .exo-device-page {
+    grid-template-rows: 420px auto;
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .exo-device-page-panels {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+}
+
+.exo-devices-mouse {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.exo-devices-mouse.is-away {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.exo-devices-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exo-devices-head h1 {
+  margin: 0;
+  font-size: calc(20px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+.exo-devices-head .exo-set-btn { gap: 6px; }
+
+.exo-devices-head-end {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* A controller's sticks live, each a dot in its gate, side by side above the stick test. */
+.exo-sticks {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  padding: 4px 0 10px;
+}
+
+.exo-stick {
+  width: calc(112px * var(--exo-scale, 1));
+  height: calc(112px * var(--exo-scale, 1));
+}
+
+.exo-stick-gate { fill: rgb(var(--exo-ink-rgb) / 0.04); stroke: rgb(var(--exo-ink-rgb) / 0.18); stroke-width: 1; }
+.exo-stick-axis { stroke: rgb(var(--exo-ink-rgb) / 0.08); stroke-width: 1; }
+.exo-stick-dot { fill: var(--color-fg); }
+
+/* A trigger's pull: one 4px track, as Exo Mouse's gauges (transform only). */
+.exo-trigger {
+  width: calc(160px * var(--exo-scale, 1));
+  height: 4px;
+  border-radius: 999px;
+  background: var(--exo-track);
+  overflow: hidden;
+}
+
+.exo-trigger > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-fg);
+}
+
+/* The cards share the room: two columns, rows of equal height that fill what's left under the heading (never shorter
+   than reads well; a long list scrolls). One device takes the whole width. */
+.exo-devices-grid {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(260px, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.exo-devices-grid[data-count="1"] { grid-template-columns: minmax(0, 1fr); }
+
+@media (width < 1000px) {
+  .exo-devices-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.exo-device-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 18px 20px 20px;
+  border: 0;
+  border-radius: var(--exo-panel-radius);
+  color: var(--color-fg);
+  font: inherit;
+  text-align: left;
+}
+
+.exo-device-card {
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-out);
+}
+
+.exo-device-card:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+/* The card's name, large, at its left; its USB at the card's right (green where it's best for the device, red where
+   it isn't). How it's linked, its battery and the jack aren't said: the picture and the page do. */
+.exo-device-card-text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  /* One height whether the card is a button or (coming soon) not: a div kept the page's looser line height. */
+  line-height: 1.25;
+}
+
+.exo-device-card-text strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: calc(20px * var(--exo-scale, 1));
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.exo-device-port {
+  flex: none;
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exo-device-port.is-good {
+  color: var(--color-good);
+}
+
+.exo-device-port.is-bad {
+  color: var(--color-bad);
+}
+
+/* The picture: in what the card has left, never sizing the card (a picture's own height made each card 800px tall).
+   Official pictures share one 3:2 frame with the same margin, so they sit alike; Exo's drawings fill the same box. */
+.exo-device-card-art,
+.exo-device-hero-art {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.exo-device-card-art > *,
+.exo-device-hero-art > * {
+  position: absolute;
+  inset: 12px 0 0;
+  width: 100%;
+  height: calc(100% - 12px);
+  transition: translate 200ms var(--ease-out);
+}
+
+.exo-device-card:not(.is-soon):hover .exo-device-card-art > * { translate: 0 -3px; }
+
+/* A device Exo doesn't set up yet: its card shows what it is, opens nothing, and says so in a small capsule of glass at
+   its top right. */
+.exo-device-card.is-soon {
+  position: relative;
+  cursor: default;
+}
+
+/* Coming soon at the foot, centered under the picture: the top row is the name's and its USB's. */
+.exo-device-soon {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 5;
+  padding: 5px 12px;
+  border-radius: 999px;
+  color: var(--color-fg);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 500;
+  pointer-events: none;
+}
+
+.exo-device-render {
+  display: block;
+  object-fit: contain;
+  user-select: none;
+}
+
+.exo-device-art { padding: 8% 14%; }
+
+/* Your headphones: a search of the models Lucid knows in the row's button's place, a short list under the row. */
+.exo-devices-pick-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(240px, 100%);
+  height: 32px;
+  padding: 0 12px;
+  color: var(--color-muted);
+}
+
+.exo-devices-pick-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+.exo-devices-pick-list {
+  display: grid;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.exo-devices-pick-list button {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: calc(13px * var(--exo-scale, 1));
+  text-align: left;
+  cursor: pointer;
+}
+
+.exo-devices-pick-list button:hover { background: var(--hover-fill); }
+
+.exo-devices-pick-list button:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+.exo-devices-pick-list button span,
+.exo-devices-pick-wait {
+  color: var(--color-faint);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-devices-pick-wait { padding: 7px 10px; }
+
+/* Exo's device drawings (devices/art.tsx): flat, in the ink. The body is a lift of the page with one lit rim, its
+   parts a step lighter, keys a step more; a device with a body color of its own takes it, and its parts follow it. */
+.exo-device-art {
+  --exo-art-body: rgb(var(--exo-ink-rgb) / 0.08);
+  --exo-art-part: rgb(var(--exo-ink-rgb) / 0.1);
+  --exo-art-key: rgb(var(--exo-ink-rgb) / 0.16);
+  --exo-art-rim: rgb(var(--exo-ink-rgb) / 0.32);
+  display: grid;
+  place-items: center;
+}
+
+.exo-device-art[style] {
+  --exo-art-part: color-mix(in srgb, var(--exo-art-body), black 16%);
+  --exo-art-key: color-mix(in srgb, var(--exo-art-body), black 30%);
+}
+
+/* A black device: near-black glass, its parts lifted from it, its rim lit so it holds its shape on a black page. */
+.exo-device-art.is-dark {
+  --exo-art-body: rgb(20 20 23);
+  --exo-art-part: rgb(34 35 39);
+  --exo-art-key: rgb(48 49 54);
+  --exo-art-rim: rgb(var(--exo-ink-rgb) / 0.4);
+}
+
+.exo-device-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.exo-device-art .is-body { fill: var(--exo-art-body); stroke: var(--exo-art-rim); stroke-width: 1.25; }
+.exo-device-art .is-part { fill: var(--exo-art-part); stroke: rgb(var(--exo-ink-rgb) / 0.16); stroke-width: 1; }
+.exo-device-art .is-key { fill: var(--exo-art-key); stroke: rgb(var(--exo-ink-rgb) / 0.2); stroke-width: 0.75; }
+.exo-device-art .is-mod { fill: var(--exo-art-part); stroke: rgb(var(--exo-ink-rgb) / 0.2); stroke-width: 0.75; }
+.exo-device-art .is-light { stroke: rgb(var(--exo-ink-rgb) / 0.5); stroke-width: 2; stroke-linecap: round; }
+
+.exo-device-art .is-wire {
+  fill: none;
+  stroke: var(--exo-art-rim);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.exo-device-art .is-band { stroke-width: 10; }
+.exo-device-art .is-line { fill: none; stroke: rgb(var(--exo-ink-rgb) / 0.22); stroke-width: 1.5; stroke-linecap: round; }
+
+:root[data-exo-motion="reduce"] .exo-device-card-art > * { transition: none; }
+:root[data-exo-motion="reduce"] .exo-device-card:hover .exo-device-card-art > * { translate: none; }
+
+@media (forced-colors: active) {
+  .exo-device-art :is(.is-body, .is-part, .is-key, .is-mod) { fill: Canvas; stroke: CanvasText; }
+  .exo-device-art :is(.is-wire, .is-light, .is-line) { stroke: CanvasText; }
+}
+
+/* Calibrating: how far round each stick has gone, then each stick's center before and after. */
+.exo-calibrate-sweep {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.exo-calibrate-stick {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-fg);
+}
+
+.exo-calibrate-stick .exo-trigger { width: 100%; }
+
+.exo-calibrate-result {
+  display: grid;
+  gap: 6px;
+  margin: 4px 0 0;
+}
+
+.exo-calibrate-result > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.exo-calibrate-result dt { color: var(--color-muted); }
+.exo-calibrate-result dd { margin: 0; color: var(--color-fg); font-variant-numeric: tabular-nums; }
+
+/* A game profile's name field (GameProfiles.tsx). */
+.exo-profile-name { width: 100%; height: 36px; padding: 0 12px; }
+
+.exo-profile-name input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+/* A game profile's games (GameProfiles.tsx): every installed game by title, a switch each, in one scrolling list. */
+.exo-game-pick-list {
+  max-height: 50vh;
+  margin-top: 12px;
+  overflow-y: auto;
+}
+
+.exo-game-pick-empty {
+  color: var(--color-muted);
+  font-size: calc(13px * var(--exo-scale, 1));
+}

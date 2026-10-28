@@ -74,6 +74,8 @@ export type ModalAnswers = Record<string, { value?: string; values?: string[]; c
 
 /** Discord's message flags the room reads for apps. */
 export const EPHEMERAL = 64, LOADING = 128, COMPONENTS_V2 = 32768
+/** Sent with @silent (SUPPRESS_NOTIFICATIONS): nobody was notified. */
+export const SILENT = 4096
 
 const SUB = 1, GROUP = 2
 

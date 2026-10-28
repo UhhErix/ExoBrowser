@@ -108,10 +108,6 @@
   }
 }
 
-.exo-shelf-sort-menu [role^='menuitem'][aria-checked='true'] {
-  background: var(--exo-selected);
-}
-
 .exo-music-mini {
   position: relative;
   display: flex;
@@ -221,10 +217,10 @@
   animation: exo-switch var(--dur-base) var(--ease-out) backwards;
 }
 
+/* Clear on the capsule's glass, as a card inside glass is: the page's color under it read as a hole. */
 .exo-mini-art {
   display: grid;
   place-items: center;
-  background: var(--color-bg);
   /* design-disable-next-line exo/art-edge -- the song with no cover: a note in an empty frame, no picture under it */
   box-shadow: inset 0 0 0 1px rgb(var(--exo-ink-rgb) / 0.14);
   color: var(--color-faint);
@@ -293,7 +289,8 @@
   min-width: 40px;
 }
 
-/* Errors read in Bad directly under the player: a black panel, red hairline. */
+/* Errors read in Bad directly under the player, on large glass as a popover is. It sits inside the capsule's own
+   glass, which hides the page from a blur of its own, so it takes the glass's still tint under the lit rim. */
 .exo-mini-error {
   position: absolute;
   top: calc(100% + 10px);
@@ -301,9 +298,9 @@
   right: 0;
   z-index: 20;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--color-bad) 34%, transparent);
-  border-radius: 10px;
-  background: var(--color-bg);
+  border-radius: var(--exo-panel-radius);
+  background: var(--glassy-still-panel);
+  box-shadow: var(--glassy-ring), var(--glassy-rim), var(--glassy-shadow-raised);
   color: var(--color-bad);
   font-size: calc(12px * var(--exo-scale, 1));
   white-space: normal;
@@ -362,5 +359,23 @@
   .exo-music-mini input.exo-mini-seek {
     left: 0;
     width: 100%;
+  }
+
+  .exo-mini-lcd {
+    min-width: 36px;
+  }
+}
+
+/* Past its smallest (a page under 720px wide): mute, then the cover, so play stays whole instead of a capsule cut
+   off mid-control; a slot too narrow even for play drops the song (system.css › bar-live). */
+@container music-transport (max-width: 116px) {
+  .exo-music-mini .exo-mini-volume {
+    display: none;
+  }
+}
+
+@container music-transport (max-width: 84px) {
+  .exo-music-mini .exo-mini-lcd {
+    display: none;
   }
 }

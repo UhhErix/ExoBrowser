@@ -1,3 +1,4 @@
+import { ErrorNote } from '../ui/ErrorNote'
 import { useState, type ReactNode } from 'react'
 import { Switch } from '../Switch'
 
@@ -19,9 +20,28 @@ export function Section({ id, title, action, children }: {
   )
 }
 
+/** A named group of rows inside a section (Accounts and keys › Game stores): its name, an optional action, then rows. */
+export function Group({ id, title, action, children }: {
+  id: string
+  title: string
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="exo-set-group" id={`set-${id}`} role="group" aria-labelledby={`set-${id}-title`}>
+      <header className="exo-set-group-head">
+        <h3 id={`set-${id}-title`}>{title}</h3>
+        {action}
+      </header>
+      <div className="exo-set-list">{children}</div>
+    </div>
+  )
+}
+
 /**
- * Label on the left, state and control on a shared right edge. `detail` is one
- * short line that says what the row is for; `error` sits under the control that caused it.
+ * Label on the left, state and control on a shared right edge. `detail` is one short grey line for a value the row
+ * can't show otherwise (a version, a folder, a measured result, a result just in), never an explanation of what the row
+ * is for; `error` sits under the control that caused it.
  */
 export function Row({ label, labelId, detail, icon, children, error }: {
   label: string
@@ -41,7 +61,7 @@ export function Row({ label, labelId, detail, icon, children, error }: {
         </div>
         {children ? <div className="exo-set-item-control">{children}</div> : null}
       </div>
-      {error ? <p className="exo-set-error" role="alert">{error}</p> : null}
+      {error ? <ErrorNote className="exo-set-error" message={error} /> : null}
     </div>
   )
 }

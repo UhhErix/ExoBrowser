@@ -14,7 +14,8 @@
   padding: 0 var(--exo-gutter) 22px;
 }
 
-/* Three equal banners, each filled edge to edge with its game's wide art. */
+/* Three equal banners, each filled edge to edge with its game's wide art. Up to four come: the fourth shows only two
+   across, where it fills the second row. */
 .exo-continue-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -23,6 +24,39 @@
   height: clamp(200px, 28vh, 300px);
 }
 
+.exo-continue-row > :nth-child(n + 4) {
+  display: none;
+}
+
+/* A narrow window (half a screen, a portrait screen): two banners a row, one at the narrowest, each wide enough for its
+   name, Play and More. Three across under about 1180px cut a name to its first word ("Rocket ..." at 960px). */
+@media (max-width: 1180px) {
+  .exo-continue-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: clamp(160px, 18vh, 220px);
+    height: auto;
+  }
+
+  /* Four fill two rows. An odd count leaves no hole: the first (the game you're playing, or played last) takes the
+     whole first row. */
+  .exo-continue-row > :nth-child(4) {
+    display: block;
+  }
+
+  .exo-continue-row:is([data-count='1'], [data-count='3']) > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .exo-continue-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .exo-continue-row > :nth-child(4) {
+    display: none;
+  }
+}
 
 .exo-continue-card {
   position: relative;
@@ -60,6 +94,20 @@
 
 .exo-continue-card:has(.exo-now-wash-img.is-on) {
   background: transparent;
+}
+
+/* A game with only its poster (one still downloading has no wide art yet): the poster stands whole and sharp in front
+   of its own wash, rather than the card being one blur. */
+.exo-continue-scrim .exo-now-wash-poster {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 1;
+  height: calc(100% - 28px);
+  width: auto;
+  border-radius: var(--exo-card-radius);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
 /* The card clips its art, so the focus ring sits inside the edge instead of outside it. */
@@ -135,6 +183,7 @@
   transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
 }
 
+/* Play is small glass over the art, as More and the title's plate are; it takes glass's lift on hover (glass.css). */
 .exo-continue-play {
   display: inline-flex;
   align-items: center;
@@ -143,51 +192,23 @@
   padding: 0 20px 0 16px;
   border: 0;
   border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-primary-fg);
   font: inherit;
   font-size: calc(13px * var(--exo-scale, 1));
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out);
 }
 
-/* Starting…: busy, not unavailable, so it stays solid (at 60% the white pill and its words went see-through over the art). */
+/* Starting: busy, not unavailable, so it stays at full strength saying Preparing (at 60% its words went see-through
+   over the art). */
 .exo-continue-play:disabled {
-  cursor: progress;
+  cursor: default;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  /* Play brightens as every primary does; More, being glass, takes glass's lift (glass.css). */
-  .exo-continue-play:hover:not(:disabled) {
-    background: var(--exo-primary-hover);
-  }
-
   .exo-friend-pill-text:hover {
     background: var(--hover-fill);
   }
-}
-
-.exo-continue-ring {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: conic-gradient(var(--color-fg) var(--p), rgb(var(--exo-ink-rgb) / 0.2) var(--p));
-}
-
-.exo-continue-ring > span {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--color-bg);
-  font-size: calc(12px * var(--exo-scale, 1));
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Friends are playing: one capsule per game, faces, names, the game, Play. */
@@ -210,7 +231,7 @@
   padding: 0 8px 0 8px;
   border-radius: 999px;
   background: var(--exo-float);
-  box-shadow: inset 0 0 0 1px var(--exo-float-line);
+  box-shadow: none; /* the edge is the glass layer's one line (glass.css) */
 }
 
 /* A game you are playing yourself has no Play: the names keep the capsule's inset on the right too. */
@@ -309,7 +330,7 @@
   padding: 10px 16px 10px 10px;
   border-radius: var(--exo-card-radius);
   background: var(--exo-float);
-  box-shadow: inset 0 0 0 1px var(--exo-float-line);
+  box-shadow: none; /* the edge is the glass layer's one line (glass.css) */
 }
 
 .exo-gift-art {
@@ -364,8 +385,7 @@
   margin: 4px 0 0;
 }
 
-.exo-gift-line.is-bad,
-.exo-gift .exo-set-btn.is-danger {
+.exo-gift-line.is-bad {
   color: var(--color-bad);
 }
 
@@ -377,13 +397,34 @@
 /* One grid: not installed is a mark, not a place. Its art sits darker and partly drained of color under
    a small download mark, so what you can play now stands out; hovering brings it back. One filter on the
    art (it already had one), not a dark layer over it: that layer's antialiased corner let the art through as a light rim. */
-.exo-library-pane .exo-tile.is-dim .exo-tile-media img {
+/* The dim itself is baked into the thumbnail the host serves (&dim=1): the card
+   paints plain, and the plain copy mounts on the first hover and fades in over it
+   (the same 160ms the filter used). The filter survives only for a card whose dim
+   thumbnail failed, so it is never undimmed by mistake. */
+.exo-library-pane .exo-tile.is-dim .exo-tile-media img.is-dim-fallback {
   filter: saturate(0.45) brightness(0.42);
   transition: filter 160ms var(--ease-out);
 }
 
-.exo-library-pane .exo-tile.is-dim .exo-tile-hit:hover .exo-tile-media img {
+.exo-library-pane .exo-tile.is-dim .exo-tile-hit:hover .exo-tile-media img.is-dim-fallback {
   filter: none;
+}
+
+.exo-cover-undim {
+  opacity: 0;
+  pointer-events: none;
+  /* On mount the keyframe covers the fade in (a class alone has nothing to leave);
+     later hovers are the transition. */
+  animation: exo-cover-undim-in 160ms var(--ease-out) backwards;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.exo-cover-undim.is-on {
+  opacity: 1;
+}
+
+@keyframes exo-cover-undim-in {
+  from { opacity: 0; }
 }
 
 /* In a folder the art stays whole (a folder is a place you chose, often all of one kind), the mark alone tells. */
@@ -402,7 +443,6 @@
     rgb(0 0 0 / 0.72);
   pointer-events: none;
 }
-
 
 /* Select mode (LibraryPane.tsx): a ring on each cover's corner, filled with a check on the picked ones, which also take
    the ring outside their art that focus does. Folders sit back: they can't be picked. */

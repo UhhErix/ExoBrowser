@@ -6,6 +6,12 @@
 @layer theme, base, components, utilities;
 @import "tailwindcss";
 @import "./styles/chrome.css";
+@import "./styles/progress.css";
+@import "./styles/waits.css";
+@import "./styles/dialog.css";
+@import "./styles/devices.css";
+@import "./styles/apps.css";
+@import "./styles/runtimes.css";
 @import "./styles/home.css";
 @import "./styles/art.css";
 @import "./styles/game-a.css";
@@ -13,6 +19,7 @@
 @import "./styles/shaders.css";
 @import "./styles/graphics.css";
 @import "./styles/captures.css";
+@import "./styles/notes.css";
 @import "./styles/store.css";
 @import "./styles/music-player.css";
 @import "./styles/shelf.css";
@@ -29,8 +36,10 @@
 @import "./styles/glass.css";
 @import "./styles/library.css";
 @import "./styles/system.css";
+@import "./styles/dictate.css";
 @import "./styles/discord-settings.css";
 @import "./styles/transitions.css";
+@import "./styles/scrollbar.css";
 
 /* motion-reduce: follows Exo's Reduce motion as well as Windows' (useShellLayout sets data-exo-motion for both). */
 @custom-variant motion-reduce (&:where([data-exo-motion='reduce'] *));
@@ -72,6 +81,9 @@ kbd,
   --color-primary-fg: #000000;
   --color-good: #3dd68c;
   --color-bad: #ff5c5c;
+  /* Text on a good or bad fill: the pale status colours take black (white on them read 1.9:1 and 2.8:1). */
+  --color-on-good: #000000;
+  --color-on-bad: #000000;
   --color-card: #000000;
   --color-raised: #000000;
   --font-sans: "Inter Variable", "Inter", sans-serif;
@@ -142,33 +154,38 @@ body,
      it #121212. Quiet controls are transparent until hovered; current is --exo-selected; primary is
      --color-fg on #0a0a0a, --exo-primary-hover under the pointer; danger is --color-bad words on the glass.
      --exo-control-line is only for a ring that is the control itself (a radio dot, a checkbox box). */
-  /* Exo's liquid glass: clear, vivid frost (blur, saturation 1.8) whose glass is in its edges: a bright top line, a
-     fainter bottom one, an even hairline and a soft glow just inside, with no tint or wash across the body (both
-     read as metal). Over art it dims what is behind enough to keep white words readable, lifted by a soft shadow
-     (--glassy-words). */
-  --glassy-rim: inset 0 0 18px rgb(255 255 255 / 0.06);
-  --glassy-ring: inset 0 1px 0 rgb(255 255 255 / 0.55), inset 0 -1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px rgb(255 255 255 / 0.14);
-  --glassy-words: 0 1px 3px rgb(0 0 0 / 0.5), 0 0 12px rgb(0 0 0 / 0.3);
-  --glassy-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 8px 24px -4px rgb(0 0 0 / 0.28);
-  --glassy-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.2), 0 30px 60px -18px rgb(0 0 0 / 0.55);
+  /* Exo's liquid glass: clear, vivid frost (blur, saturation 1.8) inside one even line, with no tint or wash across
+     the body (both read as metal). Over art it dims what is behind enough to keep white words readable, lifted by a
+     tight shadow (--glassy-words). */
+  --glassy-rim: inset 0 0 0 transparent;
+  /* One thin even line all the way round, the same 1px on every glass: a dark hairline outside a light one read as a
+     thicker outline than everything else's. A lit top, a shaded foot and a bent rim read as one side brighter than the
+     other and the sides as concave, at 1080p stepped too. */
+  --glassy-ring: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  /* Words keep a tight shadow over bright art; a 12px halo around them read as a smudge. */
+  --glassy-words: 0 1px 2px rgb(0 0 0 / 0.45);
+  /* Small glass casts nothing (a shadow below it alone read as fake); large glass floats in an even halo. */
+  --glassy-shadow: 0 0 0 transparent;
+  --glassy-shadow-raised: 0 0 40px rgb(0 0 0 / 0.5);
   /* No sheen on Void: a white wash at the top of every pane read as gray on black. */
   --glassy-sheen: none;
   /* Liquid glass, chosen side by side on the user's screen: a clear body that shows the colors behind it, lit only
      at its edges (a bright top line, a faint bottom one, a hairline and a soft inner glow) with no gray tint or wash
      across it (those read as metal), and its words lifted by a soft shadow. Large glass (menus, sheets) dims what is
      behind it to 0.66 under a 0.36 tint: over pure white #6c6c6c, white words 5.3:1 and secondary (#dcdcdc) 4.1:1
-     before their shadow; small glass keeps its dim under a 0.08 tint (#6c6c6c over white). */
+     before their shadow. Small glass is the controls' glass, clear (--exo-fill transparent over --exo-control-glass): over the black page it
+     is black inside its one line, and it shows color only over art; an 8% light tint there read as a fake gray. */
   --glassy-overlay: rgb(0 0 0 / 0.36);
   --glassy-overlay-tone: brightness(0.66);
-  --glassy-slab: rgb(0 0 0 / 0.08);
-  --exo-fill: rgb(245 245 247 / 0.08);
+  --exo-fill: transparent;
   /* Blur, dim, contrast and saturation in CSS's own functions: an SVG filter cost frames on a control over a
      scrolling list (2 to 3% at 165 Hz), these none. */
   --exo-control-glass: blur(10px) brightness(0.62) saturate(1.8);
   --exo-rim: var(--glassy-ring), var(--glassy-rim);
   --exo-rim-pressed: inset 0 0 0 1px rgb(255 255 255 / 0.08), var(--glassy-rim);
-  /* A field's edge is the panels' one hairline: a shaded top and a lit bottom line made fields shinier than all else. */
-  --exo-field-rim: inset 0 0 0 1px rgb(var(--exo-ink-rgb) / 0.1);
+  /* A field's edge is every glass's one even line (DESIGN.md › Glass › Its edge): at 10% of the ink it read a third
+     dimmer than the buttons and chips beside it. */
+  --exo-field-rim: var(--glassy-ring);
   --exo-control-line: #2a2a2a;
   /* Liquid Glass (styles/glass.css). Words on dark small glass: secondary #dbdbdb, brighter than
      --color-muted, so it keeps 4.5:1 at the glass's brightest; on large glass #bdbdbd; on light glass,
@@ -191,7 +208,6 @@ body,
   --exo-ink-rgb: 255 255 255;
   /* Words on large glass and sheets, and the glass's own tone (what it does to what is behind it). */
   --exo-panel-ink: #ffffff;
-  --glassy-tone: brightness(0.46) saturate(1.8);
   --glassy-pane-tone: brightness(0.62) saturate(1.8);
   --glassy-pane: transparent;
   /* Mid transition and Solid: the glass as a still fill (glass.css). */
@@ -244,10 +260,8 @@ body,
   /* As Void's: the same large glass; #b0b0b0 read 4.1:1 over white art and #bdbdbd 4.1:1 over red (measured). */
   --exo-glass-panel-secondary: #c8c8c8;
   --exo-primary-hover: #cfcfcf;
-  /* Glass dims what is behind it as on Void (lighter, words over bright art fell under 4:1) and lifts off the gray
-     page by its own tint. */
-  --glassy-slab: rgb(39 39 39 / 0.12);
-  --glassy-pane: rgb(255 255 255 / 0.06);
+  /* Panes lift off the gray page by their own tint. */
+  --glassy-pane: transparent;
   /* Controls keep Void's dim: over bright art a lighter one left a badge's words at 2:1 (its fill lifts it off the page). */
   --glassy-still-pane: rgb(18 18 18 / 0.85);
   --glassy-still-control: rgb(39 39 39 / 0.75);
@@ -257,24 +271,28 @@ body,
 
   /* Dark's own glass and lifts, so Void's black never reaches it (each Appearance stands on its own). */
   --hover-fill: rgb(255 255 255 / 0.1);
-  --glassy-rim: inset 0 0 18px rgb(255 255 255 / 0.06);
-  --glassy-ring: inset 0 1px 0 rgb(255 255 255 / 0.55), inset 0 -1px 0 rgb(255 255 255 / 0.12), inset 0 0 0 1px rgb(255 255 255 / 0.14);
-  --glassy-words: 0 1px 3px rgb(0 0 0 / 0.5), 0 0 12px rgb(0 0 0 / 0.3);
-  --glassy-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 8px 24px -4px rgb(0 0 0 / 0.28);
-  --glassy-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.2), 0 30px 60px -18px rgb(0 0 0 / 0.55);
-  --glassy-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 45%);
+  --glassy-rim: inset 0 0 0 transparent;
+  /* One thin even line all the way round, the same 1px on every glass: a dark hairline outside a light one read as a
+     thicker outline than everything else's. A lit top, a shaded foot and a bent rim read as one side brighter than the
+     other and the sides as concave, at 1080p stepped too. */
+  --glassy-ring: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+  /* Words keep a tight shadow over bright art; a 12px halo around them read as a smudge. */
+  --glassy-words: 0 1px 2px rgb(0 0 0 / 0.45);
+  /* Small glass casts nothing (a shadow below it alone read as fake); large glass floats in an even halo. */
+  --glassy-shadow: 0 0 0 transparent;
+  --glassy-shadow-raised: 0 0 40px rgb(0 0 0 / 0.5);
+  --glassy-sheen: none;
   --glassy-overlay: rgb(44 44 46 / 0.42);
   --glassy-overlay-tone: brightness(0.64);
-  --exo-fill: rgb(245 245 247 / 0.08);
+  --exo-fill: transparent;
   --exo-control-glass: blur(10px) brightness(0.62) contrast(0.9) saturate(1.8);
   --exo-rim: var(--glassy-ring), var(--glassy-rim);
   --exo-rim-pressed: inset 0 0 0 1px rgb(255 255 255 / 0.08), var(--glassy-rim);
-  --exo-field-rim: inset 0 0 0 1px rgb(var(--exo-ink-rgb) / 0.1);
+  --exo-field-rim: var(--glassy-ring);
   --exo-glass-rim: var(--glassy-ring), var(--glassy-rim);
   --exo-pressed: rgb(255 255 255 / 0.133);
   --exo-selected: rgb(255 255 255 / 0.15);
   --exo-track: rgb(255 255 255 / 0.17);
-  --glassy-tone: brightness(0.46) contrast(0.9) saturate(1.8);
   --glassy-pane-tone: brightness(0.62) contrast(0.9) saturate(1.8);
   --glassy-still: rgb(28 28 30 / 0.8);
   --glassy-still-panel: rgb(44 44 46 / 0.95);
@@ -301,8 +319,10 @@ body,
   --color-primary: #1e1e1e;
   --color-primary-fg: #ffffff;
   /* Green and red dark enough for 4.5:1 on the light page and on light glass over art (#d12f2f read 4.2:1 there). */
-  --color-good: #0f6b3a;
+  --color-good: #0a5830;
   --color-bad: #c42020;
+  --color-on-good: #ffffff;
+  --color-on-bad: #ffffff;
   --color-card: #ffffff;
   --color-raised: #ffffff;
   --hover-fill: rgb(0 0 0 / 0.05);
@@ -321,24 +341,22 @@ body,
   --exo-glass-panel-secondary: #4a4a4a;
   /* Glassy UI's light glass (liquid.css, light): a white frost, brightened and saturated, its rim lit bright with
      a soft shade inside, a dark hairline to hold its edge on the light page, and lighter shadows. */
-  --glassy-rim: inset 0 0 18px rgb(255 255 255 / 0.3);
-  /* The dark hairline on top: under the white highlights it vanished along the top and left (1.03:1 on the page). */
-  --glassy-ring: inset 0 0 0 1px rgb(0 0 0 / 0.11), inset 0 1px 0 rgb(255 255 255 / 0.9), inset 0 -1px 0 rgb(255 255 255 / 0.4);
+  --glassy-rim: inset 0 0 0 transparent;
+  /* One thin even line all the way round, as on dark glass: a dark hairline holds the edge on the light page. */
+  --glassy-ring: inset 0 0 0 1px rgb(0 0 0 / 0.15);
   --glassy-words: 0 1px 2px rgb(255 255 255 / 0.6);
-  --glassy-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px -6px rgb(0 0 0 / 0.14);
-  --glassy-shadow-raised: 0 2px 6px rgb(0 0 0 / 0.06), 0 28px 56px -18px rgb(0 0 0 / 0.26);
-  --glassy-sheen: linear-gradient(180deg, rgb(255 255 255 / 0.08), transparent 45%);
+  --glassy-shadow: 0 0 0 transparent;
+  --glassy-shadow-raised: 0 0 36px rgb(0 0 0 / 0.16);
+  --glassy-sheen: none;
   --glassy-overlay: rgb(255 255 255 / 0.74);
   --glassy-overlay-tone: brightness(1);
-  --glassy-slab: rgb(255 255 255 / 0.78);
   --glassy-pane: rgb(255 255 255 / 0.55);
-  --glassy-tone: brightness(1.06) saturate(1.6);
   --glassy-pane-tone: brightness(1.06) saturate(1.6);
   --exo-fill: rgb(255 255 255 / 0.72);
   --exo-control-glass: blur(10px) brightness(1.06) saturate(1.6);
   --exo-rim: var(--glassy-ring), var(--glassy-rim);
   --exo-rim-pressed: inset 0 0 0 1px rgb(0 0 0 / 0.1), var(--glassy-rim);
-  --exo-field-rim: inset 0 0 0 1px rgb(var(--exo-ink-rgb) / 0.1);
+  --exo-field-rim: var(--glassy-ring);
   --exo-glass-rim: var(--glassy-ring), var(--glassy-rim);
   --glassy-still: rgb(255 255 255 / 0.85);
   --glassy-still-panel: rgb(255 255 255 / 0.95);
@@ -360,25 +378,6 @@ body,
 .exo-motion-arrive {
   animation: exo-arrive 280ms var(--ease-out) backwards;
   animation-delay: calc(min(var(--i, 0), 7) * 24ms);
-}
-
-/* Work: a soft diagonal band of light crosses the art while something is done to it. */
-.exo-motion-work {
-  position: relative;
-  overflow: hidden;
-}
-
-/* The band is a layer two and a half times the art's width that slides across it (a transform, so it
-   never repaints the art); the art clips it. */
-.exo-motion-work::after {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 4;
-  width: 250%;
-  background: linear-gradient(115deg, transparent 30%, rgb(var(--exo-ink-rgb) / 0.16) 50%, transparent 70%);
-  animation: exo-work 1400ms linear infinite;
-  pointer-events: none;
 }
 
 /* Done: the art dims under a green ring, then eases back; .exo-motion-check draws on top. */
@@ -427,9 +426,9 @@ body,
 /* Switch: a tab's new content is there at once. It never fades in: its glass would show its tint alone until the
    fade ended (exo-arrive). Pictures still crossfade with exo-switch. */
 
-/* Glide (lib/glide.ts): a group's one selected fill travels to the chosen item on the spring (it moves
-   and changes width as one shape), in the top bar, Settings, chips and segmented choices. Chosen from
-   the keyboard it is simply there. */
+/* Glide (lib/glide.ts): a group's one selection travels to the chosen item on the spring (it moves and changes
+   width as one shape), in the top bar, Settings, chips and segmented choices: clear glass, the glass's one thin
+   line and no fill (a gray fill read as fake gray beside clear glass). Chosen from the keyboard it is simply there. */
 .exo-glide {
   position: relative;
   isolation: isolate;
@@ -444,7 +443,8 @@ body,
   width: var(--glide-w, 0);
   height: var(--glide-h, 0);
   border-radius: 999px;
-  background: var(--exo-selected);
+  background: transparent;
+  box-shadow: var(--glassy-ring);
   opacity: var(--glide-o, 0);
   transform: translate(var(--glide-x, 0), var(--glide-y, 0));
   pointer-events: none;
@@ -486,11 +486,6 @@ body,
   to { transform: none; }
 }
 
-/* The band's light runs from one art-width before the art to one past it. */
-@keyframes exo-work {
-  from { translate: -90% 0; }
-  to { translate: 30% 0; }
-}
 
 @keyframes exo-done {
   0% { opacity: 0; }
@@ -520,8 +515,7 @@ body,
   transition: none;
 }
 
-:root[data-exo-motion='reduce'] :is(.exo-motion-arrive, .exo-motion-switch),
-:root[data-exo-motion='reduce'] .exo-motion-work::after {
+:root[data-exo-motion='reduce'] :is(.exo-motion-arrive, .exo-motion-switch) {
   animation: none;
 }
 
@@ -612,22 +606,31 @@ body,
     -webkit-user-select: text;
   }
 
-  /* Loops (spinners, sweeps, waves) pause while Exo is in the background, and so does the Store's
+  /* Loops (the Exo bar's sheen and glide, a spin, a ring, a shine, typing dots, Nitro name effects) pause while Exo is in the background, and so does the Store's
      featured game's time, which would turn the banner with nobody looking; nothing else does.
      A one-shot entry paused on its first frame stays at opacity 0, so a page opened while focus
      is elsewhere (a game, another window) showed nothing. Listing the loops, not exempting the
-     entries, means a new fade-in can never vanish; a loop left off this list only keeps turning. */
+     entries, means a new fade-in can never vanish; a loop left off this list only keeps turning. A pseudo-element is
+     listed on its own: inside :is() it is invalid and dropped, so it never paused. */
   html[data-exo-inactive="true"] .exo-store-hero-time,
-  html[data-exo-inactive="true"] .exo-action-progress.is-unknown,
+  html[data-exo-inactive="true"] .exo-progress-fill,
+  html[data-exo-inactive="true"] .exo-progress-fill::after,
+  html[data-exo-inactive="true"] .exo-progress-head,
+  html[data-exo-inactive="true"] .exo-spin,
   html[data-exo-inactive="true"] .exo-dc-typing-dots i,
-  html[data-exo-inactive="true"] .exo-tile-progress.is-unknown::before,
-  html[data-exo-inactive="true"] .exo-tile-frame::before,
-  html[data-exo-inactive="true"] .exo-glyph.is-loader,
-  html[data-exo-inactive="true"] .animate-spin,
-  html[data-exo-inactive="true"] .exo-refresh-covers svg,
-  html[data-exo-inactive="true"] .exo-motion-work::after,
-  html[data-exo-inactive="true"] .exo-dc-dn.is-loop :is(.exo-dc-dn-text, .exo-dc-dn-text::before, .exo-dc-dn-letter) {
+  html[data-exo-inactive="true"] .exo-dc-dn.is-loop :is(.exo-dc-dn-text, .exo-dc-dn-letter),
+  html[data-exo-inactive="true"] .exo-dc-dn.is-loop .exo-dc-dn-text::before {
     animation-play-state: paused !important;
+  }
+
+  /* The ring and the shine each come in after 300ms on a second animation (waits.css, in this order): only the loop
+     pauses, so one that starts in the background still shows. */
+  html[data-exo-inactive="true"] .exo-spinner {
+    animation-play-state: running, paused !important;
+  }
+
+  html[data-exo-inactive="true"] .exo-shine::after {
+    animation-play-state: paused, running !important;
   }
 
 }

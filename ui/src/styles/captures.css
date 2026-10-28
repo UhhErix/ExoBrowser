@@ -88,7 +88,12 @@
   white-space: nowrap;
 }
 
-/* ── Settings > Capture ── */
+/* ── Captures › Capture settings ── */
+/* Settings' rows in the sheet, in a readable column from its left edge, so a label and its control stay close. */
+.exo-capture-settings {
+  max-width: 760px;
+}
+
 /* A slider with its value after it: the value is a state, muted (faint fell under 4.5:1), its digits even. */
 .exo-capture-quality {
   display: flex;
@@ -147,7 +152,6 @@
   justify-items: center;
   gap: 8px;
   min-height: 100%;
-  color: var(--color-muted);
   font-size: calc(13px * var(--exo-scale, 1));
   text-align: center;
 }
@@ -218,11 +222,6 @@
   font-weight: 600;
 }
 
-.exo-captures-group-head > span:last-child {
-  color: var(--color-faint);
-  font-size: calc(12px * var(--exo-scale, 1));
-}
-
 .exo-captures-cover {
   display: block;
   width: 28px;
@@ -285,6 +284,7 @@
   padding: 2px 7px;
   border-radius: 999px;
   background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: var(--color-fg);
   font-size: calc(12px * var(--exo-scale, 1));
   font-variant-numeric: tabular-nums;
@@ -309,6 +309,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: var(--color-fg);
   opacity: 0;
   transition: opacity 120ms var(--ease-out), color 120ms var(--ease-out);
@@ -396,6 +397,23 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+/* A snip zoomed in: a drag moves it; past twice its own size its pixels stay square. */
+.exo-capture-stage img {
+  touch-action: none;
+}
+
+.exo-capture-stage img.is-zoomed {
+  cursor: grab;
+}
+
+.exo-capture-stage img.is-panning {
+  cursor: grabbing;
+}
+
+.exo-capture-stage img.is-square {
+  image-rendering: pixelated;
 }
 
 .exo-snip-canvas canvas {

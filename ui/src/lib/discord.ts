@@ -10,8 +10,25 @@ export type DiscordSignInStep = {
   message?: string | null
 }
 
+/** A message saved for later (Discord's saved messages): the message, and when it was saved and (a reminder) is due. */
+export type DiscordSavedMessage = {
+  message: DiscordMessage | null
+  save_data: { channel_id: string; message_id: string; saved_at: string; due_at?: string | null; author_summary?: string | null; channel_summary?: string | null; message_summary?: string | null }
+}
+
+/** A role's icon beside a name: its picture, or a Unicode emoji, and the role's name. */
+export type DiscordRoleIcon = { name: string; url?: string | null; emoji?: string | null }
+
+/** Someone you blocked or ignored, for Ignore & Block. */
+export type DiscordRestricted = { id: string; name: string; username?: string | null; avatar?: string | null }
+
 /** call: who is in the DM's call now, when one is on. */
-export type DiscordDm = { id: string; name: string; avatar: string | null; look?: DiscordLook | null; group: boolean; unread: boolean; mentions: number; muted?: boolean; mutedUntil?: number | null; status?: string | null; userId?: string | null; username?: string | null; recipients?: string[]; subtitle?: string | null; call?: DiscordVoiceMember[] | null }
+export type DiscordDmMember = { id: string; name: string; username?: string | null; avatar: string | null; status: string }
+export type DiscordDm = { id: string; name: string; avatar: string | null; look?: DiscordLook | null; group: boolean; ownerId?: string | null; members?: DiscordDmMember[] | null; unread: boolean; mentions: number; muted?: boolean; mutedUntil?: number | null; status?: string | null; userId?: string | null; username?: string | null; recipients?: string[]; subtitle?: string | null; call?: DiscordVoiceMember[] | null
+  /** A message request (from someone you aren't friends with), or one Discord filed as spam: under Message Requests until accepted. */
+  request?: boolean
+  spam?: boolean
+}
 export type DiscordGuild = {
   id: string; name: string; icon: string | null; muted: boolean; unread: boolean; mentions: number
   /** How many people are in its voice channels you can see. */
@@ -22,6 +39,10 @@ export type DiscordGuild = {
   notify?: number
   suppressEveryone?: boolean
   suppressRoles?: boolean
+  /** Notification Settings' Suppress Highlights, Mute New Events and Mobile Push Notifications. */
+  suppressHighlights?: boolean
+  muteEvents?: boolean
+  mobilePush?: boolean
   /** You own it: no Leave Server. */
   owner?: boolean
 }
@@ -67,6 +88,23 @@ export function moveInRail(rail: DiscordRailItem[], source: string, drop: RailDr
   return next.filter(item => item.guildIds.length > 0)
 }
 
+/** Move to's places for a server: the top or foot of its folder or of the list, or out of its folder (just after it). */
+export type ServerMove = 'folderFirst' | 'folderLast' | 'listFirst' | 'listLast' | 'noFolder'
+
+/** The server list with a server moved by Move to, or null when it is there already. */
+export function moveServer(rail: DiscordRailItem[], guildId: string, to: ServerMove): DiscordRailItem[] | null {
+  const folder = rail.find(item => item.id != null && item.guildIds.includes(guildId))
+  const keyOf = (item: DiscordRailItem) => item.id != null ? `folder:${item.id}` : item.guildIds[0]
+  const drop: RailDrop | null = to === 'listFirst' && rail.length ? { kind: 'before', target: keyOf(rail[0]) }
+    : to === 'listLast' && rail.length ? { kind: 'after', target: keyOf(rail[rail.length - 1]) }
+    : to === 'folderFirst' && folder ? { kind: 'before', target: folder.guildIds[0] }
+    : to === 'folderLast' && folder ? { kind: 'after', target: folder.guildIds[folder.guildIds.length - 1] }
+    : to === 'noFolder' && folder ? { kind: 'after', target: `folder:${folder.id}` }
+    : null
+  const next = drop ? moveInRail(rail, guildId, drop) : null
+  return next && railShape(next) !== railShape(rail) ? next : null
+}
+
 /** The list's order and folders alone, to tell whether a drop changes anything. */
 export const railShape = (rail: DiscordRailItem[]) => JSON.stringify(rail.map(item => [item.id ?? null, item.guildIds]))
 
@@ -101,12 +139,19 @@ export type DiscordChannel = {
   canPin?: boolean
   canEdit?: boolean
   members?: DiscordVoiceMember[] | null
+  /** A voice channel's user limit (absent: none). */
+  userLimit?: number | null
+  /** A voice channel's status (Set Channel Status), and whether you may set it once in the channel. */
+  status?: string | null
+  canSetStatus?: boolean
   /** A category the user collapsed (kept in their Discord settings). */
   collapsed?: boolean
   /** A Server Guide resource (Discord lists it in the guide, not the channel lists). */
   resource?: boolean
   /** A DM: the other person, as its header and profile panel show them. */
-  dm?: { userId: string | null; avatar: string | null; status: string | null; username: string | null; group: boolean }
+  dm?: { userId: string | null; avatar: string | null; status: string | null; username: string | null; group: boolean; request?: boolean; spam?: boolean
+    /** A group's owner and members (you aside). */
+    ownerId?: string | null; members?: DiscordDmMember[] | null }
   /** The server's rules channel (Discord gives it its own icon). */
   rules?: boolean
   /** Followed in Browse Channels (itself or its category). */
@@ -120,9 +165,11 @@ export type DiscordChannel = {
   /** When its last message was sent (ms). */
   active?: number | null
 }
-export type DiscordVoiceMember = { id: string; name: string; avatar: string | null; look?: DiscordLook | null; mute: boolean; deaf: boolean; video?: boolean; stream?: boolean }
+export type DiscordVoiceMember = { id: string; name: string; avatar: string | null; look?: DiscordLook | null; mute: boolean; deaf: boolean; video?: boolean; stream?: boolean; serverMute?: boolean; serverDeaf?: boolean }
 /** message: why the call ended on its own (a join Discord never answered, a connection that gave up). */
-export type DiscordVoice = { state: 'off' | 'connecting' | 'connected'; guildId: string | null; channelId: string | null; muted: boolean; deafened: boolean; e2ee: boolean; micSilent?: boolean; message?: string | null; ringing?: string | null }
+export type DiscordVoice = { state: 'off' | 'connecting' | 'connected'; guildId: string | null; channelId: string | null; muted: boolean; deafened: boolean; e2ee: boolean; micSilent?: boolean
+  /** Only My Voice held back the user's own speech and stopped holding back for this call. */
+  myVoiceStopped?: boolean; message?: string | null; ringing?: string | null; recorded?: boolean }
 export type DiscordChannels = {
   name: string | null
   channels: DiscordChannel[]
@@ -132,6 +179,10 @@ export type DiscordChannels = {
   canManageEvents?: boolean
   /** Scheduled events not over yet. */
   events?: number
+  /** Hide Muted Channels: the sidebar leaves muted channels out. */
+  hideMuted?: boolean
+  /** Discord's feature flags (COMMUNITY, GUILD_SERVER_GUIDE, ...). */
+  features?: string[]
   /** Opt-in mode: the sidebar lists only followed channels. */
   optIn?: boolean
   /** The server's banner hash, over the top of the channel list. */
@@ -141,7 +192,7 @@ export type DiscordChannels = {
   /** What this user may do in Server Settings and to members. */
   moderation?: DiscordModeration
   /** Threads Exo knows here: a notification or a jump to one opens it in its channel. */
-  threads?: { id: string; name: string; parentId: string; locked: boolean }[]
+  threads?: { id: string; name: string; parentId: string; locked: boolean; joined?: boolean; archived?: boolean; unread?: boolean; mentions?: number; muted?: boolean }[]
   /** The server's roles by id, for role mentions. */
   roles?: Record<string, { name: string; color: string | null }>
 }
@@ -150,6 +201,10 @@ export type DiscordPlace = { name: string; guildId: string | null; guild: string
 export type DiscordModeration = {
   kick: boolean; ban: boolean; manageGuild: boolean; auditLog: boolean; manageRoles: boolean; timeout: boolean
   manageChannels: boolean; manageExpressions: boolean; manageWebhooks: boolean; manageNicknames: boolean; prune: boolean; owner: boolean
+  /** Administrator (owners too): Server Discovery on or off. */
+  administrator?: boolean
+  /** View Server Insights. */
+  insights?: boolean
   /** The account itself has 2FA on (an owner needs it to require 2FA of moderators). */
   mfa: boolean
 }
@@ -275,13 +330,17 @@ export type DiscordEmbed = {
   description?: string
   url?: string
   color?: number
-  author?: { name?: string; url?: string }
+  author?: { name?: string; url?: string; icon_url?: string; proxy_icon_url?: string }
   provider?: { name?: string }
-  footer?: { text?: string }
+  footer?: { text?: string; icon_url?: string; proxy_icon_url?: string }
+  /** When the embed says it's from (shown after its footer). */
+  timestamp?: string
   fields?: { name: string; value: string; inline?: boolean }[]
   image?: EmbedMedia
   thumbnail?: EmbedMedia
   video?: EmbedMedia
+  /** Exo's, not Discord's: the pictures of the embeds sharing this one's link (a post with several), merged as Discord does. */
+  images?: EmbedMedia[]
 }
 export type DiscordPoll = {
   question: { text?: string }
@@ -331,7 +390,7 @@ export type DiscordMessage = {
   interaction?: { name?: string; user?: DiscordUser } | null
   /** A thread started from this message. */
   thread?: { id: string; name: string; message_count?: number } | null
-  /** Discord's message flags: 4 hides the link previews; 64 only you can see it; 128 the app is still thinking; 32768 its components are the message. */
+  /** Discord's message flags: 4 hides the link previews; 64 only you can see it; 128 the app is still thinking; 4096 sent with @silent; 32768 its components are the message. */
   flags?: number
   /** An app's buttons, selects and layout under (or as) the message. */
   components?: AppComponent[]
@@ -494,6 +553,15 @@ export function requestDiscordSettings(section: SettingsSection = 'account') {
 }
 export function takePendingSettings() { const section = pendingSettings; pendingSettings = null; return section }
 
+let pendingServerProfile: string | null = null
+/** Edit Per-server Profile: Discord settings open on Profiles' Per-server profiles, on this server. */
+export function requestServerProfile(guildId: string) {
+  pendingServerProfile = guildId
+  window.dispatchEvent(new CustomEvent('exo-dc-server-profile', { detail: guildId }))
+  requestDiscordSettings('profiles')
+}
+export function takeServerProfile() { const id = pendingServerProfile; pendingServerProfile = null; return id }
+
 export type DiscordFriend = {
   id: string
   name: string
@@ -509,10 +577,15 @@ export type DiscordFriend = {
   dmId?: string | null
 }
 /** An activity as Discord's Active Now shows it. */
-export type DiscordRich = { type: number; name: string; details?: string | null; state?: string | null; start?: number | null; image?: string | null }
+/** end: when it ends (a song); url: a stream's page; syncId: Spotify's track; album: the big picture's words (Spotify's album). */
+export type DiscordRich = { type: number; name: string; details?: string | null; state?: string | null; start?: number | null; image?: string | null
+  end?: number | null; url?: string | null; syncId?: string | null; album?: string | null }
 export type DiscordMemberItem =
   | { group: string; count: number }
-  | { id: string; name: string; avatar: string | null; color: string | null; bot: boolean; status: string; activity?: string | null; look?: DiscordLook | null }
+  | { id: string; name: string; avatar: string | null; color: string | null; bot: boolean; status: string; activity?: string | null; look?: DiscordLook | null; owner?: boolean; boosting?: string | null
+    /** The voice channel they're in on this server (Discord's "In voice"). */
+    inVoice?: string | null
+    roleIcon?: DiscordRoleIcon | null }
 /** items: each row at Discord's index, null where Discord hasn't sent it yet; rows: every row the list has (groups and members). */
 export type DiscordMemberList = { items: (DiscordMemberItem | null)[]; online: number; total: number; rows?: number }
 export type DiscordGif = { id: string; title?: string; url: string; src: string; gif_src?: string; width: number; height: number; preview?: string }
@@ -522,6 +595,15 @@ export type DiscordThread = {
   thread_metadata?: { archive_timestamp?: string; create_timestamp?: string; locked?: boolean; archived?: boolean }
 }
 export type DiscordForumTag = { id: string; name: string; emojiId: string | null; emojiName: string | null }
+/** A thread or forum post as its menu shows it: what it is, and what you may change (manage: Manage Threads; mine: you started it). */
+export type DiscordThreadState = {
+  id: string; name: string; parentId: string | null; guildId: string
+  joined: boolean; archived: boolean; locked: boolean; pinned: boolean; muted: boolean; mutedUntil: number | null
+  /** 0 all messages, 1 only @mentions, 2 nothing; null as its channel. */
+  notify: 0 | 1 | 2 | null
+  unread: boolean; mine: boolean; manage: boolean; forum: boolean
+  tags: DiscordForumTag[] | null; applied: string[]
+}
 export type DiscordSticker = { id: string; name: string; format: number }
 /** A server's stickers in the picker; usable is false for another server's without Nitro. */
 export type DiscordStickerGroup = { id: string; name: string; icon: string | null; usable: boolean; stickers: DiscordSticker[] }
@@ -545,7 +627,9 @@ export type DiscordProfile = {
 /** What Exo adds to Discord's profile: the member's roles on this server (highest first), what they're doing now. */
 export type DiscordProfileExtras = {
   roles: { id: string; name: string; color: string | null }[]
-  presence: { status: string; activity?: string | null; activityType?: number | null; rich?: DiscordRich | null } | null
+  presence: { status: string; activity?: string | null; activityType?: number | null; rich?: DiscordRich | null; activities?: DiscordRich[] | null } | null
+  /** The voice channel they're in on a server you share. */
+  voice?: { guildId: string; guild: string; channelId: string; channel: string; count: number } | null
   /** Discord's relationship with you: 0 none, 1 friends, 2 blocked, 3 their friend request, 4 yours. */
   relationship?: number
 }

@@ -1,0 +1,525 @@
+/* Exo Notes: Captures › Notes. Every note down the left under its search, the open ones as tabs, the note in front in a
+   clear box with a hairline on the sheet's glass, its tools above and its readings below. */
+
+.exo-notes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.exo-notes-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 0;
+}
+
+/* ── The list ── */
+.exo-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 2px 12px 16px 20px;
+  border-right: 1px solid var(--exo-float-line);
+}
+
+.exo-notes-search {
+  flex: none;
+}
+
+.exo-notes-rows {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 2px;
+  min-height: 0;
+  margin: 0 -4px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.exo-notes-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  text-align: left;
+  transition: background-color var(--dur-quick) var(--ease-out);
+}
+
+.exo-notes-row.is-on {
+  background: var(--exo-selected);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exo-notes-row:hover:not(.is-on) {
+    background: var(--hover-fill);
+  }
+}
+
+.exo-notes-row:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+.exo-notes-row-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 500;
+}
+
+.exo-notes-row-title > span,
+.exo-notes-row-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exo-notes-row-sub {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--exo-glass-secondary);
+  font-size: calc(12px * var(--exo-scale, 1));
+  white-space: nowrap;
+}
+
+.exo-notes-row-sub > span {
+  flex: none;
+}
+
+.exo-notes-row-sub > .exo-notes-row-snippet {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Tabs ── */
+.exo-notes-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.exo-note-tabs {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 20px 0 12px;
+  overflow-x: auto;
+}
+
+.exo-note-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  max-width: 220px;
+  height: 32px;
+  border-radius: 999px;
+  color: var(--exo-glass-secondary);
+  transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
+}
+
+.exo-note-tab.is-on {
+  background: var(--exo-selected);
+  color: var(--color-fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exo-note-tab:hover:not(.is-on) {
+    background: var(--hover-fill);
+    color: var(--color-fg);
+  }
+
+  .exo-note-tab-close:hover {
+    color: var(--color-fg);
+  }
+}
+
+.exo-note-tab-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 12px;
+  border: 0;
+  border-radius: 999px 0 0 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 500;
+}
+
+.exo-note-tab-name > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exo-note-tab-name:focus-visible,
+.exo-note-tab-close:focus-visible,
+.exo-note-tab-new:focus-visible,
+.exo-note-tool:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+/* A file from elsewhere with edits not saved to it yet. */
+.exo-note-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-fg);
+}
+
+.exo-note-tab-close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+}
+
+.exo-note-tab-new,
+.exo-note-tool {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-fg);
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-press) var(--ease-out);
+}
+
+.exo-note-tool[aria-pressed="true"],
+.exo-note-tool[aria-expanded="true"] {
+  background: var(--exo-selected);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exo-note-tab-new:hover,
+  .exo-note-tool:hover:not([aria-pressed="true"], [aria-expanded="true"]) {
+    background: var(--hover-fill);
+  }
+}
+
+.exo-note-tab-new:active,
+.exo-note-tool:active {
+  background: var(--exo-pressed);
+  scale: 0.97;
+}
+
+/* ── Tools and find ── */
+.exo-note-tools {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px 8px 12px;
+}
+
+.exo-note-format {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.exo-note-tools-gap {
+  flex: 1;
+}
+
+.exo-note-find {
+  display: grid;
+  flex: none;
+  gap: 6px;
+  padding: 0 20px 8px 12px;
+}
+
+.exo-note-find-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.exo-note-find-field {
+  flex: 1;
+  min-width: 220px;
+  max-width: 440px;
+}
+
+.exo-note-find-count {
+  flex: none;
+  color: var(--exo-glass-secondary);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── The note ── */
+.exo-note-editor,
+.exo-note-page {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 20px 0 12px;
+  border: 1px solid var(--exo-float-line);
+  border-radius: var(--exo-card-radius);
+}
+
+/* Typing in it: its hairline a step brighter, where a field would take the ring. */
+.exo-note-editor:has(.exo-note-text:focus) {
+  border-color: rgb(var(--exo-ink-rgb) / 0.28);
+}
+
+/* The text box and the copy behind it that lights the matches: laid out alike, so a match sits under its words. */
+.exo-note-text,
+.exo-note-marks {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: inherit;
+  font: inherit;
+  font-size: calc(13px * var(--exo-scale, 1));
+  line-height: 1.6;
+  tab-size: 4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  overflow-y: auto;
+}
+
+.exo-note-text {
+  z-index: 1;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-fg);
+  caret-color: var(--color-fg);
+}
+
+.exo-note-text::placeholder {
+  color: var(--color-muted);
+  opacity: 1;
+}
+
+.exo-note-marks {
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+.exo-note-marks mark {
+  border-radius: 3px;
+  background: rgb(var(--exo-ink-rgb) / 0.16);
+  color: transparent;
+}
+
+.exo-note-marks mark.is-current {
+  background: rgb(var(--exo-ink-rgb) / 0.5);
+}
+
+.exo-note-page {
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.exo-note-empty {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  margin: 0 20px 0 12px;
+}
+
+.exo-note-status {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+  min-height: 36px;
+  padding: 0 20px 0 12px;
+  overflow: hidden;
+  color: var(--exo-glass-secondary);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.exo-note-status .is-bad {
+  overflow: hidden;
+  color: var(--color-bad);
+  text-overflow: ellipsis;
+}
+
+.exo-note-rename-label {
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 500;
+}
+
+/* ── Markdown's Preview ── */
+.exo-note-preview {
+  max-width: 760px;
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+  line-height: 1.6;
+}
+
+.exo-note-preview > * {
+  margin: 0 0 10px;
+}
+
+.exo-note-preview h1 {
+  font-size: calc(20px * var(--exo-scale, 1));
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.exo-note-preview :is(h2, h3, h4) {
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+.exo-note-preview :is(h1, h2, h3, h4):not(:first-child) {
+  margin-top: 18px;
+}
+
+.exo-note-preview :is(ul, ol) {
+  padding-left: 20px;
+}
+
+.exo-note-preview ul.is-tasks {
+  padding-left: 0;
+  list-style: none;
+}
+
+.exo-note-preview ul.is-tasks > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.exo-note-preview li.is-done > span {
+  color: var(--exo-glass-secondary);
+  text-decoration: line-through;
+}
+
+.exo-note-tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px rgb(var(--exo-ink-rgb) / 0.5);
+  color: var(--color-primary-fg);
+  transition: background-color var(--dur-quick) var(--ease-out);
+}
+
+.exo-note-tick[aria-pressed="true"] {
+  background: var(--color-fg);
+  box-shadow: none;
+}
+
+.exo-note-tick:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+.exo-note-preview blockquote {
+  padding-left: 12px;
+  border-left: 2px solid rgb(var(--exo-ink-rgb) / 0.24);
+  color: var(--exo-glass-secondary);
+}
+
+.exo-note-preview code {
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgb(var(--exo-ink-rgb) / 0.08);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-note-preview pre {
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: 10px;
+  background: rgb(var(--exo-ink-rgb) / 0.06);
+}
+
+.exo-note-preview pre code {
+  padding: 0;
+  background: none;
+}
+
+.exo-note-preview a {
+  color: var(--color-fg);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.exo-note-preview hr {
+  margin: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--exo-float-line);
+}
+
+.exo-note-preview table {
+  border-collapse: collapse;
+}
+
+.exo-note-preview :is(th, td) {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--exo-float-line);
+  text-align: left;
+}
+
+.exo-note-preview th {
+  font-weight: 600;
+}
+
+/* A narrow window: the list goes above the note. */
+@media (max-width: 860px) {
+  .exo-notes-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 0.4fr) minmax(0, 1fr);
+  }
+
+  .exo-notes-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--exo-float-line);
+  }
+}

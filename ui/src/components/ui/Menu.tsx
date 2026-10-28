@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 /** section: a heading over the items that share it (macOS menus); on: this item's own check, for a menu
     with one choice per section. */
@@ -25,12 +25,21 @@ export function Menu({ label, anchor, offset, triggerClassName, trigger, items, 
 }) {
   const id = useId()
   const [open, setOpen] = useState(false)
+  // A closed menu's rows aren't in the DOM: ~34 of these sit mounted page-wide, each a small tree.
+  const [opened, setOpened] = useState(false)
   const [find, setFind] = useState('')
   const filtering = !!filter && items.filter(item => item.section === filter.section).length > FILTER_FROM
   const needle = find.trim().toLowerCase()
   const shown = filtering && needle ? items.filter(item => item.section !== filter.section || item.label.toLowerCase().includes(needle)) : items
   const triggerRef = useRef<HTMLButtonElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const focusCurrent = () => (entries().find((item) => item.ariaChecked === 'true') ?? entries()[0])?.focus()
+  // The rows mount the frame the popover opens, so the first open focuses after that render.
+  useEffect(() => {
+    if (!opened) return
+    const list = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])
+    ;(list.find(item => item.ariaChecked === 'true') ?? list[0])?.focus()
+  }, [opened])
   const entries = () => Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? [])
   // The name carries the current choice too, as the trigger shows it ("Sort library, Recent"): the checked id, or a
   // menu of ticked items' first one (the Library's sort leads its Show section).
@@ -85,10 +94,12 @@ export function Menu({ label, anchor, offset, triggerClassName, trigger, items, 
         onToggle={(event) => {
           setOpen(event.newState === 'open')
           if (event.newState !== 'open') setFind('')
-          else (entries().find((item) => item.ariaChecked === 'true') ?? entries()[0])?.focus()
+          else if (opened) focusCurrent()
+          else setOpened(true)
         }}
         onKeyDown={onKeyDown}
       >
+        {opened ? (<>
         {filtering ? (
           <input type="search" className="exo-menu-find" value={find} placeholder={filter.label} aria-label={filter.label}
             onChange={(event) => setFind(event.target.value)} />
@@ -114,6 +125,7 @@ export function Menu({ label, anchor, offset, triggerClassName, trigger, items, 
             {item.label}
           </div>,
         ])}
+        </>) : null}
       </div>
     </>
   )

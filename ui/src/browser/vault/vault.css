@@ -84,22 +84,3 @@
 .exb-vault-pick-copy { min-width: 0; display: flex; flex-direction: column; }
 .exb-vault-pick-copy > span, .exb-vault-pick-copy > small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .exb-vault-pick-copy > small { color: var(--color-muted); font-size: calc(12px * var(--exo-scale, 1)); }
-
-/* After a sign-in: save it? A toast's glass, under the Bar at the right. */
-.exb-vault-prompt.exo-toast {
-  position: fixed;
-  top: calc(var(--exb-bar-h) + 8px);
-  right: 12px;
-  z-index: 65;
-  width: min(460px, calc(100vw - 24px));
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  animation: exb-vault-drop var(--dur-base) var(--ease-out);
-}
-/* The question takes its row and the buttons go under it at the right: beside it, three of them left it a column a
-   word or two wide. */
-.exb-vault-prompt p { margin: 0; display: flex; flex-direction: column; flex: 1 1 calc(100% - 40px); }
-.exb-vault-prompt .exo-set-btn:first-of-type { margin-left: auto; }
-.exb-vault-prompt p span { color: var(--color-muted); font-size: calc(12px * var(--exo-scale, 1)); }

@@ -5,7 +5,6 @@
 
 .exo-dc-settings-nav {
   overflow-y: auto;
-  scrollbar-width: none;
 }
 
 .exo-dc-settings-nav .exo-glide {
@@ -50,6 +49,22 @@
 
 .exo-dc-settings-category .exo-dc-settings-category {
   margin: 12px 0 0;
+}
+
+/* Ignore & Block: each list's name, then its people (picture, name, username) with Unblock or Unignore. */
+.exo-dc-settings-people > h3 {
+  margin: 12px 0 4px;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 500;
+}
+
+.exo-dc-settings-person {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
 }
 
 .exo-dc-settings-fieldset {
@@ -136,8 +151,7 @@
   font: inherit;
 }
 
-.exo-dc-settings-savebar,
-.exo-dc-settings-ask {
+.exo-dc-settings-savebar {
   position: sticky;
   bottom: 16px;
   display: flex;
@@ -149,12 +163,7 @@
   border-radius: 14px;
 }
 
-.exo-dc-settings-ask {
-  position: static;
-}
-
-.exo-dc-settings-savebar > span,
-.exo-dc-settings-ask > span {
+.exo-dc-settings-savebar > span {
   flex: 1;
   min-width: 200px;
   color: var(--color-fg);
@@ -238,7 +247,7 @@
   margin-top: 0;
 }
 
-.exo-dc-live-meters + .exo-dc-tune-facts {
+.exo-dc-live-meters + :is(.exo-dc-tune-facts, .exo-skeleton-list) {
   margin-top: 12px;
 }
 
@@ -354,9 +363,18 @@
   text-decoration: underline;
 }
 
-.exo-dc-alt {
-  display: block;
-  max-width: 400px;
-  color: var(--color-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
+/* Set your status: the emoji field, then the words filling the row; a custom emoji inline in its line. */
+.exo-dc-custom-status {
+  flex-wrap: nowrap;
+}
+
+.exo-dc-custom-status > input:last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.exo-dc-custom-emoji {
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: -3px;
 }

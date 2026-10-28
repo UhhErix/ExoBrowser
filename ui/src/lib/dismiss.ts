@@ -16,6 +16,11 @@ import './viewTransition'
  * A modal layer (it dims the app) takes the whole press that closes it: nothing under the dim or on the Bar is
  * pressed too, and only the primary button closes it. A popover lets the press go on, closing on any button, as
  * menus do. Escape is each layer's own.
+ *
+ * Two presses never reach the page, so neither closed what was open: one on the Bar's empty space, which Windows takes
+ * to drag the window (while anything is open the Bar takes presses instead, but for a strip at its top: useShellLayout),
+ * and one outside the page (a frame in it, another app, a window Exo hosts, such as Spotify's), which shows only as the
+ * page losing focus: then open menus and popovers close, as Windows' own do, and a sheet or dialog stays.
  */
 type Layer = {
   ref: RefObject<Element | null>
@@ -31,7 +36,7 @@ let seq = 0
 let lastPress: { at: Element; time: number } | null = null
 
 /** Belong to no layer: tooltips, toasts and notices float over everything; window buttons act on the window. */
-const FREE = '[role="tooltip"], .exo-toast-stack, .exo-dc-toast, .exo-dc-notices, .exo-winbtn'
+const FREE = '[role="tooltip"], .exo-notices, .exo-winbtn'
 /** A press this recent opened the layer that registers now: its popup button is the layer's trigger. */
 const OPENER_MS = 1000
 const TRIGGER = '[aria-expanded], [aria-pressed], [aria-haspopup]'
@@ -116,8 +121,20 @@ if (typeof document !== 'undefined') document.addEventListener('pointerdown', pr
 
 const changed = () => { for (const watcher of watchers) watcher() }
 
-/** A modal layer is open (the Bar takes presses instead of dragging the window, so a press there closes it). */
-export const modalOpen = () => layers.some(layer => layer.modal && live(layer))
+// A native popover menu opening or closing changes what is open too (it fires toggle on itself, seen while capturing).
+if (typeof document !== 'undefined') document.addEventListener('toggle', changed, true)
+
+/** A press outside the page (focus left it, or went into a frame in it): open menus and popovers close; sheets and dialogs stay. */
+function lostFocus() {
+  if (document.hasFocus() && !(document.activeElement instanceof HTMLIFrameElement)) return
+  for (const layer of layers.filter(layer => !layer.modal && live(layer)).sort((a, b) => b.seq - a.seq)) layer.close.current?.()
+  for (const popover of document.querySelectorAll<HTMLElement>(':popover-open')) popover.hidePopover()
+}
+
+if (typeof window !== 'undefined') window.addEventListener('blur', () => window.setTimeout(lostFocus, 0))
+
+/** Anything is open, a menu or popover too (the Bar takes presses instead of dragging the window, so a press there closes it). */
+export const anythingOpen = () => layers.some(live) || (typeof document !== 'undefined' && !!document.querySelector(':popover-open'))
 
 /** Called whenever a layer opens or closes. */
 export function watchLayers(watcher: () => void) {

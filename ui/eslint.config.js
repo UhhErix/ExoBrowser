@@ -53,30 +53,6 @@ const SWITCH_RULES = [
 ]
 const BUTTON_RULES = inClassNames(String.raw`/(^|\s)(button(--[a-z-]*)?|exo-ghost-btn|exo-cta|exo-capture-chip|exo-set-chip)(\s|$)/`,
   'Buttons come from one set: .exo-set-btn (.is-primary, .is-danger, .is-compact) for every button, <Button variant="primary"> for a page\'s lone primary and <Button variant="ghost"> for a quiet one (DESIGN.md › Controls).')
-// Discord client: being fixed by the Discord pass (its native checkboxes and raw .button classes).
-const DISCORD_PENDING = [
-  'src/components/discord/AppModal.tsx',
-  'src/components/discord/DiscordSignIn.tsx',
-  'src/components/discord/DmProfile.tsx',
-  'src/components/discord/Forum.tsx',
-  'src/components/discord/FriendsPage.tsx',
-  'src/components/discord/Message.tsx',
-  'src/components/discord/MessageTools.tsx',
-  'src/components/discord/MfaDialog.tsx',
-  'src/components/discord/NativeDiscordRoom.tsx',
-  'src/components/discord/PollCreator.tsx',
-  'src/components/discord/ShopPage.tsx',
-  'src/components/discord/admin.tsx',
-  'src/components/discord/events.tsx',
-  'src/components/discord/extras.tsx',
-  'src/components/discord/guildTag.tsx',
-  'src/components/discord/payFrame.tsx',
-  'src/components/discord/serverPages.tsx',
-  'src/components/discord/settingsAutomod.tsx',
-  'src/components/discord/settingsExpressions.tsx',
-  'src/components/discord/settingsModeration.tsx',
-  'src/components/discord/settingsRoles.tsx',
-]
 
 export default tseslint.config(
   {
@@ -113,6 +89,5 @@ export default tseslint.config(
   // The two components that own what the control rules keep everywhere else.
   { files: ['src/components/Switch.tsx'], rules: { 'no-restricted-syntax': ['error', ...DESIGN_RULES, ...BUTTON_RULES, BIGINT_RULE] } },
   { files: ['src/components/ui/Button.tsx'], rules: { 'no-restricted-syntax': ['error', ...DESIGN_RULES, ...SWITCH_RULES, BIGINT_RULE] } },
-  { files: DISCORD_PENDING, rules: { 'no-restricted-syntax': ['error', ...DESIGN_RULES, BIGINT_RULE] } },
 )
 

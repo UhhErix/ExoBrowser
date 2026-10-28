@@ -53,7 +53,6 @@
   color: var(--color-good);
 }
 
-
 .exo-music-side-head {
   display: flex;
   align-items: center;
@@ -157,6 +156,34 @@
   min-height: 0;
   padding: 24px 32px 32px;
   overflow-y: auto;
+  container: music-page / inline-size;
+}
+
+/* A narrow page (a portrait screen, a panel open beside it): songs drop the album column so a name keeps the
+   room, and Search's top result sits above its songs instead of beside them. */
+@container music-page (max-width: 640px) {
+  .exo-music-main .exo-music-track {
+    grid-template-columns: 44px minmax(0, 1fr) 32px 56px;
+  }
+
+  .exo-music-main .exo-music-track-album {
+    display: none;
+  }
+
+  .exo-music-main .exo-music-search-head {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Narrowest: a song's More goes too (right-click still opens its menu). */
+@container music-page (max-width: 420px) {
+  .exo-music-main .exo-music-track {
+    grid-template-columns: 44px minmax(0, 1fr) 56px;
+  }
+
+  .exo-music-main .exo-music-track-more {
+    display: none;
+  }
 }
 
 .exo-music-back {
@@ -200,10 +227,12 @@
 }
 
 /* Recently played: up to eight compact tiles above Home's shelves, four across as Spotify lays them, so they fill
-   their rows (auto-fill left four tiles in six columns, the right third empty). */
+   their rows (auto-fill left four tiles in six columns, the right third empty). A column is never under a quarter, so
+   never more than four; in a narrow window (half a screen) never under 200px either, so fewer and wider, each name
+   readable ("Lik..." four across at 960px). */
 .exo-music-recent {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(max(200px, calc(25% - 6px)), 1fr));
   gap: 8px;
 }
 
@@ -364,9 +393,11 @@
   gap: 16px;
   width: 100%;
   padding: 16px 72px 16px 16px;
-  border: 1px solid var(--exo-float-line);
+  /* The lit glass rim every control has, as the recent tiles' (a flat hairline read apart from the rest). */
+  border: 1px solid transparent;
   border-radius: 14px;
   background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -594,8 +625,7 @@
   text-align: right;
 }
 
-.exo-music-track-time.is-done,
-.exo-set-btn.is-done {
+.exo-music-track-time.is-done {
   color: var(--color-good);
   font-family: inherit;
 }
@@ -869,14 +899,10 @@
   font-size: calc(12px * var(--exo-scale, 1));
 }
 
-/* While the first page loads: one quiet line in the middle of the page. */
-.exo-music-wait {
-  display: grid;
-  place-items: center;
-  height: 100%;
-  margin: 0;
-  color: var(--color-faint);
-  font-size: calc(13px * var(--exo-scale, 1));
+/* While the first page loads: its shelves' tiles, a little larger than a list's. */
+.exo-skeleton-list.exo-music-wait {
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, 100%), 1fr));
+  gap: 16px;
 }
 
 /* Sound: the service's audio settings and Exo's sleep timer, one row each. */
@@ -1134,25 +1160,6 @@
   vertical-align: -1px;
 }
 
-.exo-music-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 8px;
-  color: var(--color-fg);
-  font-size: calc(12px * var(--exo-scale, 1));
-}
-
-.exo-music-confirm > span {
-  flex-basis: 100%;
-}
-
-.exo-music-done {
-  margin: 8px;
-  color: var(--color-good);
-}
-
 .exo-music-edit-cover {
   position: relative;
   flex: none;
@@ -1192,6 +1199,60 @@
 
 .exo-music-lyrics.is-synced li.is-active span.is-sung {
   color: var(--color-fg);
+}
+
+/* A word being sung fills left to right over its own time: a progress, so linear (DESIGN.md › Motion). Its share
+   (--exo-sung, 0 to 1) moves every 80 ms; registered, it glides between those steps. Reduce motion lights it at once. */
+@property --exo-sung {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+.exo-music-lyrics.is-synced li.is-active span.is-singing {
+  background: linear-gradient(90deg, var(--color-fg) calc(var(--exo-sung) * 100%), var(--color-muted) calc(var(--exo-sung) * 100%));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  transition: --exo-sung 80ms linear;
+}
+
+html[data-exo-motion="reduce"] .exo-music-lyrics.is-synced li.is-active span.is-singing {
+  background: none;
+  color: var(--color-fg);
+}
+
+/* Background vocals: a smaller row under the line they're sung with, as Apple Music draws them. */
+.exo-music-lyric-bg {
+  display: block;
+  margin-top: 2px;
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+/* A duet's other singer sings from the right. */
+.exo-music-lyrics li.is-other,
+.exo-music-lyrics li.is-other button {
+  text-align: right;
+}
+
+/* A long wait between lines: three dots that fill as it runs out. */
+.exo-music-lyric-wait {
+  display: flex;
+  gap: 6px;
+  padding: 6px 0;
+}
+
+.exo-music-lyric-wait span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-faint);
+  transition: background-color 200ms var(--ease-out);
+}
+
+.exo-music-lyric-wait span.is-on {
+  background: var(--color-fg);
 }
 
 /* Moods and genres, charts, new releases: named buttons in rows, raised controls. */
@@ -1289,18 +1350,9 @@
   color: var(--color-good);
 }
 
-.exo-music-state.is-failed {
-  color: var(--color-bad);
-}
-
 .exo-music-header-actions {
   flex-wrap: wrap;
   align-items: center;
-}
-
-.exo-music-header-actions > .exo-music-confirm {
-  flex-basis: 100%;
-  padding: 0;
 }
 
 .exo-music-section-head {
@@ -1503,3 +1555,107 @@
   border-radius: 8px;
 }
 
+/* Listen along: friends listening now, each with Listen; the one followed first, with Stop. */
+.exo-music-along .exo-music-friend {
+  align-items: center;
+}
+
+
+/* The room before its first showing (music/MusicWait.tsx): its own frame (the same floating library pane and player
+   capsule, by their own classes), each part a skeleton the size of what comes, so nothing moves when the room lands.
+   Over a player already drawn underneath it lies on top of the whole room, above a pane raised for its menu (50), and
+   fades once, when your library and the first page are both in. */
+.exo-music-cover.is-over {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+}
+
+.exo-music-cover.is-leaving {
+  animation: exo-music-uncover 220ms var(--ease-out) forwards;
+  pointer-events: none;
+}
+
+@keyframes exo-music-uncover {
+  to { opacity: 0; }
+}
+
+/* Reduce motion: no fade, but still an end, so the cover always goes. */
+:root[data-exo-motion='reduce'] .exo-music-cover.is-leaving { animation-duration: 1ms; }
+
+.exo-music-cover .exo-music-side { overflow: hidden; }
+.exo-music-cover-page { overflow: hidden; }
+
+.exo-music-cover-nav,
+.exo-music-cover-row,
+.exo-music-cover-head,
+.exo-music-cover-bar > span,
+.exo-music-cover-bar > span > span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.exo-music-cover-nav { min-height: 42px; padding: 4px 8px; }
+.exo-music-cover-head { justify-content: space-between; margin: 12px 8px 4px; }
+/* A library row's pitch: its 46px and the pane's 8px gap make the 54px the real rows take. */
+.exo-music-cover-row { min-height: 46px; padding: 0 8px; }
+
+.exo-music-cover-row > span,
+.exo-music-cover-bar > span > span {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.exo-music-cover .is-glyph { width: 16px; height: 16px; border-radius: 5px; }
+.exo-music-cover .is-word { width: 72px; height: 12px; border-radius: 6px; }
+.exo-music-cover .is-search { flex: none; height: 32px; border-radius: 999px; }
+.exo-music-cover .is-pill { width: 96px; height: 28px; border-radius: 999px; }
+.exo-music-cover .is-art { flex: none; width: 44px; height: 44px; border-radius: 14px; }
+.exo-music-cover .is-line { width: 70%; height: 12px; border-radius: 6px; }
+.exo-music-cover .is-sub { width: 45%; height: 10px; border-radius: 5px; }
+.exo-music-cover .is-greeting { display: block; width: 220px; height: 24px; margin: 0 0 24px; border-radius: 8px; }
+.exo-music-cover .is-title { display: block; width: 180px; height: 16px; margin: 0 0 16px; border-radius: 6px; }
+.exo-music-cover .is-cover { width: 100%; aspect-ratio: 1; border-radius: var(--exo-card-radius); }
+.exo-music-cover .is-play { flex: none; width: 36px; height: 36px; border-radius: 50%; }
+.exo-music-cover .is-track { width: min(420px, 30vw); height: 6px; border-radius: 3px; }
+
+/* Home's recent grid and shelves, at their sizes (Recently played four across, eight cards to a shelf). */
+.exo-music-cover-recent {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(200px, calc(25% - 6px)), 1fr));
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.exo-music-cover-recent > span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px;
+}
+
+.exo-music-cover-recent .is-art { border-radius: 9px; }
+
+.exo-music-cover-shelf {
+  display: block;
+  margin-bottom: 32px;
+}
+
+.exo-music-cover-shelf > span:last-child {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max(160px, calc((100% - 7 * 16px) / 8));
+  gap: 16px;
+  overflow: hidden;
+}
+
+.exo-music-cover-shelf > span:last-child > span {
+  display: grid;
+  gap: 8px;
+}
+
+.exo-music-cover-bar > span:nth-child(2) { flex-direction: column; gap: 8px; }
+.exo-music-cover-bar > span:last-child { justify-content: flex-end; }

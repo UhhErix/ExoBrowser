@@ -21,7 +21,10 @@ import { useMods } from './Mods'
 import { MenuLayer, MenuScrim, closeMenu, downloadsMenu, extensionsMenu, menuKind } from './menus'
 import { Settings } from './Settings'
 import { VaultSheet } from './vault/VaultSheet'
-import { VaultFill, startFill } from './vault/Fill'
+import { VaultFill, VaultPrompt, startFill } from './vault/Fill'
+import { startPageMenu } from './pageMenu'
+import { Status } from './Status'
+import * as I from './icons'
 import { startVault } from './vault/store'
 import { Onboarding } from './onboarding/Onboarding'
 
@@ -150,7 +153,7 @@ function App() {
   useEffect(() => onHost('downloads', () => { if (menuKind() === 'downloads') downloadsMenu(document.getElementById('exb-dl-btn')!) }), [])
   useEffect(() => onHost('extensions.open', () => { if (!isFirstRun()) extensionsMenu(document.getElementById('exb-tools')!) }), [])
   // Exo Vault: its state from the host, and the sign-in fields pages report.
-  useEffect(() => { const offs = [startVault(), startFill()]; return () => offs.forEach(off => off()) }, [])
+  useEffect(() => { const offs = [startVault(), startFill(), startPageMenu()]; return () => offs.forEach(off => off()) }, [])
   const closeSettings = () => setSettings(s => ({ ...s, open: false }))
   // First run: once, until it's finished, over the whole window.
   const firstRun = settingsLoaded && prefs.onboarded !== '1'
@@ -184,7 +187,21 @@ function App() {
       <VaultFill />
       {firstRun ? <Onboarding onDone={() => { setSetting('onboarded', '1'); if (version) setSetting('whatsNewSeen', version) }} /> : null}
       <WhatsNew blocked={firstRun || settings.open} />
-      {toast ? <div className="exo-toast-stack exb-toasts"><div key={toast.key} className="exo-toast" role="status"><p className="min-w-0 flex-1 text-fg">{toast.text}</p></div></div> : null}
+      <Status />
+      {/* Exo's notices (its NoticeStack): one stack at the top right under the Bar, Exo Vault's offer to save on top. */}
+      <section className="exo-notices exb-notices" aria-label="Notifications">
+        <VaultPrompt />
+        {toast ? (
+          <div key={toast.key} className="exo-notice-slot">
+            <div className="exo-notice exo-glass is-panel" role="status">
+              <div className="exo-notice-main">
+                <span className="exo-notice-glyph" aria-hidden="true"><I.Bell size={18} /></span>
+                <span className="exo-notice-text"><span className="exo-notice-body">{toast.text}</span></span>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
     </div>
   )
 }

@@ -55,9 +55,6 @@ using Microsoft::WRL::Make;
 // Layout, in DIPs. The Bar is Exo's: 8px above 36px capsules; the page fills everything below.
 static const int kBarDip = 52;
 static const int kResizeDip = 6;
-static const ULONGLONG kLowMemoryAfterMs = 60 * 1000;
-static const ULONGLONG kSleepAfterMs = 5 * 60 * 1000;
-static const ULONGLONG kDiscardAfterMs = 30 * 60 * 1000;
 static const size_t kHistoryLimit = 20000;
 static const size_t kHistoryToUi = 4000;
 static const UINT kTimerSleep = 1, kTimerSave = 2;
@@ -92,6 +89,8 @@ struct Tab {
     bool under = false;    // scrolled down with nothing pinned to its top: the page runs up under the Bar (edge-page.js)
     std::wstring navFrom;  // where the navigation under way started, before any redirect
     ULONGLONG navAt = 0;
+    std::wstring cleanedFrom;  // the last address it opened without its trackers (CleanNavigation), and when
+    ULONGLONG cleanedAt = 0;
     std::wstring boostScript;  // the id of its Boosts script (run on every page it opens), once added
     int folder = 0;            // the folder it sits in among its space's pinned tabs (0: none)
     bool priv = false;         // private: its own profile, kept in memory only; no history, never in the session
@@ -1812,13 +1811,15 @@ static wge::IGraphicsEffectSource Tone(wge::IGraphicsEffectSource s, float k, fl
 
 static float Scale() { return g.dpi / 96.f; }
 
-// Exo's glass, its exact filters in its order (Exo Launcher's styles/glass.css and tokens.css, in ui/src):
-//   small: blur(8px) then --glassy-tone: Void brightness(0.46) saturate(1.8); Dark brightness(0.46) contrast(0.9)
-//          saturate(1.8); Light brightness(1.06) saturate(1.6)
-//   large (liquid): blur(12px) saturate(1.8) then --glassy-overlay-tone: Void brightness(0.66), Dark 0.64, Light 1;
-//          a sheet (.exo-glass.is-panel) frosts deeper, blur(24px)
+// Exo's glass, its filters in its order (Exo Launcher's styles/glass.css and tokens.css, in ui/src):
+//   small: --exo-control-glass, blur(10px) then Void brightness(0.46) saturate(1.8); Dark brightness(0.46) contrast(0.9)
+//          saturate(1.8); Light brightness(1.06) saturate(1.6). Exo's own is 0.62, for controls over its black rooms:
+//          the Bar and side tabs here lie over web pages, mostly white, where 0.62 left their white words at 2.7:1;
+//          0.46 keeps them at 4.5:1 over a white page, Exo's rule for words on glass.
+//   large (liquid): blur(16px) saturate(1.8) then --glassy-overlay-tone: Void brightness(0.66), Dark 0.64, Light 1;
+//          a sheet (.exo-glass.is-panel) frosts deeper, blur(20px)
 // `dim` is a scrim the page lays over the content under this glass (Settings' room), which in Exo the glass sees.
-static float GlassBlur(wchar_t kind) { return kind == L'p' ? 24.f : kind == L'l' ? 12.f : 8.f; }
+static float GlassBlur(wchar_t kind) { return kind == L'p' ? 20.f : kind == L'l' ? 16.f : 10.f; }
 
 static wuc::CompositionEffectBrush GlassBrush(wchar_t kind, float dim, const std::wstring& theme, const wuc::CompositionBrush& backdrop) {
     static std::unordered_map<std::wstring, wuc::CompositionEffectFactory> factories;
@@ -1831,8 +1832,8 @@ static wuc::CompositionEffectBrush GlassBrush(wchar_t kind, float dim, const std
         wge::IGraphicsEffectSource effect{nullptr};
         if (kind != L's')
             effect = Tone(Saturate(Blur(source, GlassBlur(kind) * k), 1.8f), (theme == L"light" ? 1.f : theme == L"dark" ? 0.64f : 0.66f) * keep);
-        else if (theme == L"light") effect = Saturate(Tone(Blur(source, 8.f * k), 1.06f * keep), 1.6f);
-        else effect = Saturate(Tone(Blur(source, 8.f * k), 0.46f * keep, theme == L"dark" ? 0.9f : 1.f), 1.8f);
+        else if (theme == L"light") effect = Saturate(Tone(Blur(source, GlassBlur(kind) * k), 1.06f * keep), 1.6f);
+        else effect = Saturate(Tone(Blur(source, GlassBlur(kind) * k), 0.46f * keep, theme == L"dark" ? 0.9f : 1.f), 1.8f);
         it = factories.emplace(key, g.compositor.CreateEffectFactory(effect.as<wge::IGraphicsEffect>())).first;
     }
     auto brush = it->second.CreateBrush();
@@ -2067,10 +2068,11 @@ static void AnimateGlass(const wuc::ContainerVisual& layer, bool on, bool side) 
     wf::Numerics::float3 away = side ? wf::Numerics::float3{-14.f * k, 0, 0} : wf::Numerics::float3{0, -10.f * k, 0};
     auto opacity = g.compositor.CreateScalarKeyFrameAnimation();
     opacity.InsertKeyFrame(1.f, on ? 1.f : 0.f, EaseOut());
-    opacity.Duration(std::chrono::milliseconds(on ? 180 : 140));
+    // Exo's times, as the page's own fade (browser.css): base 160 and move 220 in, quick 120 out.
+    opacity.Duration(std::chrono::milliseconds(on ? 160 : 120));
     auto offset = g.compositor.CreateVector3KeyFrameAnimation();
     offset.InsertKeyFrame(1.f, on ? wf::Numerics::float3{0, 0, 0} : away, EaseOut());
-    offset.Duration(std::chrono::milliseconds(on ? 260 : 140));
+    offset.Duration(std::chrono::milliseconds(on ? 220 : 120));
     layer.StartAnimation(L"Opacity", opacity);
     layer.StartAnimation(L"Offset", offset);
 }
@@ -2112,6 +2114,9 @@ static void Hold(bool top, bool keep) {
 
 static void AutoHideTrack(POINT pt, bool outside) {
     if (!g.autohide || g.fullscreen) return;
+    // A point beyond the window (the pointer on another screen when a menu or Find lets go) is outside it: left of
+    // the window read as at its left edge and brought the side tabs out, above it brought the Bar.
+    if (RECT client; !outside && GetClientRect(g.hwnd, &client)) outside = !PtInRect(&client, pt);
     int top = Px(g.chromeTopDip), left = Px(g.sidebarDip), slack = Px(18);
     if (!g.revealedTop) {
         if (!outside && pt.y <= Px(2)) Reveal(true, true);
@@ -2136,8 +2141,13 @@ static void FollowNewTab() {
     POINT pt;
     GetCursorPos(&pt);
     ScreenToClient(g.hwnd, &pt);
-    if (g.revealedTop) Hold(true, pt.y < Px(g.chromeTopDip) + Px(18) || g.overlay || g.pinned);
-    if (g.revealedSide && g.sidebarDip) Hold(false, pt.x < Px(g.sidebarDip) + Px(18));
+    // The pointer outside the window (on another screen) is over neither: left of the window read as over the side
+    // tabs, and above it as over the Bar, so they stayed out until the pointer came back.
+    RECT client;
+    GetClientRect(g.hwnd, &client);
+    bool in = PtInRect(&client, pt) != FALSE;
+    if (g.revealedTop) Hold(true, (in && pt.y < Px(g.chromeTopDip) + Px(18)) || g.overlay || g.pinned);
+    if (g.revealedSide && g.sidebarDip) Hold(false, in && pt.x < Px(g.sidebarDip) + Px(18));
 }
 
 // Split view: the tab on screen and, when it's in a split, the others in it (in the strip's order, at most 4).
@@ -2193,6 +2203,10 @@ static void PlacePanes() {
 // Peek (below, with the tabs).
 static void PlacePeek();
 static void OpenPeek(const std::wstring& url);
+static bool CleanNavigation(ICoreWebView2* core, ICoreWebView2NavigationStartingEventArgs* a, const std::wstring& url,
+                            std::wstring& from, ULONGLONG& at);
+static std::wstring CleanUrl(const std::wstring& url);
+static bool CopyText(const std::wstring& text);
 static void ClosePeek();
 static bool IsMeeting(const std::wstring& url);
 static bool Downloading(int tabId);
@@ -2830,6 +2844,94 @@ static void StartZap(Tab* t) {
     FocusTarget(t->id);
 }
 
+// A page's right-click menu, drawn by the chrome page (ui pageMenu.ts) as Exo's own menu: the engine drew Windows'
+// menu in Segoe UI with Fluent's icons over every page. The engine's items go to the chrome page as they are, with
+// Open link in Peek after its Open link in new window (a tab here) on a link; the request waits (a deferral) until
+// a row is picked, by the engine's own command id, so the engine still does the work, or the menu goes with nothing
+// picked (-1). Before the chrome page is up the engine draws its own.
+struct PageMenu {
+    int tab = 0;
+    ComPtr<ICoreWebView2ContextMenuRequestedEventArgs> args;
+    ComPtr<ICoreWebView2Deferral> deferral;
+    std::wstring link;  // for Open link in Peek (-2)
+};
+static PageMenu g_pageMenu;
+
+static void EndPageMenu(INT32 command) {
+    PageMenu m = std::move(g_pageMenu);
+    g_pageMenu = {};
+    if (!m.deferral) return;
+    if (command == -2 && !m.link.empty()) OpenPeek(m.link);
+    else if (command == -3 && !m.link.empty()) {
+        std::wstring clean = CleanUrl(m.link);
+        if (CopyText(clean) && clean != m.link) Toast(L"Link copied without its trackers");
+    } else if (command >= 0) m.args->put_SelectedCommandId(command);
+    m.deferral->Complete();
+}
+
+static std::wstring PageMenuJson(ICoreWebView2ContextMenuItemCollection* items, int depth, const std::wstring& link) {
+    std::wstring out = L"[";
+    UINT32 count = 0;
+    items->get_Count(&count);
+    for (UINT32 i = 0; i < count; i++) {
+        ComPtr<ICoreWebView2ContextMenuItem> it;
+        if (FAILED(items->GetValueAtIndex(i, &it))) continue;
+        LPWSTR name = nullptr, label = nullptr, keys = nullptr;
+        it->get_Name(&name);
+        it->get_Label(&label);
+        it->get_ShortcutKeyDescription(&keys);
+        std::wstring n = Take(name);
+        COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND kind = COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND;
+        BOOL on = TRUE, checked = FALSE;
+        INT32 command = -1;
+        it->get_Kind(&kind);
+        it->get_IsEnabled(&on);
+        it->get_IsChecked(&checked);
+        it->get_CommandId(&command);
+        std::wstring children;
+        if (kind == COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_SUBMENU && depth < 2) {
+            ComPtr<ICoreWebView2ContextMenuItemCollection> inner;
+            if (SUCCEEDED(it->get_Children(&inner)) && inner) children = L",\"items\":" + PageMenuJson(inner.Get(), depth + 1, L"");
+        }
+        if (out.size() > 1) out += L",";
+        // Copy link copies it without its trackers (-3), as everywhere else.
+        if (!link.empty() && n == L"copyLinkLocation") command = -3;
+        out += L"{\"name\":" + Json(n) + L",\"label\":" + Json(Take(label)) + L",\"kind\":" + std::to_wstring((int)kind) +
+               L",\"on\":" + Bool(on) + L",\"checked\":" + Bool(checked) + L",\"id\":" + std::to_wstring(command) +
+               L",\"keys\":" + Json(Take(keys)) + children + L"}";
+        if (!link.empty() && (n == L"openLinkInNewTab" || n == L"openLinkInNewWindow"))
+            out += L",{\"name\":\"openLinkInPeek\",\"label\":\"Open link in Peek\",\"kind\":0,\"on\":true,\"checked\":false,\"id\":-2,\"keys\":\"\"}";
+    }
+    return out + L"]";
+}
+
+static void OpenPageMenu(Tab* t, ICoreWebView2ContextMenuRequestedEventArgs* a) {
+    if (!t || !g.uiReady) return;
+    EndPageMenu(-1);  // one still open on another page
+    ComPtr<ICoreWebView2ContextMenuItemCollection> items;
+    POINT at{};
+    if (FAILED(a->get_MenuItems(&items)) || !items || FAILED(a->get_Location(&at))) return;
+    std::wstring link;
+    ComPtr<ICoreWebView2ContextMenuTarget> target;
+    BOOL hasLink = FALSE;
+    if (SUCCEEDED(a->get_ContextMenuTarget(&target)) && SUCCEEDED(target->get_HasLinkUri(&hasLink)) && hasLink) {
+        LPWSTR raw = nullptr;
+        target->get_LinkUri(&raw);
+        link = Take(raw);
+        if (link.rfind(L"http://", 0) != 0 && link.rfind(L"https://", 0) != 0) link.clear();
+    }
+    if (FAILED(a->GetDeferral(&g_pageMenu.deferral))) return;
+    a->put_Handled(TRUE);
+    g_pageMenu.tab = t->id;
+    g_pageMenu.args = a;
+    g_pageMenu.link = link;
+    // Where it was asked for, in the chrome page's pixels: the engine's point is in the view's own (window) pixels.
+    RECT pane = t->peek ? g.peekRect : PaneRect(t);
+    float k = Scale();
+    UiPost(L"{\"t\":\"pageMenu\",\"x\":" + std::to_wstring((pane.left + at.x) / k) + L",\"y\":" + std::to_wstring((pane.top + at.y) / k) +
+           L",\"items\":" + PageMenuJson(items.Get(), 0, t->peek ? L"" : link) + L"}");
+}
+
 // A new tab page's color until it draws: its own background (var(--color-bg) in the Appearance's theme), so it doesn't
 // open black in Light.
 static COREWEBVIEW2_COLOR NewTabColor() {
@@ -2852,7 +2954,28 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
         c2->put_DefaultBackgroundColor(t->pendingNav.empty() || IsNewTab(t->pendingNav) ? NewTabColor() : COREWEBVIEW2_COLOR{255, 255, 255, 255});
     ComPtr<ICoreWebView2Settings> s;
     t->core->get_Settings(&s);
-    s->put_IsStatusBarEnabled(TRUE);
+    // The address of the link under the pointer shows in Exo's own capsule at the page's foot (ui Status.tsx), not
+    // the engine's white Segoe UI bubble: its words go to the chrome page with the place of the tab they belong to.
+    bool ownStatus = false;
+    if (ComPtr<ICoreWebView2_12> c12; SUCCEEDED(t->core.As(&c12))) {
+        EventRegistrationToken status;
+        ownStatus = SUCCEEDED(c12->add_StatusBarTextChanged(Callback<ICoreWebView2StatusBarTextChangedEventHandler>(
+            [id](ICoreWebView2* core, IUnknown*) -> HRESULT {
+                Tab* t = FindTab(id);
+                ComPtr<ICoreWebView2_12> w12;
+                LPWSTR text = nullptr;
+                if (!t || FAILED(core->QueryInterface(IID_PPV_ARGS(&w12))) || FAILED(w12->get_StatusBarText(&text))) return S_OK;
+                std::wstring words = Take(text);
+                if (!Shown(t) && t->id != g.peekId) words.clear();
+                RECT r = t->id == g.peekId ? g.peekRect : PaneRect(t);
+                float k = Scale();
+                UiPost(L"{\"t\":\"status\",\"tab\":" + std::to_wstring(id) + L",\"text\":" + Json(words.substr(0, 2048)) +
+                       L",\"x\":" + std::to_wstring(r.left / k) + L",\"y\":" + std::to_wstring(r.bottom / k) +
+                       L",\"w\":" + std::to_wstring((r.right - r.left) / k) + L"}");
+                return S_OK;
+            }).Get(), &status));
+    }
+    s->put_IsStatusBarEnabled(ownStatus ? FALSE : TRUE);
     s->put_IsZoomControlEnabled(TRUE);
     if (ComPtr<ICoreWebView2Settings8> s8; SUCCEEDED(s.As(&s8))) s8->put_IsReputationCheckingRequired(FALSE);
     if (ComPtr<ICoreWebView2_9> c9; SUCCEEDED(t->core.As(&c9))) {
@@ -2961,6 +3084,7 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
                     a->put_Cancel(TRUE);
                     return S_OK;
                 }
+                if (CleanNavigation(t->core.Get(), a, url, t->cleanedFrom, t->cleanedAt)) return S_OK;
                 BOOL user = FALSE, redirected = FALSE;
                 a->get_IsUserInitiated(&user);
                 a->get_IsRedirected(&redirected);
@@ -3068,37 +3192,11 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
             QueueState();
             return S_OK;
         }).Get(), &tok);
-    // The page's right-click menu on a link: Open link in Peek, after Chromium's own Open link in new tab/window.
+    // The page's right-click menu: drawn by the chrome page as Exo's own menu (OpenPageMenu, above).
     if (ComPtr<ICoreWebView2_11> c11; SUCCEEDED(t->core.As(&c11)))
         c11->add_ContextMenuRequested(Callback<ICoreWebView2ContextMenuRequestedEventHandler>(
-            [](ICoreWebView2*, ICoreWebView2ContextMenuRequestedEventArgs* a) -> HRESULT {
-                ComPtr<ICoreWebView2ContextMenuTarget> target;
-                BOOL link = FALSE;
-                if (FAILED(a->get_ContextMenuTarget(&target)) || FAILED(target->get_HasLinkUri(&link)) || !link || !g.env) return S_OK;
-                LPWSTR raw = nullptr;
-                target->get_LinkUri(&raw);
-                std::wstring url = Take(raw);
-                if (url.rfind(L"http://", 0) != 0 && url.rfind(L"https://", 0) != 0) return S_OK;
-                ComPtr<ICoreWebView2ContextMenuItem> item;
-                if (FAILED(g.env->CreateContextMenuItem(L"Open link in Peek", nullptr, COREWEBVIEW2_CONTEXT_MENU_ITEM_KIND_COMMAND, &item))) return S_OK;
-                EventRegistrationToken picked;
-                item->add_CustomItemSelected(Callback<ICoreWebView2CustomItemSelectedEventHandler>([url](ICoreWebView2ContextMenuItem*, IUnknown*) -> HRESULT {
-                    OpenPeek(url);
-                    return S_OK;
-                }).Get(), &picked);
-                ComPtr<ICoreWebView2ContextMenuItemCollection> items;
-                if (FAILED(a->get_MenuItems(&items))) return S_OK;
-                UINT32 count = 0, at = 0;
-                items->get_Count(&count);
-                for (UINT32 i = 0; i < count; i++) {
-                    ComPtr<ICoreWebView2ContextMenuItem> it;
-                    LPWSTR name = nullptr;
-                    if (SUCCEEDED(items->GetValueAtIndex(i, &it)) && SUCCEEDED(it->get_Name(&name))) {
-                        std::wstring n = Take(name);
-                        if (n == L"openLinkInNewWindow" || n == L"openLinkInNewTab") at = i + 1;
-                    }
-                }
-                items->InsertValueAtIndex(at, item.Get());
+            [id](ICoreWebView2*, ICoreWebView2ContextMenuRequestedEventArgs* a) -> HRESULT {
+                OpenPageMenu(FindTab(id), a);
                 return S_OK;
             }).Get(), &tok);
     t->core->add_WindowCloseRequested(Callback<ICoreWebView2WindowCloseRequestedEventHandler>(
@@ -3653,26 +3751,42 @@ static bool SleepWork() {
     return false;
 }
 
-// Background tabs step down: lower memory priority after a minute, frozen after five,
-// closed (title, icon and address kept) after thirty. Playing tabs are never touched.
+// How long a tab off screen waits before each step down, from this PC's memory as it is right now: with memory to
+// spare a tab you go back to is as you left it (closed only after an hour or more, longer with more memory), and the
+// tighter memory gets the sooner they step down, so the PC never pages. Fixed steps (lower memory after a minute,
+// frozen after five, closed after thirty) made a tab left a few minutes ago slow to come back on every PC.
+struct SleepSteps { ULONGLONG low, freeze, discard; };
+static SleepSteps SleepStepsNow() {
+    const ULONGLONG minute = 60 * 1000;
+    MEMORYSTATUSEX m{sizeof m};
+    if (!GlobalMemoryStatusEx(&m) || m.dwMemoryLoad >= 90) return {1 * minute, 5 * minute, 20 * minute};
+    ULONGLONG gb = (m.ullTotalPhys + (1ull << 29)) >> 30;  // 15.9 GB of usable memory is a 16 GB PC
+    ULONGLONG discard = gb >= 32 ? 240 * minute : gb >= 16 ? 120 * minute : gb >= 8 ? 60 * minute : 30 * minute;
+    if (m.dwMemoryLoad >= 80) return {5 * minute, 10 * minute, std::max(30 * minute, discard / 2)};
+    return {10 * minute, 15 * minute, discard};
+}
+
+// Background tabs step down: lower memory priority, then frozen, then closed (title, icon and address kept), on the
+// steps above. Playing tabs are never touched.
 static void SleepTick() {
     ArchiveTick();
     ULONGLONG now = GetTickCount64();
+    SleepSteps steps = SleepStepsNow();
     for (auto& up : g.tabs) {
         Tab* t = up.get();
         if (Shown(t) || t->peek || !t->ctl || t->audible || t->creating || Downloading(t->id)) continue;
         ULONGLONG idle = now - t->lastActive;
-        if (idle > kDiscardAfterMs) {
+        if (idle > steps.discard) {
             Discard(t);
             QueueState();
             continue;
         }
-        if (idle > kLowMemoryAfterMs && !t->lowMemory) {
+        if (idle > steps.low && !t->lowMemory) {
             if (ComPtr<ICoreWebView2_19> c19; SUCCEEDED(t->core.As(&c19)))
                 c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW);
             t->lowMemory = true;
         }
-        if (idle > kSleepAfterMs && !t->suspended) {
+        if (idle > steps.freeze && !t->suspended) {
             int id = t->id;
             if (ComPtr<ICoreWebView2_3> c3; SUCCEEDED(t->core.As(&c3)))
                 c3->TrySuspend(Callback<ICoreWebView2TrySuspendCompletedHandler>([id](HRESULT hr, BOOL ok) -> HRESULT {
@@ -3735,6 +3849,7 @@ struct Download {
     int tab = 0;       // the tab it came from: kept awake until the file is done
     HWND little = nullptr;  // the Little Exo window it came from, kept until it's done
     bool priv = false;      // from a private tab: listed until the browser closes, never saved
+    bool openWhenDone = false;  // pressed while still coming in: opens as it finishes, as in Chrome
 };
 static std::vector<Download> g_downloads;
 static void LittleDownloaded(HWND hwnd);
@@ -3779,6 +3894,10 @@ static void LoadDownloads() {
         d.state = row[2];
         d.total = d.received = _wtoi64(row[3].c_str());
         d.started = _wtoi64(row[4].c_str());
+        // A file earlier versions marked failed after a pause at 100% is whole on disk: it's done.
+        if (WIN32_FILE_ATTRIBUTE_DATA info; d.state == L"failed" && d.total > 0 && GetFileAttributesExW(d.path.c_str(), GetFileExInfoStandard, &info) &&
+            (((INT64)info.nFileSizeHigh << 32) | info.nFileSizeLow) == d.total)
+            d.state = L"done";
         g_downloads.push_back(d);
     }
 }
@@ -3794,7 +3913,8 @@ static std::wstring DownloadsJson(bool checkFiles = false) {
         if (!items.empty()) items += L",";
         items += L"{\"id\":" + std::to_wstring(d.id) + L",\"url\":" + Json(d.url) + L",\"name\":" + Json(name) + L",\"state\":" +
                  Json(exists ? d.state : L"gone") + L",\"received\":" + std::to_wstring(d.received) + L",\"total\":" +
-                 std::to_wstring(d.total) + L",\"started\":" + std::to_wstring(d.started) + L"}";
+                 std::to_wstring(d.total) + L",\"started\":" + std::to_wstring(d.started) +
+                 (d.openWhenDone && (d.state == L"progress" || d.state == L"paused") ? L",\"opens\":true" : L"") + L"}";
     }
     return L"[" + items + L"]";
 }
@@ -3886,12 +4006,21 @@ static void DownloadState(Download* d, ICoreWebView2DownloadOperation* op) {
             LPWSTR path = nullptr;
             if (SUCCEEDED(op->get_ResultFilePath(&path))) d->path = Take(path);
             if (state == COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED) {
+                bool was = d->state == L"progress" || d->state == L"paused";
                 d->state = L"done";
                 d->received = d->total = std::max(d->received, d->total);
+                if (was && d->openWhenDone) ShellExecuteW(g.hwnd, L"open", d->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
             } else if (state == COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED) {
                 COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON reason;
                 op->get_InterruptReason(&reason);
-                d->state = reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_CANCELED ? L"cancelled" : L"failed";
+                // WebView2 calls a pause an interruption: a paused file waits to be resumed, it never failed. (A press on
+                // a file at 100%, still being checked and moved into place, paused it, and it read Failed though whole.)
+                if (reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_PAUSED) d->state = L"paused";
+                else d->state = reason == COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON_USER_CANCELED ? L"cancelled" : L"failed";
+            }
+            if (d->state == L"failed" || d->state == L"cancelled") {
+                COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON reason;
+                op->get_InterruptReason(&reason);
                 wchar_t line[96];
                 swprintf_s(line, L"download %d interrupted: reason %d\n", id, (int)reason);
                 OutputDebugStringW(line);
@@ -3937,7 +4066,13 @@ static void DownloadAction(const std::wstring& verb, int id) {
     } else if (!d) {
         return;
     } else if (verb == L"dlOpen") {
-        ShellExecuteW(g.hwnd, L"open", d->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        // Still coming in (or paused): it opens as it finishes, a paused one going on again first.
+        if (d->state == L"progress" || d->state == L"paused") {
+            d->openWhenDone = true;
+            if (d->state == L"paused" && d->op) { d->op->Resume(); d->state = L"progress"; }
+        } else {
+            ShellExecuteW(g.hwnd, L"open", d->path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        }
     } else if (verb == L"dlShow") {
         if (PIDLIST_ABSOLUTE pidl = ILCreateFromPathW(d->path.c_str())) {
             SHOpenFolderAndSelectItems(pidl, 0, nullptr, 0);
@@ -4275,6 +4410,31 @@ static void CopyLink(Tab* t) {
     if (CopyText(clean)) Toast(clean == t->url ? L"Link copied" : L"Link copied without its trackers");
 }
 
+// Every page goes without the tracking parts of its address, wherever it came from (a shared link, an ad's redirect, a
+// link from another app): the load stops and goes again, clean. Not Back, Forward or Reload, which go where they went,
+// nor a form's post (its body would be lost), and a site that puts them straight back is let be the second time, or
+// the two would go round. True when it went again.
+static bool CleanNavigation(ICoreWebView2* core, ICoreWebView2NavigationStartingEventArgs* a, const std::wstring& url,
+                            std::wstring& from, ULONGLONG& at) {
+    if (url.rfind(L"https://", 0) != 0 && url.rfind(L"http://", 0) != 0) return false;
+    std::wstring clean = CleanUrl(url);
+    if (clean == url) return false;
+    COREWEBVIEW2_NAVIGATION_KIND kind = COREWEBVIEW2_NAVIGATION_KIND_NEW_DOCUMENT;
+    if (ComPtr<ICoreWebView2NavigationStartingEventArgs3> a3; SUCCEEDED(a->QueryInterface(IID_PPV_ARGS(&a3)))) a3->get_NavigationKind(&kind);
+    if (kind != COREWEBVIEW2_NAVIGATION_KIND_NEW_DOCUMENT) return false;
+    ComPtr<ICoreWebView2HttpRequestHeaders> headers;
+    BOOL posted = FALSE;
+    if (SUCCEEDED(a->get_RequestHeaders(&headers)) && headers) headers->Contains(L"Content-Type", &posted);
+    if (posted) return false;
+    ULONGLONG now = GetTickCount64();
+    if (from == url && now - at < 10000) return false;
+    from = url;
+    at = now;
+    a->put_Cancel(TRUE);
+    core->Navigate(clean.c_str());
+    return true;
+}
+
 // ---------------------------------------------------------------------------------------
 // Ctrl+Tab: the space's tabs in the order you used them, as Alt+Tab goes through windows. A quick Ctrl+Tab goes back
 // to the tab you were on before; held, the switcher shows after a moment and each Tab moves along it (Shift back).
@@ -4430,6 +4590,8 @@ struct Little {
     ComPtr<ICoreWebView2> strip, page;
     std::wstring url, title;
     bool loading = true;
+    std::wstring cleanedFrom;  // as a tab's (CleanNavigation)
+    ULONGLONG cleanedAt = 0;
 };
 static std::vector<std::unique_ptr<Little>> g_littles;
 
@@ -4668,8 +4830,14 @@ static void OpenLittle(const std::wstring& url) {
                     return S_OK;
                 }).Get(), &tok);
             l->page->add_NavigationStarting(Callback<ICoreWebView2NavigationStartingEventHandler>(
-                [hwnd](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs*) -> HRESULT {
-                    if (Little* l = LittleOf(hwnd)) { l->loading = true; LittleTell(l); }
+                [hwnd](ICoreWebView2* core, ICoreWebView2NavigationStartingEventArgs* a) -> HRESULT {
+                    Little* l = LittleOf(hwnd);
+                    if (!l) return S_OK;
+                    LPWSTR u = nullptr;
+                    a->get_Uri(&u);
+                    if (CleanNavigation(core, a, Take(u), l->cleanedFrom, l->cleanedAt)) return S_OK;
+                    l->loading = true;
+                    LittleTell(l);
                     return S_OK;
                 }).Get(), &tok);
             l->page->add_NavigationCompleted(Callback<ICoreWebView2NavigationCompletedEventHandler>(
@@ -5630,16 +5798,20 @@ static void OnVaultMessage(const std::vector<std::wstring>& p) {
     } else if (v == L"vaultFocusTab") {
         // Back to the page after the fill menu (a click there gave the chrome page the keyboard).
         if (FindTab(_wtoi(arg(1).c_str()))) FocusTarget(_wtoi(arg(1).c_str()));
-    } else if (v == L"hot") {
-        // The fill menu's, the save prompt's and Peek's buttons' places, "x,y,w,h;..." in the chrome page's pixels; none when closed.
-        float k = Scale();
-        g_uiHot.clear();
-        for (auto& item : Split(arg(1), L';')) {
-            auto f = Split(item, L',');
-            if (f.size() < 4) continue;
-            float x = (float)_wtof(f[0].c_str()), y = (float)_wtof(f[1].c_str()), w = (float)_wtof(f[2].c_str()), h = (float)_wtof(f[3].c_str());
-            if (w > 0 && h > 0) g_uiHot.push_back({(LONG)(x * k), (LONG)(y * k), (LONG)((x + w) * k), (LONG)((y + h) * k)});
-        }
+    }
+}
+
+// The places of what the chrome page lays over the page and takes the pointer for (Exo Vault's fill menu and save
+// prompt, Peek's buttons, Ctrl+Tab's switcher, the zapper's bar), "x,y,w,h;..." in the chrome page's pixels; none
+// when closed. Not a "vault" message: handled with the vault's, it never arrived, and none of them took a click.
+static void SetUiHot(const std::wstring& spec) {
+    float k = Scale();
+    g_uiHot.clear();
+    for (auto& item : Split(spec, L';')) {
+        auto f = Split(item, L',');
+        if (f.size() < 4) continue;
+        float x = (float)_wtof(f[0].c_str()), y = (float)_wtof(f[1].c_str()), w = (float)_wtof(f[2].c_str()), h = (float)_wtof(f[3].c_str());
+        if (w > 0 && h > 0) g_uiHot.push_back({(LONG)(x * k), (LONG)(y * k), (LONG)((x + w) * k), (LONG)((y + h) * k)});
     }
 }
 
@@ -5663,6 +5835,8 @@ static void OnUiMessage(const std::wstring& msg) {
     auto p = Split(msg, L'\t');
     const std::wstring& v = p[0];
     if (v.rfind(L"vault", 0) == 0) { OnVaultMessage(p); return; }
+    if (v == L"hot") { SetUiHot(p.size() > 1 ? p[1] : std::wstring()); return; }
+    if (v == L"pageMenuPick") { EndPageMenu(p.size() > 1 ? _wtoi(p[1].c_str()) : -1); return; }
     auto arg = [&](size_t i) { return i < p.size() ? p[i] : std::wstring(); };
     auto argId = [&](size_t i) { return _wtoi(arg(i).c_str()); };
     Tab* a = Active();
@@ -6154,8 +6328,13 @@ static std::wstring BrowserArguments() {
     if (GetEnvironmentVariableW(L"EXO_BROWSER_CDP", port, 16)) debug = std::wstring(L" --remote-debugging-port=") + port;
     wchar_t extra[512] = {};
     if (GetEnvironmentVariableW(L"EXO_BROWSER_ARGS", extra, 512)) debug += std::wstring(L" ") + extra;
+    // The engine's spare renderer, a page process started ahead of the next site you open, takes the process start out
+    // of every new tab and every move to another site; it costs one idle process, so a PC short of memory (under 8 GB,
+    // or 80% in use as the browser starts) goes without it.
+    MEMORYSTATUSEX m{sizeof m};
+    bool roomy = GlobalMemoryStatusEx(&m) && m.ullTotalPhys >= (7ull << 30) && m.dwMemoryLoad < 80;
     return L"--process-per-site --no-pings --disable-domain-reliability"
-           L" --disable-features=msWebOOUI,msPdfOOUI,SpareRendererForSitePerProcess,msSmartScreenProtection"
+           L" --disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection" + std::wstring(roomy ? L"" : L",SpareRendererForSitePerProcess") +
            L" --enable-features=" + enable + debug;
 }
 
@@ -6258,6 +6437,7 @@ static void CreateUi() {
                             kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_UNRESPONSIVE) {
                             g.uiReady = false;  // until it says "ready" again
                             g_uiHot.clear();
+                            EndPageMenu(-1);
                             CloseOverlay(false);
                             core->Reload();
                         }

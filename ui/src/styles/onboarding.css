@@ -49,10 +49,6 @@
   text-align: center;
 }
 
-.exo-ob-step.is-welcome .exo-ob-lede {
-  max-width: 40ch;
-}
-
 .exo-ob-mark {
   width: 96px;
   height: 96px;
@@ -65,43 +61,10 @@
   }
 }
 
+/* The steps done out of all of them: the Exo bar, where the title starts. */
 .exo-ob-progress {
-  display: flex;
-  gap: 6px;
+  width: 200px;
   margin: 0 0 28px;
-  padding: 0;
-  list-style: none;
-}
-
-.exo-ob-progress li {
-  width: 24px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--exo-track);
-  transition: background-color var(--dur-base) var(--ease-out), width var(--dur-move) var(--ease-spring);
-}
-
-.exo-ob-progress li.is-done {
-  background: var(--color-faint);
-}
-
-.exo-ob-progress li.is-current {
-  width: 44px;
-  background: var(--color-fg);
-}
-
-/* Each step is drawn new (OnboardingPanel keys it), so the progress starts from where the last step left
-   it: the step just done hands its length and light to the one now current. */
-@starting-style {
-  .exo-ob-progress li.is-current {
-    width: 24px;
-    background: var(--color-faint);
-  }
-
-  .exo-ob-progress li.is-done:has(+ .is-current) {
-    width: 44px;
-    background: var(--color-fg);
-  }
 }
 
 .exo-ob-title {
@@ -170,7 +133,7 @@
 }
 
 .exo-ob-service[aria-disabled="true"] {
-  cursor: progress;
+  cursor: default;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -259,7 +222,6 @@
     }
   }
 
-  .exo-ob-progress li,
   .exo-ob-service {
     transition: none;
   }
@@ -291,11 +253,6 @@
     color: HighlightText;
     background: Highlight;
     border-color: Highlight;
-  }
-
-  .exo-action-progress,
-  .exo-tile-progress {
-    background: Highlight;
   }
 
 }

@@ -5,36 +5,6 @@
   padding-block: 8px;
 }
 
-.exo-action-progress {
-  position: absolute;
-  inset: 0;
-  /* The primary a shade toward the page: #cbcbcb on Void's white primary, a lighter gray on Light's dark one. */
-  background: color-mix(in srgb, var(--color-primary) 80%, var(--color-bg));
-  transform: scaleX(var(--progress));
-  transform-origin: left center;
-  transition: transform 90ms var(--ease-out);
-  pointer-events: none;
-}
-
-.exo-action-progress.is-unknown {
-  transform: none;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 95%, var(--color-bg)) 0%,
-    color-mix(in srgb, var(--color-primary) 77%, var(--color-bg)) 45%, color-mix(in srgb, var(--color-primary) 95%, var(--color-bg)) 100%);
-  background-size: 42% 100%;
-  background-repeat: no-repeat;
-  animation: exo-progress-unknown 0.7s var(--ease-out) infinite;
-}
-
-@keyframes exo-progress-unknown {
-  0% {
-    transform: translateX(-40%);
-  }
-
-  100% {
-    transform: translateX(140%);
-  }
-}
-
 .exo-action-content {
   position: relative;
   z-index: 1;
@@ -81,17 +51,6 @@
   font-weight: 600;
 }
 
-.exo-action-copy small {
-  overflow: hidden;
-  max-width: 100%;
-  margin-top: 3px;
-  font-size: calc(12px * var(--exo-scale, 1));
-  font-weight: 500;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  opacity: 0.68;
-}
 
 .exo-primary-action.is-active .exo-action-idle,
 .exo-update-action.is-active .exo-action-idle {
@@ -447,7 +406,7 @@
   overflow: visible;
 }
 
-/* The cover's motion layer: the work band while the game downloads, the done check when it lands. */
+/* The cover's motion layer: the done check when a download lands. */
 .exo-game-detail-cover > .exo-game-cover-motion {
   position: absolute;
   inset: 0;

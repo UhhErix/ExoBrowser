@@ -66,7 +66,7 @@
 }
 
 .exo-shelf-chip[aria-pressed="true"] {
-  background: var(--exo-selected);
+  box-shadow: var(--glassy-ring);
   color: var(--color-fg);
 }
 
@@ -155,19 +155,13 @@
   width: var(--exo-card-w);
 }
 
-/* Inside a floating settings panel: an even 12px inset all round, and the boxes inside it curve with its corners
-   (the panel's radius less the inset), so the top-left reads as one shape. */
+/* Inside a floating settings panel: an even 12px inset all round. The section list is a plain column parted
+   from the page by one hairline, not a box of its own. */
 .exo-set-room > .exo-settings,
 .exo-dc-settings,
 .exo-props {
   padding: 12px;
   gap: 12px;
-}
-
-.exo-set-room > .exo-settings .exo-settings-nav,
-.exo-dc-settings .exo-dc-settings-nav,
-.exo-props .exo-props-nav {
-  border-radius: calc(var(--exo-sheet-radius) - 12px);
 }
 
 /* Game Properties: a wide floating panel over the game page, laid out as Settings' floating panel: the
@@ -212,7 +206,6 @@
   /* The title on the section list's first line (12px inset + its 24px); 32px from the list. */
   padding: 24px 16px 12px 20px;
   overflow-y: auto;
-  scrollbar-width: none;
 }
 
 .exo-props-head {
@@ -222,26 +215,12 @@
 }
 
 .exo-props-title {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
-}
-
-.exo-props-title h2 {
   margin: 0;
   color: var(--color-fg);
   font-size: calc(20px * var(--exo-scale, 1));
   font-weight: 700;
-}
-
-.exo-props-title span {
-  overflow: hidden;
-  color: var(--color-muted);
-  font-size: calc(13px * var(--exo-scale, 1));
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .exo-props-close {
@@ -266,7 +245,7 @@
   background: var(--exo-pressed);
 }
 
-/* Each row carries its own confirm or note line, so the hairline sits on the row's wrapper. */
+/* Each row carries its own note line, so the hairline sits on the row's wrapper. */
 .exo-props-section .exo-props-row + .exo-props-row {
   border-top: 1px solid var(--exo-float-line);
 }
@@ -305,23 +284,6 @@
   height: 32px;
 }
 
-.exo-props-confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 0 0 12px;
-}
-
-/* The words wrap beside the buttons, so the buttons stay on one line. */
-.exo-props-confirm > span {
-  flex: 1 1 0;
-  min-width: 240px;
-  color: var(--color-muted);
-  font-size: calc(13px * var(--exo-scale, 1));
-}
-
 .exo-props-note {
   margin: 0 0 12px;
   color: var(--color-muted);
@@ -331,8 +293,4 @@
 
 .exo-props .exo-props-row > .exo-set-error {
   margin: 0 0 12px;
-}
-
-.exo-props .exo-set-btn.is-danger {
-  color: var(--color-bad);
 }

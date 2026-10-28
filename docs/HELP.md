@@ -23,7 +23,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 - **Everything at once:** **Ctrl+K** finds a tab, bookmark, page from your history or action.
 - **Tabs:** across the top or down the side (**Settings > Look > Tabs**). Drag a tab to move it; right-click it to pin, mute, duplicate, copy its link or close others. **Ctrl+T** opens a new tab, **Ctrl+Shift+T** reopens the last one you closed, **Ctrl+W** closes one, and **Ctrl+1** to **9** go to the first nine.
 - **Ctrl+Tab** goes back through the tabs in the order you used them, as Alt+Tab does with windows: a quick press returns to the tab before, and held, it lists the space's tabs. **Settings > General > Ctrl+Tab in recent order** makes it follow the strip instead.
-- **Copy link:** **Ctrl+Shift+C** copies the address without the tracking parts that share buttons add.
+- **Clean links:** every page opens without the tracking parts that share buttons and ads add to its address (`utm_` tags, click ids), whether you click it, paste it or it comes from another app, and **Ctrl+Shift+C** or a link's **Copy link** copies it the same way.
 - **Hide the toolbar** gives the page the whole window; the Bar slides in when the pointer touches the top edge (side tabs at the left edge).
 - **More keys:** **Ctrl+D** bookmarks the page, **Ctrl+F** finds on it, **Ctrl+H** opens History, **Ctrl+J** Downloads, **Ctrl+Shift+E** your extensions, **F11** full screen, **Alt+Left** and **Alt+Right** back and forward.
 

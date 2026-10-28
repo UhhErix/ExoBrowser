@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { browser, holdInput, isFirstRun, local, onHost, send, setSetting, useBrowserValue, type Tab } from './host'
 import { engineOf, hostOf, isNewTab, looksLikeUrl, siteSearches, siteSearchOf, siteSearchUrl, toUrl, type SiteSearch } from './search'
 import * as I from './icons'
@@ -262,7 +262,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
   let n = -1
   return (
     <div className="exb-search-layer" onPointerDown={e => { if (e.target === e.currentTarget) controller.close() }}>
-      <div role="dialog" aria-label="Search" className="exo-glass is-panel exb-search" style={{ left: box.left, top: box.top, width: box.width }}>
+      <div role="dialog" aria-label="Search" className="exo-glass is-panel exb-search" style={{ left: box.left, top: box.top, width: box.width, '--exb-search-top': `${box.top}px` } as CSSProperties}>
         <div className="exb-search-field">
           <I.Search className="exb-search-icon" />
           {site ? <span className="exb-search-chip">{site.name}</span> : null}

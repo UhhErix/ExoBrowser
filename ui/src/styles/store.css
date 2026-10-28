@@ -23,7 +23,8 @@
   display: inline-block;
   min-width: 1ch;
   margin-left: 6px;
-  color: var(--color-faint);
+  /* A count is words (faint read 4.32:1 on the chip's glass in Dark). */
+  color: var(--color-muted);
   font-variant-numeric: tabular-nums;
   text-align: left;
 }
@@ -152,6 +153,41 @@
   cursor: pointer;
 }
 
+/* The home page on its way (StoreRoom.tsx › Skeleton; their fill and shine are waits.css'): the banner, the list's
+   picks, a shelf's title and its posters with their names, each the size of what it stands for. */
+.exo-store-ghost-hero {
+  display: block;
+  height: max(260px, calc((100cqw - 316px) * 31 / 96));
+  min-width: 0;
+  border-radius: 14px;
+}
+
+.exo-store-ghost-pick {
+  display: block;
+  min-height: 0;
+}
+
+.exo-store-ghost-title {
+  display: block;
+  width: 160px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.exo-store-ghost {
+  display: block;
+  aspect-ratio: 2 / 3;
+  margin-bottom: 4px;
+  border-radius: 14px;
+}
+
+.exo-store-ghost-name {
+  display: block;
+  width: 70%;
+  height: 10px;
+  border-radius: 999px;
+}
+
 .exo-store-hero-art,
 .exo-store-hero-art .exo-store-img {
   position: absolute;
@@ -165,6 +201,8 @@
 .exo-store-hero-arts {
   position: absolute;
   inset: 0;
+  /* Two full-size layers crossfade inside this box only; nothing here can paint outside it. */
+  contain: paint;
 }
 
 .exo-store-hero-art {
@@ -197,10 +235,12 @@
   max-width: 44%;
 }
 
+/* A label over the art: small glass, as the cards' badges are (a black wash took Light's dark words with it). */
 .exo-store-hero-tag {
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--exo-fill);
+  box-shadow: var(--exo-rim);
   color: var(--color-fg);
   font-size: calc(12px * var(--exo-scale, 1));
 }
@@ -276,7 +316,7 @@
 }
 
 .exo-store-hero-pick.is-on {
-  background: var(--exo-selected);
+  box-shadow: var(--glassy-ring);
   color: var(--color-fg);
 }
 
@@ -338,11 +378,6 @@
   scroll-snap-type: x proximity;
 }
 
-/* Wide cards (Free on Epic): four across the row at least 300px each, so a short shelf fills it. */
-.exo-store-track.is-wide {
-  grid-auto-columns: max(300px, calc((100% - 3 * 16px) / 4));
-}
-
 .exo-store-track > * {
   scroll-snap-align: start;
 }
@@ -358,6 +393,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* The card fills its slot: a button is as wide as its content otherwise, and a large picture then spread the card
+     over its neighbours. */
+  width: 100%;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -391,41 +429,36 @@
 
 /* Hover is the Library's (home.css): the art lifts toward you and takes a little light of its own, never
    a white wash or a ring. Focus is an outline 2px outside the art, never on its own corner. */
-:is(.exo-store-poster, .exo-store-free-card) img {
+.exo-store-poster img {
   transition: filter var(--dur-quick) var(--ease-out);
 }
 
-.exo-store-poster,
-.exo-store-free-card {
+.exo-store-poster {
   outline: 1px solid transparent;
   outline-offset: 2px;
   transition: outline-color var(--dur-quick) var(--ease-out), transform var(--dur-move) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .exo-store-card:hover .exo-store-poster img,
-  .exo-store-free-card:hover img {
+  .exo-store-card:hover .exo-store-poster img {
     filter: brightness(1.08);
   }
 
-  .exo-store-card:hover .exo-store-poster,
-  .exo-store-free-card:hover {
+  .exo-store-card:hover .exo-store-poster {
     transform: translateY(-3px);
   }
 }
 
-:root[data-exo-motion="reduce"] :is(.exo-store-card:hover .exo-store-poster, .exo-store-free-card:hover) {
+:root[data-exo-motion="reduce"] .exo-store-card:hover .exo-store-poster {
   transform: none;
 }
 
 .exo-store-card:focus-visible,
-.exo-store-free-card:focus-visible,
 .exo-store-hero-stage:focus-visible {
   outline: none;
 }
 
-.exo-store-card:focus-visible .exo-store-poster,
-.exo-store-free-card:focus-visible {
+.exo-store-card:focus-visible .exo-store-poster {
   outline: 2px solid var(--color-fg);
 }
 
@@ -465,16 +498,6 @@
   white-space: nowrap;
 }
 
-.exo-store-score {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  color: var(--color-faint);
-  font-size: calc(12px * var(--exo-scale, 1));
-  font-variant-numeric: tabular-nums;
-}
-
 .exo-store-price {
   display: inline-flex;
   align-items: baseline;
@@ -499,52 +522,6 @@
 .exo-store-was {
   color: var(--color-faint);
   font-size: calc(12px * var(--exo-scale, 1));
-}
-
-/* Epic's free games: wide cards, the free-now ones first. */
-.exo-store-free-card {
-  position: relative;
-  display: block;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid var(--exo-float-line);
-  border-radius: 14px;
-  background: var(--color-bg);
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.exo-store-free-art,
-.exo-store-free-art > .exo-store-img {
-  position: absolute;
-  inset: 0;
-}
-
-/* The art is shown whole; the words sit on a plate of small glass in its corner. */
-.exo-store-free-text {
-  position: absolute;
-  left: 10px;
-  bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: calc(100% - 20px);
-  padding: 7px 12px 8px;
-  border-radius: 12px;
-}
-
-.exo-store-free-when {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-}
-
-.exo-store-free-when.is-now {
-  color: var(--color-fg);
 }
 
 /* Nothing to show (no results, an empty wishlist, the store out of reach): one line in the middle of the room with
@@ -600,52 +577,6 @@ html[data-exo-motion="reduce"] .exo-game-overlay-stage:has(> .exo-sgp) {
   outline: none;
 }
 
-.exo-sgp > .exo-game-close {
-  position: absolute;
-  z-index: 3;
-}
-
-/* Steam's hero art across the top of the page, whole: as wide as the page at its own shape (Steam's is
-   3840x1240), from its top edge, so nothing of it is cut off; it fades into the black only at its foot
-   (a mask, not a dark layer over it, as the Store's other art: no light rim in the page's corners). */
-.exo-sgp-hero {
-  position: absolute;
-  inset: 0 0 auto;
-  aspect-ratio: 3840 / 1240;
-  max-height: 100%;
-  overflow: hidden;
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.88), rgb(0 0 0 / 0.7) 45%, rgb(0 0 0 / 0.18) 80%, transparent);
-}
-
-/* Under the banner, the page to its foot: the same art blurred and dimmed, so the banner fades into it, not into black. */
-.exo-sgp-backdrop {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.exo-sgp-backdrop .exo-store-img {
-  filter: blur(48px) saturate(1.2) brightness(0.42);
-  transform: scale(1.15);
-}
-
-/* Under the side column (title, tags, buying) the banner washes into the page, so its words keep 4.5:1 over the
-   brightest art (measured from the screen: "Only on Steam" was at 2.4:1 over a sunset). */
-.exo-sgp-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 52%, color-mix(in srgb, var(--color-bg) 72%, transparent) 68%, color-mix(in srgb, var(--color-bg) 80%, transparent) 100%);
-  pointer-events: none;
-}
-
-.exo-sgp-hero .exo-store-img {
-  position: absolute;
-  inset: 0;
-  object-position: center top;
-}
-
 /* One layout for every game: the media on the left, a column of fixed width on the right. Every block has its place
    and size before the details land, so nothing moves when they do. */
 .exo-sgp-body {
@@ -684,7 +615,6 @@ html[data-exo-motion="reduce"] .exo-game-overlay-stage:has(> .exo-sgp) {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: none;
 }
 
 .exo-sgp-side > * {
@@ -826,7 +756,6 @@ html[data-exo-motion="reduce"] .exo-game-overlay-stage:has(> .exo-sgp) {
   scroll-padding-inline: 4px;
   scroll-snap-type: x mandatory;
   overflow-x: auto;
-  scrollbar-width: none;
 }
 
 .exo-sgp-thumb {
@@ -926,14 +855,7 @@ button.exo-sgp-thumb::after {
   min-width: 0;
 }
 
-.exo-sgp-only {
-  align-self: center;
-  padding: 0 4px;
-  color: var(--color-muted);
-  font-size: calc(13px * var(--exo-scale, 1));
-}
-
-/* Where words will be until the details land: quiet bars under the work band. */
+/* Where words will be until the details land: quiet, still bars. */
 .exo-sgp-placeholder {
   display: flex;
   flex-direction: column;
@@ -970,7 +892,7 @@ button.exo-sgp-thumb::after {
 }
 
 .exo-sgp-offer:disabled {
-  cursor: progress;
+  cursor: default;
   opacity: 0.7;
 }
 
@@ -1010,7 +932,6 @@ button.exo-sgp-thumb::after {
   gap: 8px;
   margin-top: 4px;
 }
-
 .exo-game-tool.is-on {
   color: var(--color-fg);
 }
@@ -1046,16 +967,16 @@ button.exo-sgp-thumb::after {
   min-height: 0;
   margin: 0;
   overflow-y: auto;
-  scrollbar-width: none;
   color: var(--color-fg);
   font-size: calc(13px * var(--exo-scale, 1));
   line-height: 20px;
 }
 
-/* Details: one row of five facts under the media, each label over up to two lines of its value (a long developer
-   list has no other place to be read), so the row is one height on every page. */
+/* Details: two rows of five facts under the media, each label over up to two lines of its value (a long developer
+   list has no other place to be read). The card grows into the column's room, so its foot lines up with the
+   requirements' at the right column's bottom. */
 .exo-sgp-facts {
-  flex: none;
+  flex: 1 0 auto;
   padding: 12px 20px;
   border-radius: var(--exo-card-radius);
   background: var(--exo-float);
@@ -1065,7 +986,7 @@ button.exo-sgp-thumb::after {
 .exo-sgp-facts dl {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 20px;
+  gap: 12px 20px;
   margin: 0;
 }
 
@@ -1114,7 +1035,7 @@ button.exo-sgp-thumb::after {
   margin: 0;
   padding: 2px 10px;
   border-radius: 999px;
-  background: rgb(var(--exo-ink-rgb) / 0.08);
+  box-shadow: var(--glassy-ring);
   color: var(--color-fg);
   font-size: calc(12px * var(--exo-scale, 1));
   font-weight: 600;
@@ -1261,4 +1182,270 @@ button.exo-sgp-thumb::after {
     height: auto;
     width: 84px;
   }
+}
+
+/* The calendar: the Store's own grid by day (StoreRoom.tsx › Calendar). */
+.exo-cal-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 12px var(--exo-gutter) 4px;
+}
+
+.exo-cal-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+}
+
+/* The calendar's days flow side by side, each as wide as its games (StoreRoom.tsx › Calendar): a day with one game
+   takes one card's room, not a row, and a busy day wraps its own games. */
+.exo-cal-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px 32px;
+  padding: 8px var(--exo-gutter) 32px;
+}
+
+.exo-cal-day {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.exo-cal-date {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--exo-float-line);
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exo-cal-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 12px;
+}
+
+.exo-cal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 132px;
+  min-width: 0;
+}
+
+/* Under a game (Early Access), and under a date (a Steam sale's first or last day). */
+.exo-cal-why,
+.exo-cal-mark {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-store-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exo-store-hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Why a pick is here, on its art (StoreCard): the wishlist's bookmark in the top corner, or Similar to and the icon of
+   the game you play across the top. Small glass, legible over any art. */
+.exo-store-mark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  color: var(--color-fg);
+}
+
+/* A card with a Similar to band: the band is its own button over the art, so the slot holds both. */
+.exo-store-card-slot {
+  position: relative;
+  min-width: 0;
+}
+
+.exo-store-similar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--dur-move) var(--ease-out);
+}
+
+/* It rides the art's hover lift, so the two never part. */
+@media (hover: hover) and (pointer: fine) {
+  .exo-store-card-slot:has(> .exo-store-card:hover) > .exo-store-similar {
+    transform: translateY(-3px);
+  }
+}
+
+:root[data-exo-motion="reduce"] .exo-store-card-slot > .exo-store-similar {
+  transform: none;
+}
+
+.exo-store-similar:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+.exo-store-similar-icons {
+  display: flex;
+}
+
+.exo-store-similar-icons > * + * {
+  margin-left: -6px;
+}
+
+/* A played game's cover as a small icon; the overlap is drawn by order, the first on top. */
+.exo-store-similar-icon {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.exo-store-similar-icon img,
+.exo-store-like-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The games it is like, as covers: a popover of large glass under the band (components/store/StoreCard.tsx › SimilarTo). */
+.exo-store-like-pop {
+  inset: auto;
+  top: anchor(bottom);
+  left: anchor(left);
+  position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+  margin: 8px 0 0;
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  color: var(--color-fg);
+  animation: exo-menu-in var(--dur-base) var(--ease-out) backwards;
+  transform-origin: top left;
+}
+
+.exo-store-like-pop:popover-open {
+  display: grid;
+  gap: 12px;
+}
+
+.exo-store-like-head {
+  margin: 0;
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
+.exo-store-like-covers {
+  display: flex;
+  gap: 12px;
+}
+
+.exo-store-like-game {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 128px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exo-store-like-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 14px;
+  outline: 1px solid transparent;
+  outline-offset: 2px;
+  transition: transform var(--dur-move) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .exo-store-like-game:hover .exo-store-like-cover {
+    transform: translateY(-3px);
+  }
+}
+
+.exo-store-like-game:focus-visible {
+  outline: none;
+}
+
+.exo-store-like-game:focus-visible .exo-store-like-cover {
+  outline: 2px solid var(--color-fg);
+}
+
+/* The featured game's light around the banner (StoreRoom.tsx › HeroLight): its art far out of focus, dim, fading out
+   before the shelves; the blur is fixed, only the picture's opacity moves when the game changes. */
+.exo-store-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.exo-store-hero-light {
+  position: absolute;
+  inset: -64px 0 -96px;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: radial-gradient(ellipse 70% 65% at 40% 45%, #000 30%, transparent 100%);
+}
+
+.exo-store-hero-light img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(64px) saturate(1.5);
+  opacity: 0.32;
+  transform: scale(1.1);
+  transition: opacity var(--dur-move) var(--ease-out);
+}
+
+@starting-style {
+  .exo-store-hero-light img {
+    opacity: 0;
+  }
+}
+
+:root[data-exo-theme="light"] .exo-store-hero-light img {
+  opacity: 0.22;
 }

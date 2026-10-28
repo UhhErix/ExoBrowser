@@ -92,183 +92,6 @@
   margin-left: calc((var(--exo-slider-track) - var(--exo-slider-knob)) / 2);
 }
 
-.exo-toast-stack {
-  position: fixed;
-  top: calc(var(--exo-titlebar-h) + 10px);
-  right: var(--exo-gutter);
-  left: var(--exo-gutter);
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.exo-toast {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  width: min(680px, 100%);
-  min-height: 44px;
-  padding: 9px 10px 9px 14px;
-  border-radius: 14px;
-  color: var(--color-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-  line-height: 1.4;
-  pointer-events: auto;
-  animation: exo-toast-in var(--dur-move) var(--ease-out) backwards;
-}
-
-/* A toast comes down 8px from under the Bar as it fades in. */
-@keyframes exo-toast-in {
-  from { opacity: 0; translate: 0 -8px; }
-}
-
-.exo-toast.is-bad {
-  border-color: color-mix(in srgb, var(--color-bad) 34%, transparent);
-  color: var(--color-bad);
-}
-
-/* Discord banners (DiscordNotices): floating panels at the top right, newest on top. Each arrives with
-   Exo's 8px rise and leaves by fading while its slot closes, so the ones below glide up. */
-.exo-dc-notices {
-  position: fixed;
-  top: calc(var(--exo-titlebar-h) + var(--exo-gap));
-  right: var(--exo-gap);
-  z-index: 45;
-  display: flex;
-  flex-direction: column;
-  width: min(360px, calc(100vw - var(--exo-gap) * 2));
-}
-
-.exo-dc-notice-slot {
-  display: grid;
-  grid-template-rows: 1fr;
-  margin-bottom: 8px;
-  animation: exo-dc-notice-in var(--dur-move) var(--ease-out) backwards;
-  transition: grid-template-rows var(--dur-move) var(--ease-out), margin-bottom var(--dur-move) var(--ease-out),
-    opacity var(--dur-base) var(--ease-out), translate var(--dur-move) var(--ease-out);
-}
-
-.exo-dc-notice-slot.is-leaving {
-  grid-template-rows: 0fr;
-  margin-bottom: 0;
-  opacity: 0;
-  translate: 0 -4px;
-  pointer-events: none;
-}
-
-@keyframes exo-dc-notice-in {
-  from { opacity: 0; translate: 0 -8px; }
-}
-
-.exo-dc-notice {
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-  border-radius: var(--exo-panel-radius);
-}
-
-.exo-dc-notice-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 40px 12px 12px;
-  border: 0;
-  border-radius: inherit;
-  background: transparent;
-  color: var(--color-muted);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 120ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.exo-dc-notice-main:hover { background: var(--hover-fill); }
-.exo-dc-notice-main:active { background: var(--exo-pressed); }
-
-.exo-dc-notice-main:focus-visible {
-  outline: 2px solid var(--color-fg);
-  outline-offset: -2px;
-}
-
-.exo-dc-notice-main .exo-dc-avatar-wrap { flex: none; }
-
-.exo-dc-notice-text {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  font-size: calc(12px * var(--exo-scale, 1));
-  line-height: 1.35;
-}
-
-.exo-dc-notice-head {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-}
-
-.exo-dc-notice-head strong {
-  overflow: hidden;
-  color: var(--color-fg);
-  font-size: calc(13px * var(--exo-scale, 1));
-  font-weight: 500;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.exo-dc-notice-count {
-  flex: none;
-  color: var(--color-faint);
-  font-variant-numeric: tabular-nums;
-}
-
-.exo-dc-notice-where {
-  overflow: hidden;
-  color: var(--color-faint);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.exo-dc-notice-body {
-  display: -webkit-box;
-  overflow: hidden;
-  margin-top: 3px;
-  color: var(--color-fg);
-  font-size: calc(13px * var(--exo-scale, 1));
-  overflow-wrap: anywhere;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-/* Dismiss shows under the pointer or keyboard focus, top right. */
-.exo-dc-notice-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--exo-fill);
-  box-shadow: var(--exo-rim);
-  color: var(--color-muted);
-  opacity: 0;
-  cursor: pointer;
-  transition: opacity 120ms cubic-bezier(0.23, 1, 0.32, 1), background-color 120ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.exo-dc-notice:hover .exo-dc-notice-close,
-.exo-dc-notice-close:focus-visible { opacity: 1; }
-.exo-dc-notice-close:hover { background: var(--hover-fill); color: var(--color-fg); }
-.exo-dc-notice-close:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 1px; }
-
 /* Activate key: an anchored popover under the Add button. No scrim; the
    library stays visible and a click outside closes it. Portaled to body, so
    it carries its own focus ring. */
@@ -364,4 +187,75 @@
   height: 100%;
   border-radius: 1px;
   background: currentColor;
+}
+
+/* A busy control keeps its words and its full color: its ring (Spinner) or its turning glyph (exo-spin) says it is
+   working (DESIGN.md › Waits), where a dimmed one would read as unavailable. */
+button:disabled:has(:is(.exo-spinner, .exo-spin)) {
+  opacity: 1;
+}
+
+/* Skeletons (components/ui/Skeleton.tsx; their fill and shine are waits.css'): a list's rows on their way, a round
+   picture and two lines of words each, a grid's square tiles, or one word in a row's control column. */
+.exo-skeleton-list {
+  display: grid;
+  gap: 14px;
+  padding: 8px 0;
+}
+
+.exo-skeleton-list.is-tiles {
+  grid-template-columns: repeat(auto-fill, minmax(min(88px, 100%), 1fr));
+  gap: 8px;
+}
+
+.exo-skeleton-list.is-tiles > .exo-skeleton {
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+
+.exo-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.exo-skeleton-row > .is-round {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.exo-skeleton-lines {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+}
+
+.exo-skeleton-lines > .exo-skeleton {
+  width: 62%;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.exo-skeleton-lines > .exo-skeleton + .exo-skeleton {
+  width: 36%;
+}
+
+.exo-skeleton-row:nth-child(3n + 2) .exo-skeleton-lines > :first-child {
+  width: 48%;
+}
+
+.exo-skeleton-row:nth-child(3n) .exo-skeleton-lines > :first-child {
+  width: 74%;
+}
+
+.exo-skeleton-word {
+  display: inline-block;
+  flex: none;
+  width: 72px;
+  height: 12px;
+  border-radius: 999px;
+  vertical-align: middle;
 }

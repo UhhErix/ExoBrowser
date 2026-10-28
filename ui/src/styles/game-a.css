@@ -1,9 +1,3 @@
-/* Armed Remove: red ink and a red hairline on black, no tinted fill. */
-.exo-game-tool.is-armed {
-  color: var(--color-bad);
-  border-color: color-mix(in srgb, var(--color-bad) 55%, transparent);
-}
-
 /* The store beside the name: its mark and name in a pill, or one pill to switch between the stores you own it on. */
 .exo-game-store {
   display: inline-flex;
@@ -132,6 +126,15 @@
   background: var(--exo-pressed);
 }
 
+/* A line that is its own action, done or not doable now (Optimize while it is Applied or the game runs): it reads as
+   itself, not dimmed, and does nothing under the pointer. */
+.exo-game-line-row:disabled {
+  opacity: 1;
+  cursor: default;
+  background: transparent;
+  color: var(--color-muted);
+}
+
 .exo-game-line-name {
   flex: none;
   width: 96px;
@@ -173,8 +176,6 @@
   align-items: center;
   gap: 8px 12px;
   min-width: 0;
-  /* Clear of the sheet's Close button (art.css › .exo-game-close) when a long title runs to the edge. */
-  padding-right: 24px;
 }
 
 .exo-game-stats {

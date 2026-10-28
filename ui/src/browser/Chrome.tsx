@@ -36,18 +36,19 @@ export function Favicon({ tab }: { tab: Tab }) {
 }
 
 /*
- * Every piece of Exo's glass on this page (the Bar, Search, menus, the Settings sheet, toasts). In Exo, CSS blurs
+ * Every piece of Exo's glass on this page (the Bar, Search, menus, the Settings sheet, notices). In Exo, CSS blurs
  * what is behind the glass; here what is behind it is the tab, another process this page can't see, so the window
  * draws that blur under each piece with Exo's own filters (small or large glass), and the page draws Exo's tint,
  * rim and words over it. Each is reported where it rests once shown (an auto-hidden Bar or sidebar slides its glass
  * itself). A scrim under a piece (Settings' room) is drawn by this page over the window's blur, so it dims it just as
  * Exo's glass sees it dimmed. A menu fading away (Exo's own close that way) is reported until it's gone.
  */
-const GLASS = '.exo-glass, .exo-shelf-sort-menu, .exb-vault-fill, .exo-toast'
-const LARGE = '.is-panel, .exo-shelf-sort-menu, .exo-toast'
+const GLASS = '.exo-glass, .exo-shelf-sort-menu, .exb-vault-fill'
+const LARGE = '.is-panel, .exo-shelf-sort-menu'
 
+// A notice comes down 8px in its slot as it fades in (Exo's dialog.css): measured where it lands, as the Bar and side tabs.
 function slideOf(el: Element): [number, number] {
-  const group = el.closest('#exb-bar, #exb-side')
+  const group = el.closest('#exb-bar, #exb-side, .exo-notice-slot')
   const t = group ? getComputedStyle(group).translate : 'none'
   if (!t || t === 'none') return [0, 0]
   const [x = '0', y = '0'] = t.split(' ')
@@ -73,16 +74,17 @@ function restingRect(el: HTMLElement, style: CSSStyleDeclaration) {
   return { left: r.left - ox * (1 - r.width / w), top: r.top - oy * (1 - r.height / h), width: w, height: h }
 }
 
-// The pieces that come and go on the page by fading (Exo's menus and the sign-in menu, Search, toasts, Exo Vault's
-// prompt), so the window's frost fades with them: [ms to come in, ms left to go], read from the fade their CSS runs
+// The pieces that come and go on the page by fading (Exo's menus and the sign-in menu, Search, notices, Exo Vault's
+// prompt among them), so the window's frost fades with them: [ms to come in, ms left to go], read from the fade their CSS runs
 // right now. A menu the keyboard opens or closes is there or gone at once, and the browser's own menus and Search
 // close at once. (Fixed times faded a keyboard-opened menu's frost in under a menu already there: clear glass that
 // frosted over 160 ms.) The rest (the Bar, sheets) are just there.
-const FADES = '.exo-shelf-sort-menu, .exb-search, .exb-vault-fill, .exb-vault-prompt, .exo-toast, .exb-peek-bar, .exb-switcher, .exb-zap-bar'
+const FADES = '.exo-shelf-sort-menu, .exb-search, .exb-vault-fill, .exo-notice, .exb-peek-bar, .exb-switcher, .exb-zap-bar, .exb-status'
 function fades(el: Element): [number, number] {
   let fadeIn = 0, fadeOut = 0
   if (!el.matches(FADES)) return [0, 0]
-  for (const a of el.getAnimations()) {
+  // A notice's fade runs on its slot.
+  for (const a of (el.closest('.exo-notice-slot') ?? el).getAnimations()) {
     const effect = a.effect as KeyframeEffect | null
     const frames = effect?.getKeyframes() ?? []
     if (!effect || a.playState !== 'running' || !frames.some(k => 'opacity' in k)) continue
@@ -113,8 +115,8 @@ function glassSpec() {
     if (r.width < 1 || r.height < 1) continue
     const [dx, dy] = slideOf(el)
     const radius = Math.min(parseFloat(style.borderTopLeftRadius) || 0, r.height / 2)
-    // The Bar's and the sidebar's own glass come and go with them; the rest (menus, Search, toasts, sheets) stays put
-    // when they hide: a toast under a hidden Bar lost its frost.
+    // The Bar's and the sidebar's own glass come and go with them; the rest (menus, Search, notices, sheets) stays put
+    // when they hide: a notice under a hidden Bar lost its frost.
     const place = el.closest('#exb-side') ? 'd' : el.closest('#exb-bar') ? 't' : 'f'
     items.push([el.matches('.exo-glass.is-panel') ? 'p' : el.matches(LARGE) ? 'l' : 's', (r.left - dx).toFixed(1), (r.top - dy).toFixed(1), r.width.toFixed(1), r.height.toFixed(1),
       radius.toFixed(1), place, keyOf(el), ...fades(el)].join(','))

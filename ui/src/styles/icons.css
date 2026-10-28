@@ -19,15 +19,6 @@
   animation: none;
 }
 
-.exo-glyph.is-loader,
-.animate-spin {
-  animation: exo-icon-spin 0.85s linear infinite;
-}
-
-@keyframes exo-icon-spin {
-  to { transform: rotate(360deg); }
-}
-
 /* Room tab icons: quiet at rest, full on the current room (tabs live in shelf.css). */
 .exo-nav-btn .exo-glyph {
   opacity: 0.85;

@@ -18,6 +18,28 @@
   line-height: 1.4;
 }
 
+/* An error with Copy logs beside it (ui/ErrorNote.tsx): the words, then the button, on one line while they fit. */
+.exo-error-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+span.exo-error-note {
+  display: inline-flex;
+}
+
+.exo-error-note .exo-copy-logs {
+  flex: none;
+}
+
+/* Beside an error drawn its own way (an italic line, a note with Try again): upright, on the line's middle. */
+.exo-copy-logs {
+  font-style: normal;
+  vertical-align: middle;
+}
+
 .exo-set-state {
   color: var(--color-muted);
   font-size: calc(13px * var(--exo-scale, 1));
@@ -131,6 +153,28 @@
   outline: none;
 }
 
+/* A named group of rows inside a section (Accounts and keys › Game stores, Captures' settings): its name over a
+   hairline, a gap before the next. */
+.exo-set-group + .exo-set-group {
+  margin-top: 28px;
+}
+
+.exo-set-group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 32px;
+  margin: 0 0 4px;
+}
+
+.exo-set-group-head h3 {
+  margin: 0;
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
 .exo-set-item {
   padding: 12px 0;
 }
@@ -222,27 +266,11 @@
   margin: 0;
 }
 
-
 /* Progress buttons (update) */
 
-.exo-set-progress {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-}
-
-.exo-set-progress:disabled::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: rgba(0, 0, 0, 0.18);
-  transform-origin: left;
-  transform: scaleX(var(--progress, 0));
-}
-
-.exo-set-progress:disabled {
-  opacity: 1;
+/* A row's control shows the Exo bar at a fixed width while it works. */
+.exo-set-item-control > .exo-progress {
+  width: 96px;
 }
 
 /* Store chips and links */
@@ -284,7 +312,6 @@
 
 }
 
-
 /* ── Lucid ── */
 
 /* The headphone list opens under its row: search, then each kind as Lucid groups them. */
@@ -307,7 +334,6 @@
 .exo-lucid-list {
   max-height: 440px;
   overflow-y: auto;
-  scrollbar-width: none;
 }
 
 .exo-lucid-kind {

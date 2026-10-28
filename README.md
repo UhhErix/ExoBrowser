@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.0">What's new in 1.1</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.1">What's new in 1.1.1</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.0/ExoBrowser-Setup.exe) | 1.1.0 | `118f40653d9cedcb1412eecc8a4815c7f2ee417dce86112ecee648cbdbee3ddc` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.1/ExoBrowser-Setup.exe) | 1.1.1 | `48104c2ba06e1cc1128e01e3a57ed7a1e2cfe5f8f6772689dc845a89227dc180` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.0):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.1):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -99,7 +99,7 @@ One field for everything: an address opens, anything else goes to your search en
 
 - **Search one site:** type its keyword and a space ("yt cats" searches YouTube), or its address and Tab. **Settings > Search** keeps the list and adds your own.
 - **Everything at once:** **Ctrl+K** finds a tab, bookmark, page from your history or one of the browser's actions.
-- **Copy link:** **Ctrl+Shift+C** copies the address without the tracking parts that share buttons add.
+- **Clean links:** every page opens without the tracking parts that share buttons and ads add to its address (`utm_` tags, click ids), whether you click it, paste it or it comes from another app, and **Ctrl+Shift+C** or a link's **Copy link** copies it the same way.
 
 ## Make it yours
 

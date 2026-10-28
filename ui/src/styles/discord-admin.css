@@ -1,8 +1,11 @@
 /* Discord's Server Settings, Edit Channel and the person menu, in Exo's rows, capsules and menus. */
 
-/* The section list: Discord's groups, each with its quiet heading. */
+/* The section list: Discord's groups, each with its quiet heading over a hairline, so a heading never reads as a
+   row to press. */
 .exo-dc-settings-nav section + section {
   margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--exo-float-line);
 }
 
 .exo-dc-settings-nav button.is-danger {
@@ -106,15 +109,6 @@ textarea.exo-dc-field {
 /* Dialogs over Server Settings sit above it. */
 .exo-dc-modal-back.is-top {
   z-index: 80;
-}
-
-.exo-dc-confirm > p {
-  text-align: left;
-}
-
-.exo-dc-confirm .exo-dc-modal-row {
-  justify-content: flex-end;
-  gap: 8px;
 }
 
 /* Block's and Ignore's points, as Discord lists them: what it does, and under it what that means. */
@@ -407,46 +401,73 @@ button.exo-dc-grip:hover {
   margin: 4px 0 8px;
 }
 
-.exo-dc-swatches {
+/* Role color: a saturation/brightness field over a hue strip. The gradients are inline (they carry the picked hue);
+   only the geometry lives here. Cursors are plain rings — crisp at any color, no glass on a control this small. */
+.exo-dc-colorfield {
   display: grid;
-  grid-template-columns: repeat(12, 28px);
+  gap: 10px;
+  max-width: 340px;
+}
+
+.exo-dc-colorfield-sv {
+  position: relative;
+  height: 132px;
+  border-radius: 10px;
+  box-shadow: var(--exo-rim);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.exo-dc-colorfield-hue {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  box-shadow: var(--exo-rim);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.exo-dc-colorfield-sv > i,
+.exo-dc-colorfield-hue > i {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 40%);
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.exo-dc-colorfield-hue > i {
+  top: 50%;
+}
+
+.exo-dc-colorfield-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.exo-dc-swatch {
-  position: relative;
+.exo-dc-colorfield-chip {
   width: 28px;
   height: 28px;
-  padding: 0;
-  border: 0;
+  flex: none;
   border-radius: 8px;
-  background: var(--exo-fill);
   box-shadow: var(--exo-rim);
-  cursor: pointer;
 }
 
-.exo-dc-swatch.is-default,
-.exo-dc-swatch.is-custom {
-  grid-row: span 2;
-  height: 64px;
+.exo-dc-colorfield-hex {
+  width: 10ch;
 }
 
-.exo-dc-swatch[aria-checked="true"] {
-  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-fg);
+.exo-dc-colorfield-row .exo-dc-tab {
+  margin-left: auto;
 }
 
-.exo-dc-swatch.is-custom {
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px var(--dc-control);
-}
-
-.exo-dc-swatch.is-custom input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
+.exo-dc-colorfield.is-disabled .exo-dc-colorfield-sv,
+.exo-dc-colorfield.is-disabled .exo-dc-colorfield-hue {
+  pointer-events: none;
 }
 
 .exo-dc-perm-group {
@@ -470,10 +491,32 @@ button.exo-dc-grip:hover {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-height: 40px;
   padding: 0 8px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
+  color: var(--color-fg);
+  font: inherit;
+  text-align: left;
   cursor: pointer;
+}
+
+.exo-dc-pick-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--exo-float-line);
+}
+
+.exo-dc-pick-row[aria-pressed="true"] .exo-dc-pick-mark {
+  background: var(--color-fg);
+  color: var(--color-bg);
+  box-shadow: none;
 }
 
 .exo-dc-pick-row:hover {
@@ -613,28 +656,6 @@ button.exo-dc-grip:hover {
   gap: 6px;
 }
 
-.exo-dc-check-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: var(--exo-fill);
-  box-shadow: var(--exo-rim);
-  color: var(--color-fg);
-  font-size: calc(12px * var(--exo-scale, 1));
-  cursor: pointer;
-}
-
-.exo-dc-check-chip:hover {
-  background: var(--hover-fill);
-}
-
-.exo-dc-check-chip input {
-  accent-color: var(--color-fg);
-}
-
 /* Edit Channel's permissions: deny, neutral, allow. */
 .exo-dc-tri {
   display: inline-flex;
@@ -667,7 +688,7 @@ button.exo-dc-grip:hover {
 
 .exo-dc-tri .is-deny.is-on {
   background: var(--dc-bad);
-  color: #000;
+  color: var(--color-on-bad);
 }
 
 .exo-dc-tri .is-neutral.is-on {
@@ -677,7 +698,7 @@ button.exo-dc-grip:hover {
 
 .exo-dc-tri .is-allow.is-on {
   background: var(--dc-good);
-  color: #000;
+  color: var(--color-on-good);
 }
 
 .exo-dc-role-side .exo-dc-menu.is-start {
@@ -1004,19 +1025,175 @@ button.exo-dc-member {
   font-weight: 600;
 }
 
-/* A dialog's acknowledgement: the box beside what you agree to. */
-.exo-dc-check-row {
+/* Server tag colors: Discord's pairs, each a split swatch. */
+.exo-dc-swatches {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  text-align: left;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exo-dc-swatch {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
   cursor: pointer;
 }
 
-.exo-dc-check-row > input {
+.exo-dc-swatch[aria-checked="true"] {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+/* Boost perks, rules and recommended channels: hairline lists. */
+.exo-dc-perk-list,
+.exo-dc-rule-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.exo-dc-perk-list > li {
+  padding: 8px 0;
+  border-top: 1px solid var(--exo-float-line);
+  color: var(--color-fg);
+}
+
+.exo-dc-rule-list > li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--exo-float-line);
+}
+
+.exo-dc-rule-list > li > input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Access: a question (or a requirement) as its words over its kind, then its buttons. */
+.exo-dc-question {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.exo-dc-question > span {
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+}
+
+.exo-dc-check-row {
+  align-items: flex-start;
+}
+
+.exo-dc-check-mark {
+  display: grid;
   flex: none;
-  width: 18px;
-  height: 18px;
-  margin: 1px 0 0;
-  accent-color: var(--color-fg);
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--color-muted);
+}
+
+.exo-dc-check-mark.is-good {
+  color: var(--color-good);
+}
+
+.exo-dc-check-mark.is-bad {
+  color: var(--color-bad);
+}
+
+/* Server insights: a week's number on the row's right edge. */
+.exo-dc-insight {
+  font-size: calc(20px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+/* Server tag: Discord's badges in the colors picked, the chosen one ringed. */
+.exo-dc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.exo-dc-badge-pick {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.exo-dc-badge-pick:hover {
+  background: var(--hover-fill);
+}
+
+.exo-dc-badge-pick[aria-checked="true"] {
+  background: var(--exo-selected);
+  outline: 2px solid var(--color-fg);
+  outline-offset: -2px;
+}
+
+.exo-dc-badge-pick > svg {
+  image-rendering: pixelated;
+}
+
+.exo-dc-tag-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exo-dc-tag-field > svg {
+  image-rendering: pixelated;
+}
+
+/* Links: an account to connect (its mark, the words and Remove), its numbers and checks indented under it. */
+.exo-dc-link-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.exo-dc-link-checks > .exo-dc-settings-row {
+  padding-left: 40px;
+}
+
+.exo-menu-item > .exo-dc-pf-mark {
+  width: 16px;
+  height: 16px;
+}
+
+/* Onboarding's Default Channels: the whole channel list on the page, a category as its heading, why a row can't change. */
+.exo-dc-pick-list.is-page {
+  max-height: none;
+  margin-top: 8px;
+}
+
+.exo-dc-pick-row.is-category {
+  color: var(--color-muted);
+  font-weight: 600;
+}
+
+.exo-dc-pick-row:disabled {
+  color: var(--color-faint);
+  cursor: default;
+}
+
+.exo-dc-pick-row:disabled:hover {
+  background: transparent;
+}
+
+.exo-dc-pick-row.is-child {
+  padding-left: 28px;
 }

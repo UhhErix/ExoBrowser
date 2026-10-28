@@ -1,0 +1,195 @@
+/* Exo's one progress bar (components/ui/Progress.tsx, DESIGN.md › Progress). A Liquid Glass track with the
+   ink's fill: a sheen runs through the fill and a lit head rides its end; with no number a lit segment
+   glides along the track. Transforms only (the fill slides in from the left, never resizes), linear as
+   progress is. Its loops pause in the background (tokens.css) and stop under Reduce motion (below). */
+
+.exo-progress {
+  --exo-progress-h: 4px;
+  --exo-progress-ink: rgb(var(--exo-ink-rgb));
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--exo-progress-h);
+  flex: none;
+  /* It shows only once a wait is real: what finishes within 300ms never flashes a bar. */
+  animation: exo-progress-in 160ms var(--ease-out) 300ms backwards;
+}
+
+@keyframes exo-progress-in {
+  from { opacity: 0; }
+}
+
+.exo-progress.is-small {
+  --exo-progress-h: 3px;
+}
+
+.exo-progress.is-large {
+  --exo-progress-h: 6px;
+}
+
+.exo-progress.is-done {
+  --exo-progress-ink: var(--color-good);
+}
+
+.exo-progress.is-bad {
+  --exo-progress-ink: var(--color-bad);
+}
+
+/* The track: the ink's own tint under a light rim, so it reads on art, on glass, on black and on a white primary alike. */
+.exo-progress-track {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--exo-progress-ink) 16%, transparent);
+  box-shadow: inset 0 0.5px 0 rgb(255 255 255 / 0.18), inset 0 0 0 0.5px rgb(var(--exo-ink-rgb) / 0.08);
+}
+
+/* The fill is the track's full width, slid in from the left by the amount done: its rounded end never stretches.
+   From a softer ink at its start to full ink, lit at its very end (the head), all inside the track that clips it. */
+.exo-progress-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--exo-progress-ink) 55%, transparent),
+    var(--exo-progress-ink) calc(100% - 10px), color-mix(in srgb, var(--exo-progress-ink) 60%, white) 100%);
+  transform: translateX(calc((var(--exo-progress) - 1) * 100%));
+  transition: transform 240ms linear, background-color 160ms var(--ease-out);
+}
+
+/* The sheen: a band of light that runs through the fill, the bar's liquid. */
+.exo-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.55) 50%, transparent 100%);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  mix-blend-mode: soft-light;
+  animation: exo-progress-sheen 1600ms linear infinite;
+}
+
+/* The head is the fill's lit end, inside the track: nothing of the bar is ever drawn past its ends. */
+.exo-progress-head {
+  display: none;
+}
+
+.exo-progress.is-done .exo-progress-fill::after {
+  animation: none;
+}
+
+/* No number: a lit segment, a third of the track, glides across it, clipped by the track at both ends. */
+.exo-progress.is-unknown .exo-progress-fill {
+  width: 34%;
+  transform: none;
+  background: linear-gradient(90deg, transparent, var(--exo-progress-ink));
+  animation: exo-progress-glide 1400ms linear infinite;
+}
+
+.exo-progress.is-unknown .exo-progress-fill::after {
+  animation: none;
+}
+
+@keyframes exo-progress-sheen {
+  from { background-position: -60% 0; }
+  to { background-position: 160% 0; }
+}
+
+@keyframes exo-progress-glide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(295%); }
+}
+
+/* What carries a bar along its foot is that bar's frame (any rule of its own wins), and a busy control keeps its
+   words and its full color: the bar says it is working. */
+:where(*):has(> .exo-progress.is-edge) {
+  position: relative;
+}
+
+:disabled:has(> .exo-progress.is-edge) {
+  opacity: 1;
+}
+
+/* On a filled primary the bar takes the primary's words' color: the page's ink is the fill itself. */
+:is(.exo-play, .exo-set-btn.is-primary, .exo-continue-play, .button--primary) > .exo-progress {
+  --exo-progress-ink: currentColor;
+}
+
+/* Along the inside foot of a button, a pill or a card's art, nearer the ends on a small control. */
+.exo-progress.is-edge {
+  position: absolute;
+  inset: auto clamp(5px, 14%, 10px) 4px;
+  width: auto;
+  z-index: 2;
+}
+
+.exo-progress-block {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 220px);
+  margin-inline: auto;
+  padding-block: 16px;
+}
+
+.exo-progress-caption {
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+  text-align: center;
+}
+
+/* Reduce motion: nothing glides or runs. A known amount still moves to its new place at once; an unknown
+   one holds a still half-lit track. */
+:root[data-exo-motion="reduce"] :is(.exo-progress-fill, .exo-progress-head) {
+  transition: none;
+}
+
+:root[data-exo-motion="reduce"] .exo-progress-fill::after {
+  animation: none;
+}
+
+:root[data-exo-motion="reduce"] .exo-progress.is-unknown :is(.exo-progress-fill, .exo-progress-head) {
+  width: 100%;
+  animation: none;
+  opacity: 0.45;
+}
+
+:root[data-exo-motion="reduce"] .exo-progress.is-unknown .exo-progress-head {
+  opacity: 0;
+}
+
+/* A word for work with no measure (ui/WorkingWord.tsx): its three dots light in turn, then rest. */
+.exo-working-dots span {
+  opacity: 0.25;
+  animation: exo-working-dot 1.2s var(--ease-out) infinite;
+}
+
+.exo-working-dots span:nth-child(2) { animation-delay: 0.2s; }
+.exo-working-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes exo-working-dot {
+  0%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+
+:root[data-exo-motion="reduce"] .exo-working-dots span {
+  opacity: 1;
+  animation: none;
+}
+
+/* Windows' contrast themes: a plain outlined bar in the system's colors. */
+@media (forced-colors: active) {
+  .exo-progress-track {
+    background: Canvas;
+    box-shadow: inset 0 0 0 1px CanvasText;
+  }
+
+  .exo-progress-fill {
+    background: Highlight;
+  }
+
+  .exo-progress-fill::after,
+  .exo-progress-head {
+    display: none;
+  }
+}

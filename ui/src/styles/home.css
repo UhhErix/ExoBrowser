@@ -46,6 +46,9 @@
 .exo-tile {
   position: relative;
   isolation: isolate;
+  /* A card's inner layout never reaches the grid's, and the grid's never reaches a card's: the window
+     re-measuring on scroll only lays out what changed. */
+  contain: layout;
   min-width: 0;
 }
 
@@ -86,6 +89,10 @@
 .exo-tile-media {
   position: absolute;
   inset: 0;
+  /* The cover's paint is the scroll's biggest cost: skip it for tiles out of view. The frame
+     keeps the clip and the ring lives on it, so nothing here can crop either. inset:0 pins
+     the box to the frame, so a skipped subtree never changes its size. */
+  content-visibility: auto;
 }
 
 .exo-tile-media .exo-cover {
@@ -157,43 +164,14 @@
   pointer-events: none;
 }
 
-/* The tile's motion layer (DESIGN.md › Motion): the work band while it downloads,
-   the done ring and check when it lands. Under the progress bar and badge. */
+/* The tile's motion layer (DESIGN.md › Motion): the done ring and check when a
+   download lands. Under the badge. */
 .exo-tile-frame > .exo-tile-motion {
   position: absolute;
   inset: 0;
   z-index: 3;
   border-radius: inherit;
   pointer-events: none;
-}
-
-.exo-tile-progress {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
-  z-index: 4;
-  height: 3px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #292929;
-  pointer-events: none;
-}
-
-.exo-tile-progress::before {
-  content: "";
-  display: block;
-  height: 100%;
-  transform: scaleX(var(--progress, 0));
-  transform-origin: left center;
-  background: var(--color-fg);
-  transition: transform 90ms var(--ease-out);
-}
-
-.exo-tile-progress.is-unknown::before {
-  width: 36%;
-  transform: none;
-  animation: exo-progress-unknown 0.7s var(--ease-out) infinite;
 }
 
 .exo-tile.is-dim {
@@ -333,33 +311,6 @@
   justify-content: center;
   gap: 8px;
   margin-top: 6px;
-}
-
-/* Library › Refresh: while it runs (data-exo-refreshing on the page) a shine
-   travels across the cards, a column after the column before, like the Work
-   band (DESIGN.md › Motion). The frame's ::after is its ring, so ::before. */
-:root[data-exo-refreshing] .exo-tile-frame::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  z-index: 3;
-  width: 250%;
-  background: linear-gradient(115deg, transparent 30%, rgb(var(--exo-ink-rgb) / 0.16) 50%, transparent 70%);
-  animation: exo-work 1400ms linear infinite both;
-  pointer-events: none;
-}
-
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 2) .exo-tile-frame::before { animation-delay: 90ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 3) .exo-tile-frame::before { animation-delay: 180ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 4) .exo-tile-frame::before { animation-delay: 270ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 5) .exo-tile-frame::before { animation-delay: 360ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 6) .exo-tile-frame::before { animation-delay: 450ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 7) .exo-tile-frame::before { animation-delay: 540ms; }
-:root[data-exo-refreshing] .exo-game-grid > :nth-child(8n + 8) .exo-tile-frame::before { animation-delay: 630ms; }
-
-:root[data-exo-motion='reduce'][data-exo-refreshing] .exo-tile-frame::before {
-  animation: none;
-  background: none;
 }
 
 /* Reduce motion: hover only brightens. */
@@ -543,18 +494,6 @@
   background: transparent;
 }
 
-/* Library › Refresh's shine is a layer wider than the card that the frame clips: while it runs, a folder clips again
-   (its covers rest inside it), or the light would sweep across the cards beside it. */
-:root[data-exo-refreshing] .exo-folder-frame {
-  overflow: hidden;
-}
-
-/* While Refresh runs the cards are being rebuilt under the pointer: they take no hover (no lift, no folder opening)
-   and no click until it lands. LibraryPane refuses an open from the keyboard too. */
-:root[data-exo-refreshing] :is(.exo-game-grid .exo-tile-hit, .exo-continue-open, .exo-friend-pill-text) {
-  pointer-events: none;
-}
-
 /* Dragging a folder: where it lands is a bar in the gap before or after the folder under the pointer, and the folder
    being dragged sinks a little (by its size, never its opacity: its front is glass). */
 .exo-folder-tile.is-dragging .exo-folder-frame {
@@ -734,7 +673,6 @@
   /* Room inside the scroll's clip for a card's lift and ring at the sides, given back by the margin. */
   margin: 0 -10px -10px;
   padding: 6px 10px 10px;
-  scrollbar-width: none;
 }
 
 .exo-folder-grid .exo-tile {
@@ -1011,7 +949,6 @@
   min-height: 0;
   overflow-y: auto;
   padding: 4px 4px 8px;
-  scrollbar-width: none;
 }
 
 .exo-folder-pick-item {
