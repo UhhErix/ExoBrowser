@@ -186,7 +186,6 @@ button.exo-glass:hover {
   .exo-music-search,
   .exo-field,
   .exo-shelf-sort-menu .exo-menu-find,
-  .exo-dc .exo-dc-active-card,
   .exo-dc :is(.exo-dc-tab.is-raised, .exo-dc-reaction),
   .exo-dc-find,
   .exo-dc-search,
@@ -294,14 +293,14 @@ button.exo-glass:hover {
    sheets it hosts) is large glass. Its glass is a layer under its content (::before),
    so what is on it stays glass; cards inside it are clear with a light hairline, never gray. */
 @layer base {
-  :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+  :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage) {
     position: relative;
   }
 }
 
-:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage) {
   --exo-float: transparent;
@@ -312,13 +311,13 @@ button.exo-glass:hover {
 
 /* That isolation keeps a menu opened in the pane (a channel's right-click menu) inside it, under what comes after
    it: the chat's avatars and lines drew over the menu. A pane holding one rises over its neighbors meanwhile. */
-:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill,
   .exo-gift):has(:is(.exo-dc-menu, .exo-dc-popover, .exo-dc-picker, .exo-dc-tip, .exo-dc-suggest, .exo-dc-soundboard-pop, [role="menu"], [role="dialog"])) {
   z-index: 50;
 }
 
-:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+:root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage)::before {
   content: "";
@@ -369,7 +368,7 @@ button.exo-glass:hover {
 }
 
 /* Mid transition a pane's layer is a still tint too (see above). */
-:root[data-exo-vt]:not([data-exo-vt="theme"]) :is(.exo-titlebar, [data-exo-vt-named]) :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+:root[data-exo-vt]:not([data-exo-vt="theme"]) :is(.exo-titlebar, [data-exo-vt-named]) :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage)::before {
   --exo-fill: var(--glassy-still-pane);
@@ -384,7 +383,7 @@ button.exo-glass:hover {
   --exo-fill: var(--exo-solid-fill);
 }
 
-:root[data-exo-glass="solid"] :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+:root[data-exo-glass="solid"] :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage)::before {
   background-color: var(--color-bg);
@@ -397,7 +396,7 @@ button.exo-glass:hover {
     --exo-fill: var(--exo-solid-fill);
   }
 
-  :root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-active, .exo-dc .exo-dc-dock,
+  :root :is(.exo-dc .exo-dc-side, .exo-dc .exo-dc-members, .exo-dc .exo-dc-dm-profile, .exo-dc .exo-dc-dock,
   .exo-dc .exo-dc-profile, .exo-music-side, .exo-music-panel, .exo-room-nav, .exo-system-panel, .exo-friend-pill, .exo-gift,
   .exo-game-overlay-stage)::before {
     background-color: var(--color-bg);

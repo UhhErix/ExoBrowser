@@ -271,8 +271,24 @@
   gap: 6px;
 }
 
-/* A small tile (under a watched stream, or in a full call) had its buttons over LIVE and its numbers cut off: there it
-   shows LIVE and the name, the buttons in its middle while the pointer is on it, and the numbers in the Share menu. */
+/* Who is watching, in the corner across from the name, in the name's own glass; the name gives way to it. */
+.exo-dc-stream-viewers {
+  right: 10px;
+  left: auto;
+  gap: 4px;
+  padding: 0 3px; /* one face sits in a circle */
+}
+
+.exo-dc-stream-viewers > span:last-child:not(.exo-dc-avatar-wrap) {
+  padding-right: 6px;
+}
+
+.exo-dc-my-stream.has-viewers .exo-dc-voice-tile-name:not(.exo-dc-stream-viewers) {
+  max-width: calc(100% - 140px);
+}
+
+/* A small tile (under a watched stream, or in a full call) had its buttons over its name and its numbers cut off: there it
+   shows the name, the buttons in its middle while the pointer is on it, and the numbers in the Share menu. */
 .exo-dc-my-stream {
   container-type: inline-size;
 }

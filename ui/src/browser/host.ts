@@ -14,14 +14,14 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 
 export const send = (...parts: (string | number)[]) => webview?.postMessage(parts.join('\t'))
 
-export type Tab = { id: number; url: string; title: string; loading?: boolean; pinned?: boolean; muted?: boolean; audible?: boolean; sleeping?: boolean; space: number; home?: string; split?: number; folder?: number; priv?: boolean }
+export type Tab = { id: number; url: string; title: string; loading?: boolean; pinned?: boolean; muted?: boolean; audible?: boolean; sleeping?: boolean; space: number; home?: string; split?: number; folder?: number; priv?: boolean; kept?: boolean }
 /** A folder among a space's pinned tabs (side tabs): perhaps inside another, open or closed. */
 export type Folder = { id: number; space: number; parent: number; name: string; open: boolean; live?: boolean }
 /** A space: its own tabs, an icon, a color that becomes the accent while it's on screen, and optionally its own appearance. */
 export type Space = { id: number; name: string; icon: string; color: string; theme: string }
 export type Visit = [url: string, title: string, visits: number, last: number]
-/** A tab the archive closed: its address, title and when (Unix seconds), newest first. */
-export type Archived = [url: string, title: string, at: number]
+/** A tab the archive closed: its address, title, when (Unix seconds) and the space it left, newest first. */
+export type Archived = [url: string, title: string, at: number, space: number]
 export type Mark = [url: string, title: string, icon: string, sharp?: boolean]
 export type Extension = { id: string; name: string; enabled: boolean; builtIn?: boolean; manifest?: string }
 export type Download = { id: number; name: string; url: string; state: string; received: number; total: number; opens?: boolean }

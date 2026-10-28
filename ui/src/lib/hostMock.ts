@@ -191,6 +191,8 @@ const mockSettings: LauncherSettings = {
   igdbTwitchConnected: false,
   steamGridDbKeySet: false,
   openXblKeySet: false,
+  xboxSignInAvailable: false,
+  xboxSignedIn: false,
   autoUpdateChipset: true,
   chipset: mockIntelCpu ? 'intel' : 'amd',
   ...(mockFolders ? {
@@ -750,6 +752,8 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'stores.outages': () => ({ ok: true, outages: [] }),
   'stores.playOffline': () => ({ ok: false, message: 'Mock: offline mode needs the Exo host.' }),
   'playtime.refresh': () => ({ ok: false, message: 'Hours are read in the app only.' }),
+  'xbox.signIn': () => ({ ok: false, message: 'Xbox sign-in runs in the app only.' }),
+  'xbox.signOut': () => ({ ...mockSettings, xboxSignedIn: false }),
   'playtime.riotRefresh': () => ({
     ok: false,
     profilePrivate: true,
@@ -844,6 +848,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'discord.golive': mockGoLiveHandler,
   'discord.friends': () => ({ friends: mockFriends, restricted: { blocked: [{ id: '100000000000000009', name: 'Spammy', username: 'spammy.bot', avatar: null }], ignored: [{ id: '100000000000000008', name: 'Loud Larry', username: 'larry', avatar: null }] } }),
   'discord.friend': mockOk,
+  'discord.callSongs': () => ({ songs: [] }),
   'discord.markRead': mockOk,
   'discord.channel': () => ({ ok: true, muted: true, url: 'https://discord.gg/exo' }),
   'discord.mentions': () => ({ ok: true, messages: mockMessages.filter(m => m.mentions.length), places: { '400000000000000002': { name: 'general', guildId: '300000000000000001', guild: 'Exo Squad', parentId: null } } }),

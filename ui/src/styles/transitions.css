@@ -46,6 +46,17 @@
   display: none;
 }
 
+/* The stream's mini player (voice.tsx › MiniStream) plays on through a move: only its live picture, no still of how it
+   was fading out over it (that froze the video for a moment at every room change). It holds still where it floats,
+   or flies into the call's stage, its new picture growing there on the spring. */
+::view-transition-old(exo-dc-mini) {
+  display: none;
+}
+
+::view-transition-new(exo-dc-mini) {
+  animation: none;
+}
+
 /* Fades and slides are separate, so each keeps its own curve: a page fades out fast and in on the
    ease-out, and slides on the spring. */
 @keyframes exo-vt-fade-out {

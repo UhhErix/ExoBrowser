@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.4 — October 28, 2026
+
+The archive grows into a tab manager of its own, with Keep this tab, shorter times and a list in Settings, and everything Exo Browser fetches on its own now passes one checkpoint.
+
+- **Keep this tab.** Right-click a tab and choose Keep this tab: it is never archived and never put to sleep to save memory, so a chat or a player stays live; a small lock on the tab stops keeping it. _Verified: a kept tab older than the rest stayed when the others were archived, and keeping is saved with your tabs._
+- **The archive, your way.** Archive tabs can wait as little as an hour (or 4 hours) as well as 12 hours to 30 days, and each space keeps its five newest tabs whatever their age, so a space you come back to is never empty. _Verified: of eight tabs two hours old with archiving after an hour, the five newest and the kept one stayed._
+- **Settings › Archive.** Everything the archive closed, newest first, with when it went: open one again or remove it, or clear them all. _Verified: on screen, in the layout check._
+- **One checkpoint for what leaves your PC.** Every request Exo Browser makes of its own accord (the update check, an extension from the Chrome Web Store, a site's icon, a live folder's feed) now asks one place first and goes only where the privacy policy says, over HTTPS; each release build fails if the policy and that list disagree. The policy also says now that a site's icon can come from the address its page names. _Verified: the check passes, and fails when a request skips it; updates, icons and feeds still arrive._
+- **Back where they were.** A tab opened again from the archive, Search or Ctrl+Shift+T comes back in the space it left, and on screen there; from the archive or Search it also leaves the archive. _Verified: from Settings, Search and Ctrl+Shift+T in another space._
+
 ## 1.1.3 — October 27, 2026
 
 Install update in Settings › About works: it closes Exo Browser, puts the new version in place and opens it again.

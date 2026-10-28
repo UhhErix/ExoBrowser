@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useSyncExternalStore, type KeyboardEvent } from 'react'
-import { browser, drifted, holdInput, isFirstRun, manifestOf, routes, send, setRoutes, siteOf, type Extension } from './host'
+import { browser, drifted, holdInput, isFirstRun, manifestOf, routes, send, setRoutes, siteOf, type Extension, type Tab } from './host'
 import { openSettingsAt } from './SearchBox'
 import { COLORS, SPACE_ICONS, spaceIcon } from './look'
 import { boostSite } from './Boosts'
@@ -98,6 +98,13 @@ function routeItem(url: string, space: number) {
   }]
 }
 
+// Kept: never archived, never put to sleep to save memory (a chat, a player). A pinned tab is kept already, and a private
+// one is never kept.
+function keepItem(tab: Tab) {
+  if (tab.priv || tab.pinned) return []
+  return [{ label: tab.kept ? 'Stop keeping this tab' : 'Keep this tab', Icon: tab.kept ? I.LockOpen : I.Lock, run: () => send('keep', tab.id) }]
+}
+
 export function tabMenu(id: number, x: number, y: number) {
   const b = browser()
   const tab = b.tabs.find(t => t.id === id)
@@ -114,6 +121,7 @@ export function tabMenu(id: number, x: number, y: number) {
       { label: tab.space === 0 ? 'Remove from Favorites' : 'Add to Favorites', Icon: I.Star, run: () => send('favorite', id) },
       { label: tab.pinned ? 'Unpin' : 'Pin', Icon: I.Pin, run: () => send('pin', id) },
     ] : []),
+    ...keepItem(tab),
     { label: tab.muted ? 'Unmute' : 'Mute', Icon: tab.muted ? I.Volume : I.VolumeOff, run: () => send('mute', id) },
     { label: 'Duplicate', Icon: I.Copy, run: () => send('duplicate', id) },
     ...(tab.url && !tab.url.startsWith('https://newtab.exo/') ? [{ label: 'Copy link', Icon: I.Link, run: () => send('copyLink', id) }] : []),

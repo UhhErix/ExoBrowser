@@ -92,8 +92,8 @@ const setName = (element: Element | null | undefined, name: string) => {
   element.toggleAttribute('data-exo-vt-named', name !== '' && name !== PANE && !element.matches(OWN_ART))
 }
 
-/** Art whose glass lies on its own picture: a Continue card (it flies whole), a game tile, a Store poster or hero. */
-const OWN_ART = '.exo-continue-card, .exo-tile-frame:not(.exo-folder-frame), .exo-store-poster, .exo-store-hero-stage, .exo-store-hero-pick-art'
+/** Art whose glass lies on its own picture: a Continue card (it flies whole), a game tile, a Store poster or hero, the stream's mini player. */
+const OWN_ART = '.exo-continue-card, .exo-tile-frame:not(.exo-folder-frame), .exo-store-poster, .exo-store-hero-stage, .exo-store-hero-pick-art, .exo-mini-stream'
 
 /** Drawn and at least partly inside the window (a hidden room's copy never is). */
 export function onScreen(element: Element | null | undefined): element is Element {

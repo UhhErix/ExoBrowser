@@ -88,8 +88,6 @@ export const Gpu = icon('gpu', 'gauge')
 export const GraphicsCard = icon('graphics-card', 'gpu')
 /** This PC: the PC room's Overview. */
 export const Cpu = icon('cpu', 'cpu')
-/** The PC room's Performance: what makes this PC faster. */
-export const Rocket = icon('rocket', 'rocket')
 /** Exo's own update. */
 export const AppUpdate = icon('app-update', 'circle-arrow-down')
 /** The Devices room: your mouse. */

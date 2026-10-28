@@ -21,7 +21,7 @@ import * as I from './icons'
 
 const SECTIONS = [
   ['general', 'General'], ['search', 'Search'], ['look', 'Look'], ['mods', 'Mods'], ['spaces', 'Spaces'], ['newtab', 'New tab'], ['privacy', 'Privacy'], ['boosts', 'Boosts'], ['extensions', 'Extensions'],
-  ['bookmarks', 'Bookmarks'], ['history', 'History'], ['downloads', 'Downloads'], ['import', 'Import'], ['about', 'About'],
+  ['bookmarks', 'Bookmarks'], ['history', 'History'], ['archive', 'Archive'], ['downloads', 'Downloads'], ['import', 'Import'], ['about', 'About'],
 ] as const
 
 type Data = {
@@ -337,6 +337,29 @@ function History({ history, loaded, onFull }: { history: Data['history']; loaded
   )
 }
 
+/** The tabs the archive closed, newest first: each back as a tab in the space it left, or gone; and all of them at once. */
+function ArchiveList({ favicons }: { favicons: Data['history']['favicons'] }) {
+  const archive = useBrowserValue(b => b.archive), spaces = useBrowserValue(b => b.spaces)
+  const [all, setAll] = useState(false)
+  const items = all ? archive : archive.slice(0, 8)
+  const spaceName = (id: number) => (spaces.length > 1 ? spaces.find(s => s.id === id)?.name : '') ?? ''
+  return (
+    <Section id="archive" title="Archive" action={archive.length ? <Button size="sm" className="exo-set-btn" onPress={() => send('archiveClear')}>Clear</Button> : undefined}>
+      {items.length ? items.map(([u, t, at, space]) => (
+        <Row key={`${u} ${at}`} label={t || hostOf(u)} icon={<Lead src={favicons[hostOf(u)]} />} detail={[hostOf(u), spaceName(space), ago(at)].filter(Boolean).join(' · ')}>
+          <Button variant="ghost" size="sm" isIconOnly className="exo-titlebar-button" aria-label={`Open ${t || hostOf(u)} again`} onPress={() => send('archiveOpen', u, at)}><I.Undo /></Button>
+          <Button variant="ghost" size="sm" isIconOnly className="exo-titlebar-button" aria-label={`Remove ${t || hostOf(u)} from the archive`} onPress={() => send('archiveRemove', u, at)}><I.Trash /></Button>
+        </Row>
+      )) : <Row label="Nothing archived" />}
+      {!all && archive.length > items.length ? (
+        <Row label={`${archive.length - items.length} more`}>
+          <Button size="sm" className="exo-set-btn" onPress={() => setAll(true)}>Show all</Button>
+        </Row>
+      ) : null}
+    </Section>
+  )
+}
+
 // One formatter each, made once: making one per row (toLocaleTimeString) was most of the time Full history took to draw.
 const TIME = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
 const DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric' })
@@ -592,8 +615,8 @@ function Sheet({ open, section, onClose }: { open: boolean; section: string; onC
                 <Row label="Default browser" detail={!data.state ? '' : data.state.isDefault ? 'Links from your other apps open in Exo Browser' : data.state.registered ? 'Windows opens its Default apps page: choose Set default there' : 'Install Exo Browser with its Setup first, so Windows lists it'}>
                   {!data.state ? null : data.state.isDefault ? <State on>Default</State> : <Button size="sm" className="exo-set-btn" isDisabled={!data.state.registered} onPress={() => send('makeDefault')}>Make default</Button>}
                 </Row>
-                {choice('archive', 'Archive tabs', 'never', [['never', 'Never'], ['12h', 'After 12 hours'], ['24h', 'After a day'], ['7d', 'After a week'], ['30d', 'After 30 days']],
-                  "Tabs you haven't opened in that long close into the archive; Search finds them. Pinned tabs, favorites and tabs playing sound stay")}
+                {choice('archive', 'Archive tabs', 'never', [['never', 'Never'], ['1h', 'After an hour'], ['4h', 'After 4 hours'], ['12h', 'After 12 hours'], ['24h', 'After a day'], ['7d', 'After a week'], ['30d', 'After 30 days']],
+                  "Tabs you haven't opened in that long close into the archive. Each space keeps its five newest; pinned, kept and playing tabs stay")}
                 {toggle('autoPip', 'Picture in picture by itself', 'Leaving a tab whose video plays with sound floats the video over everything; coming back puts it back', 'on')}
                 {choice('little', 'Links from other apps', 'off', [['off', 'In the window'], ['on', 'In Little Exo']],
                   'Little Exo opens them in a small window of their own; Open in Exo Browser moves one into your tabs. A site with its own space still opens there')}
@@ -640,6 +663,7 @@ function Sheet({ open, section, onClose }: { open: boolean; section: string; onC
               <Extensions list={data.extensions} />
               <Bookmarks marks={data.bookmarks} loaded={data.loaded} />
               <History history={data.history} loaded={data.loaded} onFull={() => { setFull(true); scroll.current?.scrollTo({ top: 0 }) }} />
+              <ArchiveList favicons={data.history.favicons} />
               <Downloads items={data.downloads} loaded={data.loaded} />
               <Import sources={data.state?.sources ?? []} />
               <Section id="about" title="About">

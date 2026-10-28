@@ -33,7 +33,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 - **Favorites** show in every space; right-click a tab and choose **Add to Favorites**. A **pinned tab** remembers its page: its icon takes it back when it wanders, and closing it only puts it to sleep.
 - **Folders:** with tabs down the side, pinned tabs can sit in folders, folders inside folders too. Drop a tab on a folder, or right-click it and choose one; a folder's row opens and closes it, and right-click renames it.
 - **Live folders:** right-click a site's tab and choose **Follow this site in a live folder**. Its newest posts show in the folder, checked every 30 minutes, and open in a new tab. Delete the folder to stop following.
-- **Archive tabs** (**Settings > General**, off by default) closes tabs you haven't opened in a while into an archive; Search still finds them.
+- **Archive tabs** (**Settings > General**, off by default) closes tabs you haven't opened in a while, from an hour to 30 days, into an archive. Each space keeps its five newest tabs, and a tab you right-click and choose **Keep this tab** is never archived or put to sleep. **Settings > Archive** lists what was archived to open again or remove; Search finds it too, and **Ctrl+Shift+T** brings back the last one. Each comes back in the space it left.
 - **From Arc:** **Settings > Import** brings Arc's spaces, colors, favorites, pinned tabs with their folders and Today tabs from its files, even after Arc stops opening.
 
 ## Split view, Peek and private tabs

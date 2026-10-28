@@ -518,34 +518,6 @@
   margin-top: 8px;
 }
 
-.exo-dc-pf-song {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-}
-
-.exo-dc-pf-song-bar {
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--exo-float-line);
-}
-
-.exo-dc-pf-song-bar > span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--dc-text);
-}
-
-.exo-dc-pf-song-times {
-  display: flex;
-  justify-content: space-between;
-  color: var(--dc-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-  font-variant-numeric: tabular-nums;
-}
-
 /* A role's icon after a name: its picture or emoji, the name's height. */
 .exo-dc-role-icon {
   display: inline-flex;
@@ -3616,54 +3588,7 @@ video.exo-dc-media {
   position: relative;
 }
 
-.exo-dc-active {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 12px;
-  width: 340px;
-  padding: 16px;
-  overflow-y: auto;
-  border-left: 1px solid var(--dc-line);
-}
-
-.exo-dc-active > strong {
-  color: var(--dc-text);
-  font-size: calc(20px * var(--exo-scale, 1));
-}
-
-.exo-dc-active-empty {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  text-align: center;
-}
-
-.exo-dc-active-empty span {
-  color: var(--dc-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-}
-
 /* Active Now is one list with hairlines between its people, as Exo's lists are. */
-.exo-dc-active-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 0;
-  border-top: 1px solid var(--exo-float-line);
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.exo-dc-active-card:hover {
-  background: var(--dc-raised);
-}
 
 .exo-dc-category {
   gap: 4px;
@@ -4161,55 +4086,10 @@ textarea.exo-dc-modal-input {
 }
 
 /* Discord's Active Now cards. */
-.exo-dc-active-card {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  text-align: left;
-}
-
-.exo-dc-active-who,
-.exo-dc-active-what {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-}
-
-.exo-dc-active-what {
-  border-top: 1px solid var(--dc-line);
-  background: rgb(0 0 0 / 0.25);
-}
 
 /* The 32px picture in the 40px art's slot, so both lines' words start together. */
-.exo-dc-active-who > :first-child {
-  margin-inline: 4px;
-}
-
-.exo-dc-active-what img,
-.exo-dc-active-art {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: var(--dc-raised);
-  object-fit: cover;
-}
-
-.exo-dc-active-kind {
-  margin-left: auto;
-  color: var(--dc-muted);
-}
 
 /* Listen along, under a friend's song. */
-.exo-dc-active-listen {
-  align-self: flex-start;
-  margin: -4px 0 0 12px;
-}
 
 /* Discord's × on a DM row. */
 .exo-dc-dm-row {
@@ -5123,13 +5003,11 @@ button.exo-dc-pf-badge {
 
 .exo-dc .exo-dc-side,
 .exo-dc .exo-dc-members,
-.exo-dc .exo-dc-active,
 .exo-dc .exo-dc-dm-profile {
   background: var(--color-bg);
 }
 
 .exo-dc .exo-dc-members,
-.exo-dc .exo-dc-active,
 .exo-dc .exo-dc-dm-profile {
   border-left: 1px solid var(--dc-line);
 }
@@ -5202,23 +5080,19 @@ button.exo-dc-pf-badge {
 }
 
 /* Embeds, code, files, cards, events, rows: a lift of the page with a hairline (--dc-raised), never a black hole. */
-.exo-dc :is(.exo-dc-embed, .exo-dc-pre, .exo-dc-file, .exo-dc-card, .exo-dc-event, .exo-dc-browse-row, .exo-dc-active-card, .exo-dc-post, .exo-dc-result) {
+.exo-dc :is(.exo-dc-embed, .exo-dc-pre, .exo-dc-file, .exo-dc-card, .exo-dc-event, .exo-dc-browse-row, .exo-dc-post, .exo-dc-result) {
   border: 1px solid var(--dc-line);
   border-radius: 14px;
   background: var(--dc-raised);
 }
 
-.exo-dc :is(.exo-dc-card, .exo-dc-active-card, .exo-dc-post, .exo-dc-result):not(.is-static):hover {
+.exo-dc :is(.exo-dc-card, .exo-dc-post, .exo-dc-result):not(.is-static):hover {
   background: var(--hover-fill);
 }
 
 .exo-dc .exo-dc-code {
   border: 1px solid var(--dc-line);
   background: var(--dc-raised);
-}
-
-.exo-dc .exo-dc-active-what {
-  background: var(--exo-float);
 }
 
 /* Menus, popovers, pickers, cards and dialogs: 14px. Their material is Exo's (glass.css, system.css). */
@@ -6451,6 +6325,29 @@ button.exo-dc-gifv {
   object-fit: cover;
 }
 
+/* Who is on the song, after its title: their pictures overlapping, each cut out of the dock's color, then a count. */
+.exo-dc-jam-people {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.exo-dc-jam-people > .exo-dc-avatar-wrap {
+  box-shadow: 0 0 0 2px var(--exo-float);
+  border-radius: 50%;
+}
+
+.exo-dc-jam-people > .exo-dc-avatar-wrap + .exo-dc-avatar-wrap {
+  margin-left: -6px;
+}
+
+.exo-dc-jam-more {
+  margin-left: 4px;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 600;
+}
+
 .exo-dc .exo-dc-dock > .exo-dc-jam + :is(.exo-dc-voice, .exo-dc-me) {
   border-top: 1px solid var(--exo-float-line);
 }
@@ -6592,6 +6489,76 @@ button.exo-dc-gifv {
   opacity: 1;
 }
 
+/* The stream you watch while its call isn't on screen (voice.tsx › MiniStream): its tile floats over every room,
+   Settings and a game page, under menus, dialogs and notices, where you put it (--mini-x and --mini-y from the corner
+   it keeps to, --mini-w its width; first the bottom right, the window's gap in), always whole inside the window under
+   the Bar. It rises in where no flight brings it (LauncherApp › goToView), and a drag let go glides into place on the
+   spring. */
+.exo-mini-stream {
+  /* 345px in a 1920 window: Settings' panel (1200 wide, centred) ends just left of it. */
+  --tile-w: min(var(--mini-w, clamp(240px, 18vw, 400px)), 60vw);
+  --mini-h: calc(var(--tile-w) * 9 / 16);
+  --mini-top: calc(var(--exo-titlebar-h, 52px) + var(--exo-gap));
+  --mini-foot: var(--exo-gap);
+  position: fixed;
+  right: clamp(var(--exo-gap), var(--mini-x, var(--exo-gap)), calc(100vw - var(--tile-w) - var(--exo-gap)));
+  bottom: clamp(var(--mini-foot), var(--mini-y, var(--exo-gap)), calc(100vh - var(--mini-h) - var(--mini-top)));
+  z-index: 45;
+  border-radius: var(--exo-panel-radius);
+  touch-action: none;
+  transition: translate var(--dur-move) var(--ease-spring);
+  animation: exo-arrive var(--dur-move) var(--ease-spring) backwards, exo-fade-in var(--dur-base) var(--ease-out) backwards;
+}
+
+.exo-mini-stream.is-top {
+  top: clamp(var(--mini-top), var(--mini-y, var(--mini-top)), calc(100vh - var(--mini-h) - var(--exo-gap)));
+  bottom: auto;
+}
+
+.exo-mini-stream.is-left {
+  right: auto;
+  left: clamp(var(--exo-gap), var(--mini-x, var(--exo-gap)), calc(100vw - var(--tile-w) - var(--exo-gap)));
+}
+
+/* A room's own bar at its foot stays clear: Music's player (22px up, 64px tall, as its panels clear it) and a
+   conversation's composer (52px tall, the gap up). */
+:root:has(.exo-room:not([hidden], .is-backstage) .exo-music-bar) .exo-mini-stream {
+  --mini-foot: calc(86px + var(--exo-gap));
+}
+
+:root:has(.exo-room:not([hidden], .is-backstage) .exo-dc-compose) .exo-mini-stream {
+  --mini-foot: calc(52px + 2 * var(--exo-gap));
+}
+
+/* A corner resizes it, the opposite one held still. */
+.exo-mini-stream-grip {
+  position: absolute;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  cursor: nesw-resize;
+}
+
+.exo-mini-stream-grip:is([data-grip="tl"], [data-grip="br"]) {
+  cursor: nwse-resize;
+}
+
+.exo-mini-stream-grip[data-grip^="t"] {
+  top: 0;
+}
+
+.exo-mini-stream-grip[data-grip^="b"] {
+  bottom: 0;
+}
+
+.exo-mini-stream-grip[data-grip$="l"] {
+  left: 0;
+}
+
+.exo-mini-stream-grip[data-grip$="r"] {
+  right: 0;
+}
+
 .exo-dc-stream {
   position: relative;
   display: grid;
@@ -6621,7 +6588,7 @@ button.exo-dc-gifv {
    leaves (voice.tsx › StreamStage), as Discord's do; a focused control keeps them, and the pointer hides too. Each
    glass control fades itself: the bar fading whole was a backdrop root while it ran, so its glass drew clear and its
    blur popped in after (liquid-glass.md › Backdrop roots). */
-.exo-dc-stream :is(.exo-dc-live, .exo-dc-stream-name, .exo-dc-stream-sound) {
+.exo-dc-stream :is(.exo-dc-stream-name, .exo-dc-stream-sound) {
   transition: opacity var(--dur-base) var(--ease-out);
 }
 
@@ -6629,7 +6596,7 @@ button.exo-dc-gifv {
   transition: background-color 120ms var(--ease-out), scale 120ms var(--ease-out), opacity var(--dur-base) var(--ease-out);
 }
 
-.exo-dc-stream.is-idle:not(:focus-within) :is(.exo-dc-live, .exo-dc-stream-name, .exo-dc-stream-sound, .exo-dc-stream-tools > .exo-dc-voice-btn) {
+.exo-dc-stream.is-idle:not(:focus-within) :is(.exo-dc-stream-name, .exo-dc-stream-sound, .exo-dc-stream-tools > .exo-dc-voice-btn) {
   opacity: 0;
   pointer-events: none;
 }

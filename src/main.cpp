@@ -94,6 +94,7 @@ struct Tab {
     std::wstring boostScript;  // the id of its Boosts script (run on every page it opens), once added
     int folder = 0;            // the folder it sits in among its space's pinned tabs (0: none)
     bool priv = false;         // private: its own profile, kept in memory only; no history, never in the session
+    bool kept = false;         // Keep this tab: never archived, and never asleep (frozen or closed) to save memory
 };
 
 // A space: a set of tabs of its own (its pinned tabs and the one last on screen too), with a name, an icon, a color
@@ -106,8 +107,8 @@ struct Space { int id = 0; std::wstring name, icon, color, theme; int last = 0; 
 // follows a site's feed instead (RSS or Atom): its newest posts show in it.
 struct TabFolder { int id = 0, space = 0, parent = 0; std::wstring name; bool open = true; std::wstring feed; };
 
-struct ClosedTab { std::wstring url, title; size_t index; };
-struct Archived { std::wstring url, title; long long at = 0; };
+struct ClosedTab { std::wstring url, title; size_t index; int space = 0; };
+struct Archived { std::wstring url, title; long long at = 0; int space = 0; };
 struct Visit { std::wstring url, title; int visits = 0; long long last = 0; };
 struct Bookmark { std::wstring url, title; };
 
@@ -358,7 +359,7 @@ static void SaveSession() {
         n++;
         tabs += Utf8(L"tab\t" + Field(t->url) + L"\t" + Field(t->title) + L"\t" + (t->pinned ? L"1" : L"0") + L"\t" +
                      std::to_wstring(t->space) + L"\t" + Field(t->home) + L"\t" + std::to_wstring(t->seen) + L"\t" + std::to_wstring(t->split) + L"\t" +
-                     std::to_wstring(t->folder)) + "\n";
+                     std::to_wstring(t->folder) + L"\t" + (t->kept ? L"1" : L"0")) + "\n";
     }
     WriteFileUtf8(g.dataDir + L"\\session.tsv", "active\t" + std::to_string(active) + "\n" + last + tabs);
 }
@@ -461,7 +462,8 @@ static std::wstring TabJson(const Tab* t) {
            Bool(t->muted) + L",\"sleeping\":" + Bool(t->suspended || (!t->ctl && !t->creating)) +
            L",\"pinned\":" + Bool(t->pinned) + L",\"space\":" + std::to_wstring(t->space) +
            (t->home.empty() ? L"" : L",\"home\":" + Json(t->home)) + (t->split ? L",\"split\":" + std::to_wstring(t->split) : L"") +
-           (t->folder ? L",\"folder\":" + std::to_wstring(t->folder) : L"") + (t->priv ? L",\"priv\":true" : L"") + L"}";
+           (t->folder ? L",\"folder\":" + std::to_wstring(t->folder) : L"") + (t->priv ? L",\"priv\":true" : L"") +
+           (t->kept ? L",\"kept\":true" : L"") + L"}";
 }
 
 static void ArmSleep();
@@ -614,6 +616,32 @@ static std::wstring IconDataUrl(const std::string& b) {
 
 static void IconWorker();
 
+// ---------------------------------------------------------------------------------------
+// Where Exo Browser connects of its own accord (never a page's requests): every such request asks here first, by what
+// it is for, and goes only where PRIVACY.md says it goes. A fixed purpose has a fixed host; a site's icon goes to that
+// site, or to the icon address its own page names, and a live folder's feed to the feed you followed, over HTTPS only.
+// tools/privacy-check.mjs, run by each release build, fails when PRIVACY.md and this list part, or when a request
+// skips this check.
+enum class Egress { Update, Extension, Icon, Feed };
+static const struct { Egress why; const wchar_t* host; } kDestinations[] = {
+    {Egress::Update, L"github.com"},              // Settings > About: the newest release, its notes, its Setup
+    {Egress::Extension, L"clients2.google.com"},  // an extension added from the Chrome Web Store
+};
+
+static bool EgressAllowed(Egress why, const std::wstring& url) {
+    if (url.rfind(L"https://", 0) != 0) return false;
+    wchar_t host[256] = {};
+    URL_COMPONENTS u{sizeof u};
+    u.lpszHostName = host;
+    u.dwHostNameLength = ARRAYSIZE(host);
+    if (!WinHttpCrackUrl(url.c_str(), 0, 0, &u)) return false;
+    std::wstring h = host;
+    for (auto& c : h) c = towlower(c);
+    for (auto& d : kDestinations)
+        if (d.why == why) return h == d.host;
+    return why == Egress::Icon || why == Egress::Feed;
+}
+
 static void FetchIcon(const std::wstring& site, const std::wstring& declared) {
     // Tried once per session each way: from the page's own choice, and by guessing the address. A site with
     // none to guess is left alone for a week.
@@ -648,7 +676,7 @@ static void IconWorker() {
         std::wstring data;
         for (auto& u : next.second) {
             wchar_t file[MAX_PATH];
-            if (FAILED(URLDownloadToCacheFileW(nullptr, u.c_str(), file, MAX_PATH, 0, nullptr))) continue;
+            if (!EgressAllowed(Egress::Icon, u) || FAILED(URLDownloadToCacheFileW(nullptr, u.c_str(), file, MAX_PATH, 0, nullptr))) continue;
             std::string bytes = ReadFileUtf8(file);
             std::string png = ShrinkIcon(bytes);
             data = png.empty() ? IconDataUrl(bytes) : L"data:image/png;base64," + Base64((const BYTE*)png.data(), (DWORD)png.size());
@@ -1579,7 +1607,7 @@ static void InstallFromStore(const std::wstring& storeId) {
     std::thread([hwnd, url, folder, crx] {
         CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         std::wstring* result;
-        if (FAILED(URLDownloadToFileW(nullptr, url.c_str(), crx.c_str(), 0, nullptr))) {
+        if (!EgressAllowed(Egress::Extension, url) || FAILED(URLDownloadToFileW(nullptr, url.c_str(), crx.c_str(), 0, nullptr))) {
             result = new std::wstring(L"!The extension could not be downloaded.");
         } else {
             std::wstring error;
@@ -3574,7 +3602,7 @@ static void CloseTab(int id, bool force = false) {
         return;
     }
     if (!t->url.empty() && !t->priv) {
-        g.closed.push_back({t->url, t->title, i});
+        g.closed.push_back({t->url, t->title, i, t->space});
         if (g.closed.size() > 50) g.closed.erase(g.closed.begin());
     }
     if (g.capture == id) g.capture = 0;
@@ -3601,12 +3629,22 @@ static void CloseTab(int id, bool force = false) {
     MarkSessionDirty();
 }
 
+// Back into the space it was closed from (an archived tab's space may be one you aren't in), and on screen.
+static Tab* Reopen(const std::wstring& url, const std::wstring& title, size_t index, int space) {
+    Tab* t = AddTab(url, false, index);
+    t->title = title;
+    if (space && space != t->space && FindSpace(space)) t->space = space;
+    Order();
+    Activate(t->id);
+    MarkSessionDirty();
+    return t;
+}
+
 static void ReopenClosed() {
     if (g.closed.empty()) return;
     ClosedTab c = g.closed.back();
     g.closed.pop_back();
-    Tab* t = AddTab(c.url, true, c.index);
-    t->title = c.title;
+    Reopen(c.url, c.title, c.index, c.space);
 }
 
 // Ctrl+Tab and Ctrl+PageDown go round the space's tabs.
@@ -3690,12 +3728,16 @@ static void DeleteSpace(int id) {
     QueueState();
 }
 
-// The archive (Settings > General > Archive tabs): a tab that isn't pinned and hasn't been on screen for the chosen
-// time (never, by default) closes into it, unless it plays sound or downloads. Search finds it again, Ctrl+Shift+T
-// brings the last ones back, and archive.tsv keeps the newest 300.
+// The archive (Settings > General > Archive tabs): a tab that isn't pinned or kept and hasn't been on screen for the
+// chosen time (never, by default) closes into it, unless it plays sound or downloads, and each space keeps its five
+// newest tabs whatever their age, so a space you come back to is never empty. Settings > Archive lists it, Search
+// finds it, Ctrl+Shift+T brings the last ones back, each into the space it left; archive.tsv keeps the newest 300.
+static const size_t kArchiveKeeps = 5;
+
 static void SaveArchive() {
     std::string out;
-    for (auto& a : g.archive) out += Utf8(Field(a.url) + L"\t" + Field(a.title) + L"\t" + std::to_wstring(a.at)) + "\n";
+    for (auto& a : g.archive)
+        out += Utf8(Field(a.url) + L"\t" + Field(a.title) + L"\t" + std::to_wstring(a.at) + L"\t" + std::to_wstring(a.space)) + "\n";
     WriteFileUtf8(g.dataDir + L"\\archive.tsv", out);
 }
 
@@ -3703,14 +3745,15 @@ static void SendArchive() {
     std::wstring items;
     for (auto it = g.archive.rbegin(); it != g.archive.rend(); ++it) {
         if (!items.empty()) items += L",";
-        items += L"[" + Json(it->url) + L"," + Json(it->title) + L"," + std::to_wstring(it->at) + L"]";
+        items += L"[" + Json(it->url) + L"," + Json(it->title) + L"," + std::to_wstring(it->at) + L"," + std::to_wstring(it->space) + L"]";
     }
     UiPost(L"{\"t\":\"archive\",\"items\":[" + items + L"]}");
 }
 
 static long long ArchiveAfter() {
     std::wstring v = Setting(L"archive", L"never");
-    return v == L"12h" ? 12 * 3600LL : v == L"24h" ? 24 * 3600LL : v == L"7d" ? 7 * 86400LL : v == L"30d" ? 30 * 86400LL : 0;
+    return v == L"1h" ? 3600LL : v == L"4h" ? 4 * 3600LL : v == L"12h" ? 12 * 3600LL : v == L"24h" ? 24 * 3600LL
+         : v == L"7d" ? 7 * 86400LL : v == L"30d" ? 30 * 86400LL : 0;
 }
 
 static bool Downloading(int tabId);
@@ -3718,14 +3761,22 @@ static bool Downloading(int tabId);
 static void ArchiveTick() {
     long long after = ArchiveAfter(), now = _time64(nullptr);
     if (!after) return;
-    std::vector<int> ids;
+    // Each space's tabs that could go, newest first: its five newest stay whatever their age.
+    std::unordered_map<int, std::vector<Tab*>> bySpace;
     for (auto& t : g.tabs)
-        if (!t->pinned && !t->peek && !t->priv && t->space != 0 && !Shown(t.get()) && !t->audible && !t->url.empty() && t->url != kNewTab &&
-            !Downloading(t->id) && now - t->seen > after) ids.push_back(t->id);
+        if (!t->pinned && !t->kept && !t->peek && !t->priv && t->space != 0 && !t->url.empty() && t->url != kNewTab) bySpace[t->space].push_back(t.get());
+    std::vector<int> ids;
+    for (auto& [space, tabs] : bySpace) {
+        std::sort(tabs.begin(), tabs.end(), [](Tab* a, Tab* b) { return a->seen > b->seen; });
+        for (size_t i = kArchiveKeeps; i < tabs.size(); i++) {
+            Tab* t = tabs[i];
+            if (!Shown(t) && !t->audible && !Downloading(t->id) && now - t->seen > after) ids.push_back(t->id);
+        }
+    }
     if (ids.empty()) return;
     for (int id : ids) {
         Tab* t = FindTab(id);
-        g.archive.push_back({t->url, t->title, now});
+        g.archive.push_back({t->url, t->title, now, t->space});
         CloseTab(id);
     }
     if (g.archive.size() > 300) g.archive.erase(g.archive.begin(), g.archive.end() - 300);
@@ -3774,7 +3825,7 @@ static void SleepTick() {
     SleepSteps steps = SleepStepsNow();
     for (auto& up : g.tabs) {
         Tab* t = up.get();
-        if (Shown(t) || t->peek || !t->ctl || t->audible || t->creating || Downloading(t->id)) continue;
+        if (Shown(t) || t->peek || t->kept || !t->ctl || t->audible || t->creating || Downloading(t->id)) continue;
         ULONGLONG idle = now - t->lastActive;
         if (idle > steps.discard) {
             Discard(t);
@@ -4962,9 +5013,11 @@ static void SendUpdate() {
 
 static void PostUpdate(HWND hwnd, UpdateNews news) { PostMessageW(hwnd, WM_APP_UPDATE, 0, (LPARAM)new UpdateNews(std::move(news))); }
 
-// One HTTPS GET, off the UI thread: the body, or into a file with progress, or (follow off) a redirect's Location.
-static bool HttpGet(const std::wstring& url, std::string* body, std::wstring* location = nullptr, HANDLE file = nullptr,
+// One HTTPS GET, off the UI thread, for what `why` names (EgressAllowed): the body, or into a file with progress, or
+// (follow off) a redirect's Location.
+static bool HttpGet(Egress why, const std::wstring& url, std::string* body, std::wstring* location = nullptr, HANDLE file = nullptr,
                     const std::function<void(int)>& progress = nullptr, size_t limit = 1024 * 1024) {
+    if (!EgressAllowed(why, url)) return false;
     wchar_t host[256] = {}, path[2048] = {};
     URL_COMPONENTS u{sizeof u};
     u.lpszHostName = host;
@@ -5061,7 +5114,7 @@ static void UpdateCheck(bool quiet) {
         UpdateNews news;
         news.quiet = quiet;
         std::wstring where;
-        if (!HttpGet(std::wstring(kReleases) + L"/latest", nullptr, &where)) {
+        if (!HttpGet(Egress::Update, std::wstring(kReleases) + L"/latest", nullptr, &where)) {
             news.state = L"error";
             news.message = L"Couldn't reach GitHub to check. Try again in a moment.";
         } else {
@@ -5076,7 +5129,7 @@ static void UpdateCheck(bool quiet) {
                 news.state = Newer(tag) ? L"available" : L"current";
                 // Its What's New, from beside its Setup (none on a release without one).
                 std::string notes;
-                if (news.state == L"available" && HttpGet(std::wstring(kReleases) + L"/download/v" + tag + L"/whats-new.json", &notes) && notes.size() <= 64 * 1024)
+                if (news.state == L"available" && HttpGet(Egress::Update, std::wstring(kReleases) + L"/download/v" + tag + L"/whats-new.json", &notes) && notes.size() <= 64 * 1024)
                     news.notes = Wide(notes);
             }
         }
@@ -5107,7 +5160,7 @@ static void UpdateInstall() {
         std::wstring file = dir + L"\\ExoBrowser-Setup-" + version + L".exe", part = file + L".part";
         UpdateNews news{L"error", version};
         std::string sum;
-        if (!HttpGet(base + L".sha256", &sum) || sum.size() < 64) {
+        if (!HttpGet(Egress::Update, base + L".sha256", &sum) || sum.size() < 64) {
             news.message = L"Couldn't get the update's checksum from GitHub. Try again in a moment.";
             PostUpdate(hwnd, std::move(news));
             return;
@@ -5115,7 +5168,7 @@ static void UpdateInstall() {
         std::string expected = sum.substr(0, 64);
         for (auto& c : expected) c = (char)tolower((unsigned char)c);
         HANDLE f = CreateFileW(part.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr);
-        bool got = f != INVALID_HANDLE_VALUE && HttpGet(base, nullptr, nullptr, f, [hwnd, version](int percent) {
+        bool got = f != INVALID_HANDLE_VALUE && HttpGet(Egress::Update, base, nullptr, nullptr, f, [hwnd, version](int percent) {
             UpdateNews step{L"downloading", version};
             step.percent = percent;
             PostUpdate(hwnd, std::move(step));
@@ -5241,7 +5294,7 @@ static void FetchFeed(const TabFolder& f) {
     std::wstring url = f.feed;
     std::thread([hwnd, id, url] {
         auto body = new std::string;
-        if (!HttpGet(url, body, nullptr, nullptr, nullptr, 8 * 1024 * 1024)) body->clear();
+        if (!HttpGet(Egress::Feed, url, body, nullptr, nullptr, nullptr, 8 * 1024 * 1024)) body->clear();
         else *body = FeedHead(std::move(*body));
         PostMessageW(hwnd, WM_APP_FEED, (WPARAM)id, (LPARAM)body);
     }).detach();
@@ -6143,6 +6196,24 @@ static void OnUiMessage(const std::wstring& msg) {
         std::vector<int> ids;
         for (auto& t : g.tabs) if (kept && t->id != keep && !t->pinned && t->space == kept->space) ids.push_back(t->id);
         for (int id : ids) CloseTab(id);
+    } else if (v == L"keep") {
+        // Keep this tab: never archived or asleep; one put away to sleep comes back when next on screen, as any does.
+        if (Tab* t = FindTab(argId(1)); t && !t->priv) { t->kept = !t->kept; MarkSessionDirty(); QueueState(); }
+    } else if (v == L"archiveOpen" || v == L"archiveRemove") {
+        // One archived tab, by its address and when it was archived: back into its space as a tab, or gone.
+        long long at = _wtoi64(arg(2).c_str());
+        auto it = std::find_if(g.archive.begin(), g.archive.end(), [&](const Archived& x) { return x.url == arg(1) && x.at == at; });
+        if (it != g.archive.end()) {
+            Archived a = *it;
+            g.archive.erase(it);
+            SaveArchive();
+            SendArchive();
+            if (v == L"archiveOpen") { CloseOverlay(); Reopen(a.url, a.title, g.tabs.size(), a.space); }
+        }
+    } else if (v == L"archiveClear") {
+        g.archive.clear();
+        SaveArchive();
+        SendArchive();
     } else if (v == L"reopen") {
         ReopenClosed();
     } else if (v == L"find") {
@@ -6361,6 +6432,7 @@ static void RestoreSession() {
         if (t->seen <= 0) t->seen = _time64(nullptr);
         t->split = row.size() > 7 ? _wtoi(row[7].c_str()) : 0;
         if (TabFolder* f = row.size() > 8 && t->pinned ? FindFolder(_wtoi(row[8].c_str())) : nullptr; f && f->space == t->space) t->folder = f->id;
+        t->kept = row.size() > 9 && row[9] == L"1";
         g.nextSplit = std::max(g.nextSplit, t->split + 1);
         // An asleep tab shows its site's icon from last time, not a blank globe, until it loads.
         if (auto it = g.favicons.find(SiteOf(t->url)); it != g.favicons.end()) t->favicon = it->second;
@@ -6881,7 +6953,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
         if (row.size() >= 2) g.settings[row[0]] = row[1];
     LoadSpaces();
     for (auto& row : ReadTable(L"archive.tsv"))
-        if (row.size() >= 3 && !row[0].empty()) g.archive.push_back({row[0], row[1], _wtoi64(row[2].c_str())});
+        if (row.size() >= 3 && !row[0].empty()) g.archive.push_back({row[0], row[1], _wtoi64(row[2].c_str()), row.size() > 3 ? _wtoi(row[3].c_str()) : 0});
     LoadHistory();
     for (auto& row : ReadTable(L"bookmarks.tsv"))
         if (row.size() >= 2) g.bookmarks.push_back({row[0], row[1]});

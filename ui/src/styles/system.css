@@ -209,19 +209,6 @@
 }
 
 /* Active Now and the member list float beside the conversation like the sidebar. */
-.exo-dc .exo-dc-active {
-  margin: 8px 0 0 8px;
-  border: 0;
-  border-radius: var(--exo-panel-radius);
-  background: var(--exo-float);
-  box-shadow: none; /* the edge is the glass layer's one line (glass.css) */
-}
-
-.exo-dc .exo-dc-active-card {
-  border-color: transparent;
-  background: var(--exo-fill);
-  box-shadow: var(--exo-rim);
-}
 
 /* Sheets (Apple's sheets round wider than its cards): the game sheet, Store page, GPU and Captures. */
 .exo-game-overlay-stage,
@@ -568,8 +555,7 @@
   .exo-add-game-btn, .exo-game-close, .exo-shelf-chip, .exo-music-sort, .exo-music-mini button,
   .exo-dc-icon-btn, .exo-dc-tab:not(.is-add, .exo-dc-blurple), .button--ghost, .exo-capture-btn, .exo-mouse-pill,
   .exo-dc-item, .exo-dc-member, .exo-dc-server-name, .exo-dc-me-who, .exo-dc-input-btn, .exo-dc-new-bar-read,
-  .exo-music-row, .exo-music-recent-open, .exo-music-top-open, .exo-settings-nav button, .exo-dc-settings-nav button, .exo-dc-round-btn, .exo-dc-label-btn,
-  .exo-dc-active-card):active:not(:disabled) {
+  .exo-music-row, .exo-music-recent-open, .exo-music-top-open, .exo-settings-nav button, .exo-dc-settings-nav button, .exo-dc-round-btn, .exo-dc-label-btn):active:not(:disabled) {
   background-color: var(--exo-pressed);
   box-shadow: var(--exo-rim-pressed);
 }
@@ -1229,63 +1215,6 @@
 .exo-pc-hero-wait {
   width: min(100%, 520px);
   margin-top: 24px;
-}
-
-/* Overview's rows, one per page: the page list's glyph tile, its name over where it stands, its state at the right
-   and the chevron; the row lifts under the pointer as a list row does. */
-.exo-pc-links {
-  gap: 2px;
-  padding: 8px;
-}
-
-.exo-pc-link {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: 100%;
-  min-height: 62px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: var(--exo-card-radius);
-  background: transparent;
-  color: var(--color-fg);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 120ms var(--ease-out);
-}
-
-.exo-pc-link:hover { background: var(--hover-fill); }
-.exo-pc-link:active { background: var(--exo-pressed); }
-
-.exo-pc-link:focus-visible {
-  outline: 2px solid var(--color-fg);
-  outline-offset: -2px;
-}
-
-.exo-pc-link-text {
-  display: grid;
-  flex: 1;
-  gap: 3px;
-  min-width: 0;
-}
-
-.exo-pc-link-label {
-  font-size: calc(13px * var(--exo-scale, 1));
-  font-weight: 500;
-}
-
-.exo-pc-link-line {
-  overflow: hidden;
-  color: var(--color-muted);
-  font-size: calc(12px * var(--exo-scale, 1));
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.exo-pc-link-go {
-  flex: none;
-  color: var(--color-faint);
 }
 
 .exo-system-panel {

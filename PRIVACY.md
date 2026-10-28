@@ -47,7 +47,7 @@ What you type in the Bar when it isn't an address goes to the search engine you 
 
 ### Site icons
 
-For your bookmarks and most visited sites, Exo Browser asks each site for its large icon (`/apple-touch-icon.png`, or the icon the page names). These requests go to that site only, through Windows' own download service, so their address lookups use your PC's usual DNS rather than Cloudflare.
+For your bookmarks and most visited sites, Exo Browser asks each site for its large icon (`/apple-touch-icon.png`, or the icon the page names). These requests go to that site, or to the address its own page names for its icon (often the site's own image server), over HTTPS only, through Windows' own download service, so their address lookups use your PC's usual DNS rather than Cloudflare.
 
 ### Sites you follow in live folders
 

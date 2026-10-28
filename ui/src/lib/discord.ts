@@ -168,8 +168,7 @@ export type DiscordChannel = {
 export type DiscordVoiceMember = { id: string; name: string; avatar: string | null; look?: DiscordLook | null; mute: boolean; deaf: boolean; video?: boolean; stream?: boolean; serverMute?: boolean; serverDeaf?: boolean }
 /** message: why the call ended on its own (a join Discord never answered, a connection that gave up). */
 export type DiscordVoice = { state: 'off' | 'connecting' | 'connected'; guildId: string | null; channelId: string | null; muted: boolean; deafened: boolean; e2ee: boolean; micSilent?: boolean
-  /** Only My Voice held back the user's own speech and stopped holding back for this call. */
-  myVoiceStopped?: boolean; message?: string | null; ringing?: string | null; recorded?: boolean }
+  message?: string | null; ringing?: string | null; recorded?: boolean }
 export type DiscordChannels = {
   name: string | null
   channels: DiscordChannel[]
@@ -577,9 +576,10 @@ export type DiscordFriend = {
   dmId?: string | null
 }
 /** An activity as Discord's Active Now shows it. */
-/** end: when it ends (a song); url: a stream's page; syncId: Spotify's track; album: the big picture's words (Spotify's album). */
+/** end: when it ends (a song); url: a stream's page; syncId: Spotify's track; album: the big picture's words (Spotify's album);
+    uri: the song on its own service (spotify:track:, ytm:track:, am:songs:), only from a call song. */
 export type DiscordRich = { type: number; name: string; details?: string | null; state?: string | null; start?: number | null; image?: string | null
-  end?: number | null; url?: string | null; syncId?: string | null; album?: string | null }
+  end?: number | null; url?: string | null; syncId?: string | null; album?: string | null; uri?: string | null }
 export type DiscordMemberItem =
   | { group: string; count: number }
   | { id: string; name: string; avatar: string | null; color: string | null; bot: boolean; status: string; activity?: string | null; look?: DiscordLook | null; owner?: boolean; boosting?: string | null
@@ -634,6 +634,9 @@ export type DiscordProfileExtras = {
   relationship?: number
 }
 export type DiscordPresence = { userId: string; status: string; activity?: string | null; activityType?: number | null; rich?: DiscordRich | null }
+/** What someone in your call plays in their Exo, through Exo's call relay (never Discord): a Listening activity, or none
+    (rich null; paused: their song is paused rather than gone). */
+export type DiscordCallSong = { userId: string; name: string; avatar: string | null; rich: DiscordRich | null; paused: boolean }
 
 /** The id just before this one: Mark Unread reads up to it. */
 export function idBefore(id: string): string {

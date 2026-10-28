@@ -35,8 +35,8 @@ const watchers = new Set<() => void>()
 let seq = 0
 let lastPress: { at: Element; time: number } | null = null
 
-/** Belong to no layer: tooltips, toasts and notices float over everything; window buttons act on the window. */
-const FREE = '[role="tooltip"], .exo-notices, .exo-winbtn'
+/** Belong to no layer: tooltips, toasts, notices and the stream's mini player float over everything; window buttons act on the window. */
+const FREE = '[role="tooltip"], .exo-notices, .exo-mini-stream, .exo-winbtn'
 /** A press this recent opened the layer that registers now: its popup button is the layer's trigger. */
 const OPENER_MS = 1000
 const TRIGGER = '[aria-expanded], [aria-pressed], [aria-haspopup]'

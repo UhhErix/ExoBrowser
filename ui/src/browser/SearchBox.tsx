@@ -17,7 +17,7 @@ import { newFolder } from './Folders'
 type Mode = 'edit' | 'palette' | 'ntp' | 'new'
 type Row =
   | { group: string }
-  | { kind: 'go'; Icon: I.Icon; fav?: string; main: string; sub: string; url: string }
+  | { kind: 'go'; Icon: I.Icon; fav?: string; main: string; sub: string; url: string; archived?: number }
   | { kind: 'tab'; id: number; Icon: I.Icon; fav?: string; main: string; sub: string }
   | { kind: 'cmd'; Icon: I.Icon; main: string; run: () => void }
 
@@ -89,7 +89,8 @@ function commandRows(text: string, b: Searched): Row[] {
 // Tabs the archive closed, found by what's typed (not ones open again).
 function archivedRows(text: string, b: Searched, open: Set<string>): Row[] {
   const found = b.archive.filter(a => !open.has(a[0])).map(a => ({ a, s: matchScore(`${a[1]} ${bare(a[0])}`, text) })).filter(x => x.s > 0).slice(0, 3)
-  return found.length ? [{ group: 'Archived' }, ...found.map(({ a }) => ({ kind: 'go' as const, Icon: I.Archive, main: a[1] || hostOf(a[0]), sub: bare(a[0]), url: a[0] }))] : []
+  // Chosen, it comes back as the tab it was, in the space it left, and leaves the archive.
+  return found.length ? [{ group: 'Archived' }, ...found.map(({ a }) => ({ kind: 'go' as const, Icon: I.Archive, main: a[1] || hostOf(a[0]), sub: bare(a[0]), url: a[0], archived: a[2] }))] : []
 }
 
 // Searching one site (its chip in the field): what's typed searches it, its pages from history under that.
@@ -235,6 +236,7 @@ function Panel({ controller, mode }: { controller: ReturnType<typeof useSearch>;
     if (r.kind === 'tab') { send('activate', r.id); controller.close(); return }
     if (r.kind === 'cmd') { controller.close(); r.run(); return }
     controller.close()
+    if (r.archived) { send('archiveOpen', r.url, r.archived); return }
     send('navigate', r.url, newTab || mode === 'palette' || mode === 'new' ? 'new' : 'current')
   }
   // Typing the start of a site you visit fills in the rest, selected.

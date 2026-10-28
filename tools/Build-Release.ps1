@@ -17,6 +17,9 @@ $version = (Get-Content VERSION -Raw).Trim()
 $whatsNew = @(Get-Content ui\src\browser\whatsNew.json -Raw | ConvertFrom-Json) | Where-Object version -EQ $version | Select-Object -First 1
 if (-not $whatsNew) { throw "ui\src\browser\whatsNew.json has no entry for $version." }
 
+# What leaves the PC is what PRIVACY.md says: every request the browser makes itself asks its one checkpoint first.
+node (Join-Path $repo 'tools\privacy-check.mjs')
+if ($LASTEXITCODE) { throw 'PRIVACY.md and the places Exo Browser connects to disagree (tools\privacy-check.mjs).' }
 & (Join-Path $repo 'build.cmd')
 if ($LASTEXITCODE) { throw "Browser build failed ($LASTEXITCODE)." }
 

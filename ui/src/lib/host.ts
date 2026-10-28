@@ -3,7 +3,7 @@ import type { AppUpdateResponse } from './hostWire'
 import { report } from './report'
 import type { MatchSong, MusicPlayback, MusicService, MusicAction } from './music'
 import type { PlayerAction, PlayerActOptions, PlayerRoomState, PlayerView, PlayerViewData, PlayerViewOptions } from './player'
-import type { DiscordChannel, DiscordChannels, DiscordPlace, DiscordEvent, DiscordGuide, DiscordInvite, DiscordMemberSearch, DiscordResource, DiscordRole, DiscordUser, DiscordEmojis, DiscordFriend, DiscordRestricted, DiscordRoleIcon, DiscordSavedMessage, DiscordGif, DiscordFavoriteGif, DiscordMemberList, DiscordProfile, DiscordProfileExtras, DiscordGuildProfile, DiscordStickerGroup, DiscordThread, DiscordPresence, DiscordHome, DiscordReactionEvent, DiscordVoice, DiscordMessage, DiscordMessageEvent, DiscordSignInStep, DiscordState, DiscordStatus, DiscordUnread, DiscordNotice, DiscordForumTag, DiscordForYouItem, DiscordUnreadChannel, DiscordSearchFilters, DiscordShopCatalog, DiscordShopProduct, DiscordPaymentChoice, DiscordShopPrice, DiscordRailItem, DiscordThreadState } from './discord'
+import type { DiscordChannel, DiscordChannels, DiscordPlace, DiscordEvent, DiscordGuide, DiscordInvite, DiscordMemberSearch, DiscordResource, DiscordRole, DiscordUser, DiscordEmojis, DiscordFriend, DiscordRestricted, DiscordRoleIcon, DiscordSavedMessage, DiscordGif, DiscordFavoriteGif, DiscordMemberList, DiscordProfile, DiscordProfileExtras, DiscordGuildProfile, DiscordStickerGroup, DiscordThread, DiscordPresence, DiscordCallSong, DiscordHome, DiscordReactionEvent, DiscordVoice, DiscordMessage, DiscordMessageEvent, DiscordSignInStep, DiscordState, DiscordStatus, DiscordUnread, DiscordNotice, DiscordForumTag, DiscordForYouItem, DiscordUnreadChannel, DiscordSearchFilters, DiscordShopCatalog, DiscordShopProduct, DiscordPaymentChoice, DiscordShopPrice, DiscordRailItem, DiscordThreadState } from './discord'
 import type { CaptureExport, CaptureItem, CaptureSettings, CaptureState } from './capture'
 import type { NoteInfo } from './notes'
 import type { AccountSettings, DiscordAccount, DiscordAccountAction, DiscordClientSettings } from './discordPrefs'
@@ -268,7 +268,13 @@ export type VoiceStages = {
 }
 /** NVIDIA's noise removal on this PC: none (no RTX card, or its driver is too old), fetching it, or ready. */
 /** The live microphone: its level, the level the gate judged (after noise suppression), what was sent, and whether the gate is open. */
-export type MicLevel = { level: number; gateLevel: number; after: number; voiced: boolean; stages: VoiceStages }
+/**
+ * What the mic's own sound says, in whole dB: the voice as it comes in and the quiet between words (null until heard),
+ * whether it clips, is too quiet, is gated before Exo (digital silence between words) or already cleaned, and what Exo
+ * adds to it from a kept Voice Tune.
+ */
+export type MicHeard = { speechDb: number | null; quietDb: number | null; clipping: boolean; quiet: boolean; gated: boolean; cleaned: boolean; addedDb: number }
+export type MicLevel = { level: number; gateLevel: number; after: number; voiced: boolean; stages: VoiceStages; heard?: MicHeard }
 
 /** Something Go Live can share: a screen or an app's window, its picture and icon (data URLs), and the game it is, if one. */
 export type GoLiveSource = { id: string; kind: 'screen' | 'window'; title: string; app: string; icon?: string | null; thumb?: string | null; game?: string | null; height?: number }
@@ -559,7 +565,7 @@ export type GpuImportAnswer = {
 
 /** System > This PC: one row per setup problem (none when all is well); power switches to Exo's plan for cpu, with Undo; chipset Exo updates (busy while it installs, applied while it waits for a restart, url only after a failed install). */
 export type PcHealthItem = {
-  key: 'ram' | 'rebar' | 'power' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref'
+  key: 'ram' | 'rebar' | 'power' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref' | 'network' | 'netlink'
   label: string
   detail: string
   url?: string | null
@@ -979,6 +985,10 @@ export interface LauncherSettings {
   steamGridDbKeySet?: boolean
   /** True when an OpenXBL key (Xbox time played) is saved. The key itself never arrives. */
   openXblKeySet?: boolean
+  /** Exo's own Xbox sign-in is offered (this build carries its Microsoft client id). */
+  xboxSignInAvailable?: boolean
+  /** Signed in to Xbox with Exo's own sign-in; Xbox time played comes from Xbox itself. */
+  xboxSignedIn?: boolean
 }
 
 export type HoursRefresh = { ok: boolean; profilePrivate?: boolean; message?: string }
@@ -1377,6 +1387,8 @@ export interface HostEventMap {
   'discord.video': { source: 'call' | 'stream'; userId: string; active: boolean; state?: string }
   /** This client's own Go Live: connecting, live or off (with why, when it ended on its own). */
   'discord.golive': { state: 'connecting' | 'live' | 'off'; title?: string | null; message?: string | null }
+  /** Who watches this client's Go Live now (user ids, never yours): sent again whenever someone starts or stops watching. */
+  'discord.golive.viewers': { ids: string[] }
   /** Each second while live: the stream's picture size and what it really sends. */
   'discord.golive.stats': { width: number; height: number; fps: number; bitrate: number; max?: number; codec?: string }
   /** This client's camera: live (send frames) or off. */
@@ -1388,6 +1400,8 @@ export interface HostEventMap {
   'discord.video.frame': { source: 'call' | 'stream'; userId: string; timestamp: number; keyframe: boolean; bytes?: Uint8Array; data?: string; rotation?: number; flip?: boolean; codec?: 'h264' | 'h265' }
   'discord.call': { channelId: string; ringing: boolean }
   'discord.presence': DiscordPresence
+  /** Someone in your call's Exo song changed (Exo's call relay). */
+  'discord.callSong': DiscordCallSong
   /** The open server's member list changed, or member colors arrived. */
   'discord.members': { guildId: string }
   'discord.colors': { guildId: string }
@@ -1914,6 +1928,9 @@ export const host = {
   /** Reads one source's hours again: 'xbox' or a tracker game key. */
   playtimeRefresh: (source: string) =>
     rawCall<HoursRefresh>('playtime.refresh', { source }, 60_000),
+  /** Microsoft's link page in Exo's sign-in window (code filled in), then Xbox time played read at once. A code lasts 15 minutes. */
+  xboxSignIn: () => rawCall<HoursRefresh>('xbox.signIn', {}, 960_000),
+  xboxSignOut: () => rawCall<LauncherSettings>('xbox.signOut'),
   minimize: () => rawCall<{ ok: boolean }>('shell.minimize'),
   maximize: () => rawCall<{ ok: boolean; maximized?: boolean }>('shell.maximize'),
   windowState: () => rawCall<{ ok: boolean; maximized?: boolean }>('shell.windowState'),
@@ -2035,6 +2052,8 @@ export const host = {
   discordDecline: (channelId: string) => rawCall<{ ok: boolean; message?: string | null }>('discord.ring', { channelId, decline: true }),
   /** Friends and requests; restricted: the people you blocked and ignored. */
   discordFriends: () => rawCall<{ friends: DiscordFriend[]; restricted?: { blocked: DiscordRestricted[]; ignored: DiscordRestricted[] } | null }>('discord.friends', {}),
+  /** What the Exo apps in your call play now (Exo's call relay), for a page that opens mid-call. */
+  discordCallSongs: () => rawCall<{ songs: DiscordCallSong[] }>('discord.callSongs', {}),
   /**
    * Add or accept by id (accept), ignore, cancel, unblock or remove (remove), add by username, block, ignore and unignore,
    * open a DM (answers its channel id), or the relationship as Discord sent it (state: 0 none, 1 friends, 2 blocked,
@@ -2250,7 +2269,7 @@ export const host = {
   gpuImport: (action: 'pick' | 'apply' | 'undo' | 'cancel' | 'state') =>
     rawCall<GpuImportAnswer>('gpu.import', { action }, action === 'pick' ? 10 * 60_000 : 30_000),
   /** System > This PC: the checks; apply or undo AMD's power plan tuning; gamemode and gpusched open Windows' Game Mode and Graphics settings. */
-  systemHealth: (action?: 'apply' | 'undo' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref' | 'gpupref-undo') => rawCall<PcHealth>('system.health', action ? { action } : {}, 35_000),
+  systemHealth: (action?: 'apply' | 'undo' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref' | 'gpupref-undo' | 'network' | 'network-undo') => rawCall<PcHealth>('system.health', action ? { action } : {}, 35_000),
   /** PC › Overview: what this PC is (processor, memory, drives, board, BIOS, Windows, security, connection). */
   systemAbout: () => rawCall<PcAbout>('system.about', {}, 15_000),
   /** System > This PC > Interrupts: the devices; apply switches every one that can to MSI mode, undo puts all back, revert one. Waits on Windows' permission prompt. */

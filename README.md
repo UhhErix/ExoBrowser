@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.3">What's new in 1.1.3</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.4">What's new in 1.1.4</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.3/ExoBrowser-Setup.exe) | 1.1.3 | `d88aaf82ba6105a38df5c868734f80a58343ede82b4364f5970e31649421c45e` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.1.4/ExoBrowser-Setup.exe) | 1.1.4 | `c2478516ee17b26d0245bb73b2e8ac10db435fe048212519b283f37b6287c034` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.3):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.1.4):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -86,7 +86,7 @@ A password manager in the browser, with everything kept on this PC:
 - **Split view and Peek:** up to four tabs side by side (Ctrl+Shift+=), or Shift+click a link to read it in a card over the page and Ctrl+O to keep it as a tab.
 - **Private tabs:** Ctrl+Shift+N opens a tab whose cookies and sign-ins stay apart from your other tabs and are gone when the last private tab closes. Nothing it visits reaches your history.
 - **Ctrl+Tab in the order you used tabs,** as Alt+Tab does with windows.
-- **Archive tabs** (off by default) closes tabs you haven't opened in a while into an archive that Search still finds.
+- **Archive tabs** (off by default) closes tabs you haven't opened in a while into an archive you can browse in Settings and Search, while each space keeps its five newest tabs and **Keep this tab** keeps any one of them for good.
 - **Little Exo:** links from your other apps can open in a small window of their own; Ctrl+O moves one into your tabs.
 
 ![Split view: NASA's Webb page beside Wikipedia's article on web browsers](docs/media/split.jpg)

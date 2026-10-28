@@ -370,6 +370,11 @@ function TabButton({ tab, className, drag, depth = 0, hidden }: { tab: Tab; clas
         </button>
       ) : <Favicon tab={tab} />}
       <span className="exb-tab-title">{tabTitle(tab)}</span>
+      {tab.kept && !tab.pinned ? (
+        <button type="button" data-act="" className="exb-tab-act exb-tab-kept" aria-label="Stop keeping this tab" onClick={e => { e.stopPropagation(); send('keep', tab.id) }}>
+          <I.Lock size={13} />
+        </button>
+      ) : null}
       {tab.audible || tab.muted ? (
         <button type="button" data-act="" className="exb-tab-act" aria-label={tab.muted ? 'Unmute' : 'Mute'} onClick={e => { e.stopPropagation(); send('mute', tab.id) }}>
           {tab.muted ? <I.VolumeOff size={14} /> : <I.Volume size={14} />}

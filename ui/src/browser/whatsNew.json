@@ -1,5 +1,30 @@
 [
   {
+    "version": "1.1.4",
+    "items": [
+      {
+        "icon": "Lock",
+        "title": "Keep this tab",
+        "detail": "Right-click a tab to keep it: it is never archived or put to sleep, so a chat or a player stays live."
+      },
+      {
+        "icon": "Archive",
+        "title": "An archive you can browse",
+        "detail": "Settings › Archive lists the tabs it closed, to open again in the space they left or remove."
+      },
+      {
+        "icon": "Clock",
+        "title": "Archive after an hour",
+        "detail": "Archive tabs can wait as little as an hour, and each space always keeps its five newest tabs."
+      },
+      {
+        "icon": "Shield",
+        "title": "One checkpoint for what leaves your PC",
+        "detail": "Everything Exo Browser fetches on its own goes only where its privacy policy says."
+      }
+    ]
+  },
+  {
     "version": "1.1.3",
     "items": [
       {
