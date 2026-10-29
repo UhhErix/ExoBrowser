@@ -1,10 +1,13 @@
 name: Discord release announcement
 
 # Keeps exactly one release card per Discord releases channel: when a release is
-# published (stable or pre-release), posts the branded card for it, deletes the
-# previous card, and stores the new Discord message id as a workflow artifact
-# for the next run. Run manually with dry_run=true to preview the payload built
-# from the latest release, or dry_run=false to perform the same replace.
+# published (stable or pre-release), posts the card for it (the app's icon, its
+# What's New, Download and the release's hero picture), deletes the previous
+# card, and stores the new Discord message id as a workflow artifact for the
+# next run. Run manually with dry_run=true to preview the payload built from the
+# latest release, or dry_run=false to perform the same replace.
+# Exo Launcher, Exo Cinema and Exo Browser run this same file: only PRODUCT and
+# APP below differ.
 
 on:
   release:
@@ -15,6 +18,10 @@ on:
         description: Build the payload from the latest release and print it instead of posting
         type: boolean
         default: true
+      ping:
+        description: Mention the release role (a published release always does)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,8 +32,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PRODUCT: Exo Browser
-  AVATAR_FILE: exo-browser-avatar.png
+  PRODUCT: "Exo Browser"
+  # getexo.app/<APP> and .github/discord/exo-<APP>-avatar.png
+  APP: browser
   ASSET_DIR: .github/discord
   STATE_ARTIFACT: discord-last-release-message
 
@@ -77,53 +85,118 @@ jobs:
 
       - name: Build payload
         env:
-          ROLE_ID: ${{ vars.DISCORD_RELEASE_ROLE_ID }}
+          ROLE_ID: ${{ (github.event_name == 'release' || inputs.ping) && vars.DISCORD_RELEASE_ROLE_ID || '' }}
         run: |
           set -euo pipefail
+          python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/payload.json" <<'PY'
+          import json, os, re, sys, urllib.request
+
+          r = json.load(open(sys.argv[1], encoding="utf-8"))
+          product, app, repo = os.environ["PRODUCT"], os.environ["APP"], os.environ["GITHUB_REPOSITORY"]
+          tag, page, body = r["tag_name"], r["html_url"], (r.get("body") or "").replace("\r\n", "\n")
+          version, pre = tag.removeprefix("v"), r.get("prerelease") is True
+          raw, site = f"https://raw.githubusercontent.com/{repo}", "https://getexo.app"
+          IMAGE = r"\.(?:jpe?g|png|webp|gif)(?:\?[^\s)\"]*)?"
+
+          def warn(text):
+              print(f"::warning::{text}")
+
+          def fetch(url, method="GET"):
+              req = urllib.request.Request(url, method=method, headers={"User-Agent": "exo-release-card"})
+              with urllib.request.urlopen(req, timeout=20) as res:
+                  return res.headers.get("Content-Type", ""), res.read()
+
+          def image(url):
+              """The URL when it answers as a picture; Discord draws a broken one (or the default avatar) otherwise."""
+              try:
+                  kind = fetch(url, "HEAD")[0]
+              except Exception as e:
+                  return warn(f"{url} did not load ({e}).")
+              return url if kind.startswith("image/") else warn(f"{url} is {kind or 'not a picture'}.")
+
+          def md(text):
+              """One line of plain words, safe from Discord markdown."""
+              text = re.sub(r"([\\*_~`|\[\]])", r"\\\1", " ".join(str(text).split()))
+              return re.sub(r"^([#>-]|\d+\.)", r"\\\1", text)
+
+          def asset(test):
+              return next((a for a in r.get("assets") or [] if test(a.get("name", "").lower())), None)
+
+          # What's New: the items the app shows for this version (Build-Release's whats-new.json), a few at most.
+          items = []
+          if wn := asset(lambda n: n == "whats-new.json"):
+              try:
+                  data = json.loads(fetch(wn["browser_download_url"])[1])
+                  if str(data.get("version")) == version:
+                      items = [i for i in data.get("items") or [] if isinstance(i, dict) and str(i.get("title") or "").strip()]
+                  else:
+                      warn(f"whats-new.json is for {data.get('version')}, not {version}.")
+              except Exception as e:
+                  warn(f"Could not read whats-new.json ({e}).")
+          blocks = [f"**{md(i['title'])}**\n{md(i.get('detail') or '')}".strip() for i in items[:3]]
+          if not blocks:  # else the release's opening paragraph
+              intro = next((p.strip() for p in body.split("\n\n") if p.strip() and not re.match(r"\s*[#!<>|*_-]", p)), "")
+              blocks = [" ".join(intro.split())[:1000] or f"A new version of {product} is out."]
+          download = page if pre else f"{site}/{app}"
+          links = [f"**[Download]({download})**"] + ([] if pre else [f"[All changes]({page})"]) + [f"[getexo.app]({site})"]
+
+          # The hero: the release's first picture (its hero at the tag), else README's first picture at the tag.
+          hero = None
+          if m := re.search(r"!\[[^\]]*\]\((https://[^\s)]+?" + IMAGE + r")\)", body):
+              hero = m.group(1)
+          else:
+              try:
+                  readme = fetch(f"{raw}/{tag}/README.md")[1].decode("utf-8", "replace")
+                  hero = next((f"{raw}/{tag}/{p.removeprefix('./')}" for p in re.findall(r"!\[[^\]]*\]\(([^\s)]+?" + IMAGE + r")\)", readme)
+                               if not re.match(r"[a-z]+:|/", p) and "logo" not in p.rsplit("/", 1)[-1]), None)
+              except Exception as e:
+                  warn(f"Could not read README.md at {tag} ({e}).")
+          hero = hero and image(hero)
+
+          # Exo's own size format (formatSize in Exo Launcher's ui/src/lib/utils.ts).
+          footer = ["Exo", "Windows 11"]
+          if setup := asset(lambda n: n.endswith("-setup.exe")):
+              n = setup["size"]
+              footer.append(f"{n / 1024**3:.1f} GB" if n >= 1024**3 else f"{int(n / 1024**2 + 0.5)} MB")
+
+          role = re.sub(r"\s", "", os.environ.get("ROLE_ID") or "")
+          if role and not re.fullmatch(r"[0-9]{17,20}", role):
+              warn("Variable DISCORD_RELEASE_ROLE_ID is not a Discord snowflake; posting without a role mention.")
+              role = ""
           # ?v= busts Discord's image-proxy cache when the avatar file changes.
-          icon_url="https://raw.githubusercontent.com/$GITHUB_REPOSITORY/main/$ASSET_DIR/$AVATAR_FILE?v=${GITHUB_SHA:0:12}"
-          role="${ROLE_ID:-}"
-          role="${role//[[:space:]]/}"
-          if [[ -n "$role" && ! "$role" =~ ^[0-9]{17,20}$ ]]; then
-            echo "::warning::Variable DISCORD_RELEASE_ROLE_ID is not a Discord snowflake; posting without a role mention."
-            role=""
-          fi
+          avatar = f"{raw}/main/{os.environ['ASSET_DIR']}/exo-{app}-avatar.png?v={os.environ['GITHUB_SHA'][:12]}"
+          image(avatar)
+          # Exo's family mark (M3 Bracket) beside "Exo": the one in Exo Launcher's repo serves all three.
+          mark = image("https://raw.githubusercontent.com/UhhErix/ExoLauncher/main/.github/discord/exo-logo-512.png")
+          embed = {
+              "color": 0x010101,  # Void black; Discord draws 0 as no color
+              "title": f"{product} {version}" + (" (pre-release)" if pre else ""),
+              "url": page,
+              "description": "\n\n".join(blocks + [" · ".join(links)]),
+              "footer": {"text": " · ".join(footer), **({"icon_url": mark} if mark else {})},
+              "timestamp": r.get("published_at") or r.get("created_at"),
+          }
+          if hero:
+              embed["image"] = {"url": hero}
           # Discord blocks phantom pings: <@&id> has to be in content on POST
           # (flags 4096 = silent). The post step immediately clears content
           # so the card is embed-only — spoilers and ZWSP still leave a line.
-          jq -n \
-            --arg product "$PRODUCT" \
-            --arg icon "$icon_url" \
-            --arg role "$role" \
-            --slurpfile rel "$RUNNER_TEMP/release.json" '
-            $rel[0] as $r
-            | ($r.prerelease == true) as $pre
-            | {
-                username: "\($product) Releases",
-                avatar_url: $icon,
-                content: (if $role != "" then "<@&\($role)>" else "" end),
-                allowed_mentions: (if $role != "" then { parse: [], roles: [$role] } else { parse: [] } end),
-                flags: 4096,
-                embeds: [
-                  {
-                    color: 1118740,
-                    title: ("\($product) \($r.tag_name)" + (if $pre then " (Pre-release)" else "" end))[0:256],
-                    url: $r.html_url,
-                    description: "A new version of \($product) is out. The full changelog is built into the app.",
-                    fields: [
-                      {
-                        name: "Channel",
-                        value: (if $pre then "Pre-release" else "Stable" end),
-                        inline: true
-                      }
-                    ],
-                    footer: { text: "Exo", icon_url: $icon },
-                    timestamp: ($r.published_at // $r.created_at)
-                  }
-                ]
-              }
-            | if .content == "" then del(.content) else . end' > "$RUNNER_TEMP/payload.json"
-          jq -e '.embeds | length == 1' "$RUNNER_TEMP/payload.json" > /dev/null
+          payload = {
+              "username": f"{product} Releases",
+              "avatar_url": avatar,
+              **({"content": f"<@&{role}>"} if role else {}),
+              "allowed_mentions": {"parse": [], **({"roles": [role]} if role else {})},
+              "flags": 4096,
+              "embeds": [embed],
+          }
+
+          # Discord's limits: title 256, description 4096, footer 2048, all of an embed's text 6000, username 80.
+          sizes = {k: len(embed[k]) for k in ("title", "description")} | {"footer": len(embed["footer"]["text"])}
+          if sizes["title"] > 256 or sizes["description"] > 4096 or sizes["footer"] > 2048 or sum(sizes.values()) > 6000 or len(payload["username"]) > 80:
+              sys.exit(f"::error::The card is over Discord's limits: {sizes}.")
+          json.dump(payload, open(sys.argv[2], "w", encoding="utf-8"), ensure_ascii=False)
+          print(f"Card: {embed['title']}; {min(len(items), 3)} of {len(items)} What's New items; picture {hero or 'none'}; footer {embed['footer']['text']}.")
+          PY
 
       - name: Load previous card id
         id: prev
@@ -195,17 +268,29 @@ jobs:
             printf 'url = "%s%s%s"\n' "$base" "$suffix" "${q:+?$q}" | curl -sS -K - -X "$method" \
               -o "$RUNNER_TEMP/discord-response.json" -w '%{http_code}' "$@"
           }
-          code="$(discord POST "" "wait=true" -H "Content-Type: application/json" --data-binary "@$payload")"
-          if [[ "$code" != 2* ]]; then
-            echo "::error::Discord webhook returned HTTP $code."
-            jq -c '{code, message, errors}' "$RUNNER_TEMP/discord-response.json" 2>/dev/null || true
-            exit 1
-          fi
-          new_id="$(jq -r '.id // empty' "$RUNNER_TEMP/discord-response.json")"
-          if [[ ! "$new_id" =~ ^[0-9]{17,20}$ ]]; then
-            echo "::error::Discord did not return a message id."
-            exit 1
-          fi
+          # Discord fetches avatar_url once, as it posts, and a card it couldn't fetch it for keeps
+          # the webhook's default avatar for good (Exo Cinema 1.3.0's did): post that card again.
+          for try in 1 2 3; do
+            code="$(discord POST "" "wait=true" -H "Content-Type: application/json" --data-binary "@$payload")"
+            if [[ "$code" != 2* ]]; then
+              echo "::error::Discord webhook returned HTTP $code."
+              jq -c '{code, message, errors}' "$RUNNER_TEMP/discord-response.json" 2>/dev/null || true
+              exit 1
+            fi
+            new_id="$(jq -r '.id // empty' "$RUNNER_TEMP/discord-response.json")"
+            if [[ ! "$new_id" =~ ^[0-9]{17,20}$ ]]; then
+              echo "::error::Discord did not return a message id."
+              exit 1
+            fi
+            [[ -n "$(jq -r '.author.avatar // empty' "$RUNNER_TEMP/discord-response.json")" ]] && break
+            if [[ "$try" == 3 ]]; then
+              echo "::warning::Discord did not take the avatar in 3 tries; card $new_id shows the webhook's own."
+              break
+            fi
+            echo "Discord did not take the avatar (try $try); posting the card again."
+            discord DELETE "/messages/$new_id" "" > /dev/null || true
+            sleep 10
+          done
           echo "Posted release card (HTTP $code, message id $new_id)."
           echo "message_id=$new_id" >> "$GITHUB_OUTPUT"
           mkdir -p "$RUNNER_TEMP/state"
