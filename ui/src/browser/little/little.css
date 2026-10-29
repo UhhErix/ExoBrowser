@@ -1,9 +1,0 @@
-/* Little Exo's strip: where the page is on the left, Copy link and Open in Exo Browser on the right, a hairline under. */
-
-html, body, #root { height: 100%; margin: 0; overflow: hidden; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-sans); }
-.exb-little { box-sizing: border-box; height: 100%; display: flex; align-items: center; gap: 6px; padding: 0 8px 0 14px; border-bottom: 1px solid var(--exo-float-line); user-select: none; }
-.exb-little-where { min-width: 0; flex: 1; display: flex; align-items: center; gap: 8px; font-size: calc(13px * var(--exo-scale, 1)); font-weight: 500; }
-.exb-little-icon { flex: none; color: var(--color-muted); transition: opacity var(--dur-base) var(--ease-out); }
-.exb-little-where.is-loading .exb-little-icon { opacity: 0.4; }
-.exb-little-host { flex: none; color: var(--color-fg); }
-.exb-little-path { min-width: 0; overflow: hidden; color: var(--color-muted); white-space: nowrap; text-overflow: ellipsis; }

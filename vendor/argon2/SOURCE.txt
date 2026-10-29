@@ -1,6 +1,0 @@
-Argon2 reference implementation (the Password Hashing Competition winner), release 20190702
-Source: https://github.com/P-H-C/phc-winner-argon2/archive/refs/tags/20190702.tar.gz
-Tarball SHA-256: daf972a89577f8772602bf2eb38b6a3dd3d922bf5724d45e7f9589b5e830442c
-Files: the shared code with the SSE2 build (opt.c, blake2/blamka-round-opt.h), copied unmodified; the portable build
-(ref.c) is kept beside it, unused. License: CC0 1.0 or Apache 2.0 (LICENSE).
-Exo Vault derives its key from your master password with Argon2id.

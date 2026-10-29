@@ -1,2 +1,0 @@
-TTV LOL PRO 2.6.2 (GPL-3.0), https://github.com/younesaassila/ttv-lol-pro
-The Chrome Web Store build (bpaoeijjlplfjbagceilcgbkcdjbomjd), unmodified. tools/build-shield.mjs merges it into Exo Shield.

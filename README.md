@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.3.1">What's new in 1.3.1</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.0">What's new in 1.4.0</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.3.1/ExoBrowser-Setup.exe) | 1.3.1 | `31cfd7a08cb29e3cc1ecfc394fcf027e7f6b76b50c39ffe1bd0795d6cc86743b` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.0/ExoBrowser-Setup.exe) | 1.4.0 | `1e1accd2fce0117518c36a0dec80718b9362292de32d723e725ee76249d1c197` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.3.1):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.0):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -57,7 +57,7 @@ Exo Shield blocks before anything loads, on every site:
 
 It's locked on: it has no settings, can't be turned off or removed, and every start puts its rules back exactly. It runs in private tabs too. Settings > About lists its parts and when its lists were built.
 
-**Check it yourself.** Exo Shield is uBlock Origin Lite 2026.1026.1812, TTV LOL PRO 2.6.2 and HaGeZi's Multi PRO list, merged into one extension. Its lists ship with the browser, so it fetches nothing to block. Everything it runs is in [`extensions/exo-shield`](extensions/exo-shield), built by [`tools/build-shield.mjs`](tools/build-shield.mjs), and [`NOTICE.txt`](extensions/exo-shield/NOTICE.txt) lists every change from the upstream projects. The HaGeZi ruleset in this release holds 210,731 domains ([`hagezi-pro.json`](extensions/exo-shield/hagezi-pro.json)).
+**Check it yourself.** Exo Shield is uBlock Origin Lite 2026.1026.1812, TTV LOL PRO 2.6.2 and HaGeZi's Multi PRO list, merged into one extension. Its lists ship with the browser, so it fetches nothing to block. Everything it runs, and the script that builds it, is public in [UhhErix/exo-shield](https://github.com/UhhErix/exo-shield), where `NOTICE.txt` lists every change from the upstream projects. The HaGeZi ruleset in this release holds 211,671 domains. What Exo Browser itself sends is in the [privacy policy](PRIVACY.md).
 
 ## Exo Vault
 
@@ -75,7 +75,7 @@ A password manager in the browser, with everything kept on this PC:
 > [!IMPORTANT]
 > Nobody can reset your master password, Exo included. Pick one you'll remember.
 
-**How it's protected.** The vault is one file on your PC. Its key is random and never written in the clear: it's wrapped by a key derived from your master password with Argon2id (256 MiB of memory, 4 passes, 4 lanes) and, if you choose, by Windows Hello. Items are encrypted with AES-256-GCM through Windows' CNG. Each save goes to a temporary file that is swapped in, with the previous save kept as a backup. Decrypted items live only in the vault's page while it's open. The details are in [SECURITY.md](SECURITY.md), and the code is in [`src/vault.cpp`](src/vault.cpp).
+**How it's protected.** The vault is one file on your PC. Its key is random and never written in the clear: it's wrapped by a key derived from your master password with Argon2id (256 MiB of memory, 4 passes, 4 lanes) and, if you choose, by Windows Hello. Items are encrypted with AES-256-GCM through Windows' CNG. Each save goes to a temporary file that is swapped in, with the previous save kept as a backup. Decrypted items live only in the vault's page while it's open. The details are in [SECURITY.md](SECURITY.md).
 
 ## Tabs your way
 
@@ -117,7 +117,6 @@ Exo Browser is a native Windows app (C++) built on Microsoft Edge WebView2, the 
 
 - **Its own interface:** the Bar, new tab page, Settings and Exo Vault are Exo Browser's own pages, in their own profile with no extensions and no access to the web.
 - **Exo Shield** and **Exo Vault** work as described above.
-- **Building it:** [docs/DEVELOPING.md](docs/DEVELOPING.md) says how the source fits together and how to build it.
 
 ## Privacy and safety
 
@@ -128,18 +127,16 @@ Exo Browser is a native Windows app (C++) built on Microsoft Edge WebView2, the 
 
 ## Contributing
 
-Bug reports, fixes and clearer wording are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first: it explains what you agree to when you send a change, since Exo Browser isn't open source.
+Bug reports, sites that break, ideas and clearer wording for the help are welcome as issues. [CONTRIBUTING.md](CONTRIBUTING.md) says how, and what you agree to when you send one.
 
 ## License
 
-Exo Browser is **source-available and free for personal use**. It is not open source. The full terms are in [LICENSE](LICENSE); this is a plain summary, and LICENSE wins if they differ.
+Exo Browser is **free for personal use; the source isn't published**. The full terms are in [LICENSE](LICENSE); this is a plain summary, and LICENSE wins if they differ.
 
 | You can | You need written permission to |
 | --- | --- |
-| Download, install and run the official app on your devices | Copy, fork outside GitHub, mirror or redistribute the source |
-| Read the source to see what Exo Browser does | Publish, sell or rebrand a changed version |
-| Build it and run it on your own devices to check it against the release | |
-| Send fixes as pull requests ([CONTRIBUTING.md](CONTRIBUTING.md)) | |
+| Download, install and run the official app on your devices | Copy, redistribute, resell or rebrand the app; reverse engineer it |
+| Send bugs and ideas as issues ([CONTRIBUTING.md](CONTRIBUTING.md)) | |
 
 To ask for permission, [open an issue](https://github.com/UhhErix/ExoBrowser/issues). The app is provided as is, without warranty, including for the loss of passwords or other data kept in Exo Vault.
 

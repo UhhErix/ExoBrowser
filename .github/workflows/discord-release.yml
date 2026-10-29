@@ -90,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/payload.json" <<'PY'
-          import json, os, re, sys, urllib.request
+          import hashlib, json, os, re, sys, urllib.request
 
           r = json.load(open(sys.argv[1], encoding="utf-8"))
           product, app, repo = os.environ["PRODUCT"], os.environ["APP"], os.environ["GITHUB_REPOSITORY"]
@@ -116,9 +116,14 @@ jobs:
           if role and not re.fullmatch(r"[0-9]{17,20}", role):
               warn("Variable DISCORD_RELEASE_ROLE_ID is not a Discord snowflake; posting without a role mention.")
               role = ""
-          # ?v= busts Discord's image-proxy cache when the avatar file changes.
-          avatar = f"{raw}/main/{os.environ['ASSET_DIR']}/exo-{app}-avatar.png?v={os.environ['GITHUB_SHA'][:12]}"
-          image(avatar)
+          # ?v= is the picture's own hash: it changes only when the avatar does, so Discord keeps the copy it already
+          # fetched (a new address every commit made its first fetch fail, and the post went up with the default avatar).
+          avatar = f"{raw}/main/{os.environ['ASSET_DIR']}/exo-{app}-avatar.png"
+          try:
+              with urllib.request.urlopen(urllib.request.Request(avatar, headers={"User-Agent": "exo-release-card"}), timeout=20) as res:
+                  avatar += "?v=" + hashlib.sha256(res.read()).hexdigest()[:12]
+          except Exception as e:
+              warn(f"{avatar} did not load ({e}).")
           # Exo's family mark (M3 Bracket) beside "Exo": the one in Exo Launcher's repo serves all three.
           mark = image("https://raw.githubusercontent.com/UhhErix/ExoLauncher/main/.github/discord/exo-logo-512.png")
           embed = {

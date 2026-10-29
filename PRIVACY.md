@@ -64,7 +64,7 @@ Opening the Chrome Web Store is a visit to Google's site. When you add an extens
 
 ### Microsoft
 
-Exo Browser runs on Microsoft Edge WebView2, part of Windows. WebView2 updates itself and its components through Microsoft, and may send diagnostic data according to your Windows privacy settings. Exo Browser turns off Microsoft Defender SmartScreen's address checks, so the pages you open are not checked with Microsoft; Exo Shield's malware lists block known bad sites instead. If WebView2 is missing, Setup downloads Microsoft's installer from `go.microsoft.com` and checks Microsoft's signature on it.
+Exo Browser runs on Microsoft Edge WebView2, part of Windows. WebView2 updates itself and its components through Microsoft, and may send diagnostic data according to your Windows privacy settings. Exo Browser turns off Microsoft Defender SmartScreen's address checks, so the pages you open are not checked with Microsoft; Exo Shield's malware lists block known bad sites instead. It also turns off the AI built into WebView2 that sites can call (its summarizer, translator, language detector and the like), so no site can make WebView2 download an AI model from Microsoft or read which models your PC has. If a site uses speech recognition (voice typing) and you let it use your microphone, WebView2 sends what the microphone hears, with the language, to Microsoft's speech service (`speech.platform.bing.com`), as Edge does. If WebView2 is missing, Setup downloads Microsoft's installer from `go.microsoft.com` and checks Microsoft's signature on it.
 
 ### Exo Shield's lists
 
@@ -74,9 +74,9 @@ The count beside the address (how many requests Exo Shield blocked on the page) 
 
 ## Updates
 
-When Exo Browser starts, and every twelve hours while it runs, it asks Exo's update address which release is the newest (`updates.getexo.app`, on Exo's own domain, a Cloudflare Worker run for Exo). It answers from Exo Browser's releases on GitHub, or from its own copy of them when GitHub can't. It sees your IP address while it answers, and "ExoBrowser/" with the version you run; it keeps no logs and stores nothing about who asked. Only if it doesn't answer, Exo Browser asks GitHub itself (`github.com/UhhErix/ExoBrowser/releases/latest`), which sees the same. Settings > About > Check for updates asks at once.
+When Exo Browser starts, and every twelve hours while it runs, it asks Exo's update address which release is the newest (`updates.getexo.app`, on Exo's own domain, a Cloudflare Worker run for Exo). It answers with the newer of Exo Browser's latest release on GitHub and Exo's own copy of it on Cloudflare. It sees your IP address while it answers, and "ExoBrowser/" with the version you run; it keeps no logs and stores nothing about who asked. Only if it doesn't answer, Exo Browser asks GitHub itself (`github.com/UhhErix/ExoBrowser/releases/latest`), which sees the same. Settings > About > Check for updates asks at once.
 
-When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from the same place (the update address hands them over from GitHub's download host, `github.com`, or its own copy), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
+When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from the same place (the update address sends them from Exo's own copy on Cloudflare, and from GitHub's download host, `github.com`, only in the minutes before a new release's copy is there), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
 
 ## Questions
 
