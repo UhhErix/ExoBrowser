@@ -70,7 +70,7 @@ textarea.exo-dc-field {
 
 @keyframes exo-dc-nudge-red {
   0%, 60% {
-    background: color-mix(in srgb, var(--dc-bad) 70%, #000);
+    background: color-mix(in srgb, var(--dc-bad) 70%, var(--exo-tint-base));
   }
 }
 

@@ -86,8 +86,18 @@ export const MusicNotes = icon('music', 'music')
 export const Gpu = icon('gpu', 'gauge')
 /** Your graphics card. */
 export const GraphicsCard = icon('graphics-card', 'gpu')
-/** This PC: the PC room's Overview. */
+/** This PC and its processor. */
 export const Cpu = icon('cpu', 'cpu')
+/** The PC's memory. */
+export const Memory = icon('memory', 'memory')
+/** The PC's motherboard. */
+export const Board = icon('board', 'cpu-2')
+/** What Windows and anti-cheat ask of the PC: Secure Boot, the TPM, Memory integrity. */
+export const Shield = icon('shield', 'shield')
+/** A wired connection. */
+export const Network = icon('network', 'network')
+/** A Wi-Fi connection. */
+export const Wifi = icon('wifi', 'wifi')
 /** Exo's own update. */
 export const AppUpdate = icon('app-update', 'circle-arrow-down')
 /** The Devices room: your mouse. */
@@ -155,6 +165,9 @@ export const Pause = icon('pause', 'player-pause-filled')
 export const Stop = icon('stop', 'player-stop-filled')
 export const Next = icon('next', 'player-skip-forward-filled')
 export const Previous = icon('previous', 'player-skip-back-filled')
+// Exo Cinema's video in the mini player moves ten seconds instead of a song.
+export const Back10 = icon('back-10', 'rewind-backward-10')
+export const Forward10 = icon('forward-10', 'rewind-forward-10')
 export const Shuffle = icon('shuffle', 'arrows-shuffle')
 export const Repeat = icon('repeat', 'repeat')
 export const RepeatOne = icon('repeat-one', 'repeat-once')
@@ -170,6 +183,10 @@ export const Volume = icon('volume', 'volume')
 export const VolumeOff = icon('volume-off', 'volume-off')
 export const Mic = icon('mic', 'microphone')
 export const MicOff = icon('mic-off', 'microphone-off')
+/** Record a voice message (Discord): the handheld mic, beside dictation's. */
+export const RecordVoice = icon('record-voice', 'microphone-2')
+/** Send what's ready (a recorded voice message). */
+export const Send = icon('send', 'send-2')
 
 // ── People and messages ─────────────────────────────────────────────────────────────────
 export const UserPlus = icon('user-plus', 'user-plus')

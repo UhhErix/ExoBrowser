@@ -122,6 +122,20 @@ body,
 .exb-address-path { color: var(--color-muted); }
 /* Bookmarked: the filled star in Exo's color for a favorite that is on (Exo's captures star the same way). */
 .exb-star.is-on { color: var(--color-good); }
+/* Exo Shield's count for the page, a reading beside the star: the shield, then the number, in figures that keep their width. */
+.exb-shield-count {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding-inline: 6px;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
+}
 .exb-store-add { flex: none; }
 
 /* Loading: a light travels along the field (Exo's unknown-progress glide, linear every 1.4s) and lands as a brief glow.
@@ -447,6 +461,20 @@ html[data-exo-inactive="true"] .exb-load.is-loading::after { animation-play-stat
   .exb.is-vertical:has(.exb-set-room) .exb-side { visibility: hidden; }
 }
 .exb-whats-new.exo-whats-new-back { top: var(--exb-bar-h); }
+/* The sheet itself takes the focus as it opens (WhatsNew.tsx › useHold), wearing no ring. */
+.exb-whats-new .exo-whats-new:focus { outline: none; }
+/* While a sheet holds the window, the page behind it can't scroll. */
+html.is-held, html.is-held body { overflow: hidden; }
+/* Update available: the title and the version under it, then Update now, its download's bar, or why it failed. Its
+   changes are What's New's, once the new version opens. */
+.exb-update-offer .exo-whats-new { width: min(100%, 420px); }
+.exb-update-head { display: grid; gap: 4px; text-align: center; }
+.exb-update-version { margin: 0; color: var(--color-muted); font-size: calc(13px * var(--exo-scale, 1)); }
+.exb-update-foot { display: grid; gap: 14px; }
+.exb-update-foot .exo-error-note { justify-content: center; }
+/* As tall as the button it takes the place of, so the sheet holds still. */
+.exb-update-progress { display: grid; gap: 8px; justify-items: center; align-content: center; min-height: 32px; }
+.exb-update-status { color: var(--color-muted); font-size: calc(13px * var(--exo-scale, 1)); }
 .is-vertical .exb-whats-new.exo-whats-new-back { padding-left: calc(var(--exb-side-w) + var(--exb-gap)); }
 .exb-set-actions { display: flex; align-items: center; gap: 8px; }
 .exb-field.exo-field { width: 200px; user-select: text; }
@@ -625,3 +653,5 @@ html[data-exo-inactive="true"] .exb-load.is-loading::after { animation-play-stat
 /* Settings' rows out of view aren't styled, laid out or drawn until they scroll near (Full history's 300 pages, a few
    hundred bookmarks): the sheet opens and grows at once. */
 .exo-settings .exo-set-item { content-visibility: auto; contain-intrinsic-size: auto 63px; }
+/* Settings › About: an update going in, Exo's bar beside its words (Downloading 1.3.0 · 54%). */
+.exb-update-row-bar.exo-progress { width: 120px; align-self: center; }

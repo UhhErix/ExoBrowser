@@ -354,16 +354,16 @@ button.exo-dc-foryou:hover {
 /* Doubled classes: system.css draws every reaction as the raised fill after this file. */
 .exo-dc .exo-dc-reaction.is-super.is-super {
   border-color: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 55%, transparent);
-  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 14%, #000);
+  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 14%, var(--exo-tint-base));
 }
 
 .exo-dc .exo-dc-reaction.is-super.is-super:hover {
-  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 22%, #000);
+  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 22%, var(--exo-tint-base));
 }
 
 .exo-dc .exo-dc-reaction.is-super.is-mine.is-mine {
   border-color: var(--exo-dc-burst, var(--color-fg));
-  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 28%, #000);
+  background: color-mix(in srgb, var(--exo-dc-burst, var(--color-fg)) 28%, var(--exo-tint-base));
 }
 
 .exo-dc .exo-dc-reaction[aria-disabled="true"] {

@@ -344,7 +344,7 @@
   border: 1.5px solid var(--color-fg);
   border-radius: 999px;
   background: var(--exo-fill);
-  color: #000;
+  color: var(--color-primary-fg);
 }
 
 .exo-capture-card.is-selected .exo-capture-check {

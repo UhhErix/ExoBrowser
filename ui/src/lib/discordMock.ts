@@ -32,8 +32,8 @@ export const mockChannels: DiscordChannels = {
   channels: [
     { id: '400000000000000001', name: 'welcome', type: 0, kind: 'text', canRead: true, canSend: false },
     { id: '400000000000000009', name: 'Text', type: 4, kind: 'category' },
-    { id: '400000000000000002', name: 'general', type: 0, kind: 'text', topic: 'Talk about anything. Be kind.', canRead: true, canSend: true, unread: true, mentions: 1, canManageMessages: true, canPin: true, canEdit: true },
-    { id: '400000000000000003', name: 'mod-chat', type: 0, kind: 'text', canRead: true, canSend: true, private: true, locked: true },
+    { id: '400000000000000002', name: 'general', type: 0, kind: 'text', topic: 'Talk about anything. Be kind.', canRead: true, canSend: true, canVoice: true, unread: true, mentions: 1, canManageMessages: true, canPin: true, canEdit: true },
+    { id: '400000000000000003', name: 'mod-chat', type: 0, kind: 'text', canRead: true, canSend: true, canVoice: false, private: true, locked: true },
     { id: '400000000000000004', name: 'patch-notes', type: 5, kind: 'text', canRead: true, canSend: false, muted: true },
     { id: '400000000000000007', name: 'strategies', type: 15, kind: 'forum', canRead: true, canSend: true },
     { id: '400000000000000008', name: 'Voice', type: 4, kind: 'category' },

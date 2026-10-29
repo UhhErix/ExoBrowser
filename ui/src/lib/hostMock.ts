@@ -153,13 +153,129 @@ const mockShadersSnapshot = () => ({
 /** `?gpu=amd` or `?gpu=intel` in browser dev: System's profile and a game's frame generation for that GPU instead of a GeForce. */
 const mockGpu = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('gpu') : null
 let mockFrameGen = 'game'
+// Best settings' steps stay set once applied, as on a real PC.
+const mockApplied = new Set<string>()
+const mockApply = (step: string, p?: { action?: unknown }) => { if (p?.action === 'apply') mockApplied.add(step); return mockApplied.has(step) }
 
 /** `?cpu=intel` in browser dev: This PC and Settings' chipset switch for an Intel processor instead of a Ryzen. */
 const mockIntelCpu = typeof location !== 'undefined' && new URLSearchParams(location.search).get('cpu') === 'intel'
 
+/**
+ * PC › Network in browser dev: an Intel I226-V with Energy-Efficient Ethernet on, which network sets and network-undo
+ * puts back. `?net=fine` has nothing to set, `?net=slow` a link held at 100 Mbps by its cable, `?net=wifi` a Wi-Fi
+ * adapter (Exo has nothing to set on Wi-Fi; it holds the radio while a game runs).
+ */
+const mockNet = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('net') : null
+let mockNetSet = false
+const mockNetItems = (p?: { action?: unknown }) => {
+  if (p?.action === 'network') mockNetSet = true
+  if (p?.action === 'network-undo') mockNetSet = false
+  if (mockNet === 'wifi' || mockNet === 'fine') return []
+  const items: Record<string, unknown>[] = [mockNetSet
+    ? { key: 'network', label: 'Network', detail: "Exo's settings for games", applied: true, canUndo: true }
+    : { key: 'network', label: 'Ethernet', detail: 'Energy-efficient Ethernet on, which can add delay and drop the link. Your connection drops for a few seconds while Exo fixes it.' }]
+  if (mockNet === 'slow') items.push({ key: 'netlink', label: 'Ethernet', detail: 'Connected at 100 Mbps, but your adapter does 2.5 Gbps. Try another cable or another port on your router.' })
+  return items
+}
+
+/**
+ * PC › Drives in browser dev: this PC's 990 PRO with flushing off and 132 unsafe shutdowns and a game off DirectStorage's
+ * fast path, a worn SATA SSD with bad sectors (the problem case), and a hard drive with games on it. `?drives=fine`
+ * shows the same drives with nothing wrong. flush, optimize and all set their row; -undo puts it back.
+ */
+const mockDrivesFine = typeof location !== 'undefined' && new URLSearchParams(location.search).get('drives') === 'fine'
+const mockDriveFixes = { flush: mockDrivesFine, optimize: mockDrivesFine, set: new Set<string>() }
+const MOCK_SAMSUNG = { name: 'Samsung', tool: 'Samsung Magician', url: 'https://semiconductor.samsung.com/consumer-storage/support/tools/' }
+const MOCK_FIX_ASKS = {
+  flush: { key: 'flush', label: 'Write-cache flushing', detail: 'Off on Samsung SSD 990 PRO with Heatsink 2TB, which has shut down without warning 132 times. A power cut can damage files. A restart finishes it.', applied: false, canUndo: false, restart: false },
+  optimize: { key: 'optimize', label: 'Weekly optimize', detail: "Windows' Automatic Maintenance is off, so your drives aren't optimized (an SSD retrimmed, a hard drive defragmented).", applied: false, canUndo: false, restart: false },
+}
+const MOCK_FIX_SET = {
+  flush: { key: 'flush', label: 'Write-cache flushing', detail: 'On after a restart', applied: true, canUndo: true, restart: true },
+  optimize: { key: 'optimize', label: 'Weekly optimize', detail: 'On', applied: true, canUndo: true, restart: false },
+}
+
+/** One fix's row: asking while off, with Undo once the mock set it, none when it was fine to begin with. */
+function mockDriveFix(key: 'flush' | 'optimize') {
+  if (!mockDriveFixes[key]) return [MOCK_FIX_ASKS[key]]
+  return mockDriveFixes.set.has(key) ? [MOCK_FIX_SET[key]] : []
+}
+
+/** The three drives with what fills them; `?drives=fine` drops every verdict. */
+function mockDriveList() {
+  const flushVerdict = { key: 'flush', text: 'Write-cache flushing is off, and it has shut down without warning 132 times: a power cut can damage files.', bad: false }
+  return [
+    {
+      id: '0', model: 'Samsung SSD 990 PRO with Heatsink 2TB', kind: 'NVMe SSD', link: { gen: 4, width: 4, maxGen: 4, maxWidth: 4 }, firmware: '8B2QJXD7', firmwareSlots: 3,
+      vendor: MOCK_SAMSUNG, temperature: { now: 36, warn: 82, critical: 85 },
+      health: { lifeUsed: 5, spare: 100, writtenTb: 126, hours: 4109, powerCycles: 527, unsafeShutdowns: 132, mediaErrors: 0 },
+      volumes: [{ letter: 'C:', totalGb: 1862, freeGb: 308.5 }],
+      space: { total: 1862 * GB, free: 308.5 * GB, games: 1180 * GB, caches: 66.1 * GB, oldCaches: 36.6 * GB, exo: 5.9 * GB, leftovers: 12.4 * GB, other: 289.1 * GB },
+      games: [
+        { id: 'steam:3513350', title: 'Wuchang: Fallen Feathers', bytes: 152 * GB, cacheBytes: 0 },
+        { id: 'steam:2515020', title: 'FINAL FANTASY XVI', bytes: 102 * GB, cacheBytes: 2.6 * GB },
+        { id: 'steam:2001760', title: 'Beast of Reincarnation', bytes: 98 * GB, cacheBytes: 3.8 * GB },
+        { id: 'steam:1501750', title: 'Lords of the Fallen', bytes: 72 * GB, cacheBytes: 6.6 * GB },
+        { id: 'steam:2622380', title: 'Stellar Blade', bytes: 70 * GB, cacheBytes: 7.1 * GB },
+      ],
+      verdicts: [
+        ...(mockDriveFixes.flush && !mockDriveFixes.set.has('flush') ? [] : [flushVerdict]),
+        { key: 'bypass:steam:2515020', text: "FINAL FANTASY XVI can't load through DirectStorage's fast path: its files are sparse.", bad: false },
+      ],
+    },
+    {
+      id: '1', model: 'Samsung SSD 870 EVO 1TB', kind: 'SSD', link: null, firmware: 'SVT02B6Q', firmwareSlots: null,
+      vendor: MOCK_SAMSUNG, temperature: { now: 52, warn: 70, critical: 80 },
+      health: { lifeUsed: 91, hours: 9120, powerCycles: 1310, unsafeShutdowns: 41, badSectors: 12 },
+      volumes: [{ letter: 'D:', totalGb: 931.5, freeGb: 77.4 }],
+      space: { total: 931.5 * GB, free: 77.4 * GB, games: 801 * GB, caches: 1.2 * GB, oldCaches: 0.4 * GB, exo: 0, leftovers: 0, other: 51.9 * GB },
+      games: [
+        { id: 'steam:1174180', title: 'Red Dead Redemption 2', bytes: 121 * GB, cacheBytes: 0.8 * GB },
+        { id: 'steam:1091500', title: 'Cyberpunk 2077', bytes: 88 * GB, cacheBytes: 0.4 * GB },
+      ],
+      verdicts: [
+        { key: 'sectors', text: '12 bad sectors. Copy what matters off it.', bad: true },
+        { key: 'worn', text: '91% of its rated writes are used.', bad: false },
+      ],
+    },
+    {
+      id: '2', model: 'WDC WD40EZAZ-00SF3B0', kind: 'Hard drive', link: null, firmware: '80.00A80', firmwareSlots: null,
+      vendor: { name: 'SanDisk', tool: 'SanDisk Dashboard', url: 'https://www.sandisk.com/en-us/topics/upgrades/drive-monitoring-sandisk-dashboard' },
+      temperature: { now: 38, warn: null, critical: null },
+      health: { hours: 21450, powerCycles: 2104, unsafeShutdowns: 77, badSectors: 0 },
+      volumes: [{ letter: 'E:', totalGb: 3726, freeGb: 2410 }],
+      space: { total: 3726 * GB, free: 2410 * GB, games: 214 * GB, caches: 0, oldCaches: 0, exo: 0, leftovers: 31 * GB, other: 1071 * GB },
+      games: [
+        { id: 'steam:1245620', title: 'ELDEN RING', bytes: 49 * GB, cacheBytes: 0 },
+        { id: 'steam:367520', title: 'Hollow Knight', bytes: 9 * GB, cacheBytes: 0 },
+      ],
+      verdicts: [{ key: 'hdd', text: 'ELDEN RING and 1 more game are on this hard drive. Games load much faster from an SSD.', bad: false }],
+    },
+  ]
+}
+
+function mockDrives(p?: { action?: unknown; space?: unknown }) {
+  const action = typeof p?.action === 'string' ? p.action : null
+  for (const key of ['flush', 'optimize'] as const) {
+    if (action === key || action === 'all') { mockDriveFixes[key] = true; mockDriveFixes.set.add(key) }
+    if (action === `${key}-undo`) { mockDriveFixes[key] = false; mockDriveFixes.set.delete(key) }
+  }
+  const space = p?.space === true
+  return {
+    ok: true,
+    fixes: [...mockDriveFix('flush'), ...mockDriveFix('optimize')],
+    drives: mockDriveList().map(drive => ({
+      ...drive,
+      space: space ? drive.space : null,
+      games: space ? drive.games : [],
+      verdicts: mockDrivesFine ? [] : drive.verdicts.filter(verdict => space || !verdict.key.startsWith('bypass:')),
+    })),
+  }
+}
+
 // ?whatsnew: a user just updated to 3.14.1 from 3.13.2, so the sheet opens over the Library with 3.14.1 and the 3.14.0 they skipped.
 const mockWhatsNew = typeof location !== 'undefined' && new URLSearchParams(location.search).has('whatsnew')
-// ?update: 3.15.0 is offered, with its What's New.
+// ?update: 3.15.0 is offered as Exo opens (the update sheet), with its What's New.
 const mockUpdate = typeof location !== 'undefined' && new URLSearchParams(location.search).has('update')
 
 // ?folders: two Library folders to start with, Hades in both, one sorted by time played.
@@ -294,19 +410,23 @@ function mockRunState(running: boolean): MockHandler {
   }
 }
 
-/** One game ships DLSS in two folders; one copy is Exo's, one is the game's own. */
 /** Games Update all brought up in this mock session: every file current from then on. */
 const mockDlssUpdated = new Set<string>()
 
+/** HelixSR's FSR drop-in: a mod's file, left alone whatever Update all does. */
+const mockModFsr = { key: 'amd_fidelityfx_dx12.dll', fileName: 'amd_fidelityfx_dx12.dll', folder: null, displayName: 'FSR 3.1', currentVersion: '3.1.5', latestVersion: '3.1.5', latestRelease: 'fsr-3.1.5', state: 'mod', mod: 'HelixSR', origin: 'shipped', canUpdate: false, canRestore: false }
+
+/** One game ships DLSS in two folders, one copy Exo's and one the game's own, and HelixSR in place of its FSR. */
 function mockDlssStatus(params?: Record<string, unknown>) {
   if (mockDlssUpdated.has(String(params?.id))) {
-    return { ok: true, items: [{ key: 'nvngx_dlss.dll', fileName: 'nvngx_dlss.dll', folder: null, displayName: 'DLSS Super Resolution', currentVersion: '310.9.1', currentRelease: 'dlss-310.9.1', latestVersion: '310.9.1', latestRelease: 'dlss-310.9.1', state: 'current', origin: 'exo', originalVersion: '310.2.1', originalState: 'saved', canUpdate: false, canRestore: true }] }
+    return { ok: true, items: [{ key: 'nvngx_dlss.dll', fileName: 'nvngx_dlss.dll', folder: null, displayName: 'DLSS Super Resolution', currentVersion: '310.9.1', currentRelease: 'dlss-310.9.1', latestVersion: '310.9.1', latestRelease: 'dlss-310.9.1', state: 'current', origin: 'exo', originalVersion: '310.2.1', originalState: 'saved', canUpdate: false, canRestore: true }, mockModFsr] }
   }
   return {
     ok: true,
     items: [
       { key: 'nvngx_dlss.dll', fileName: 'nvngx_dlss.dll', folder: null, displayName: 'DLSS Super Resolution', currentVersion: '310.9.1', currentRelease: 'dlss-310.9.1', latestVersion: '310.9.1', latestRelease: 'dlss-310.9.1', state: 'current', origin: 'exo', originalVersion: '310.2.1', originalState: 'saved', canUpdate: false, canRestore: true },
       { key: 'Engine/Plugins/DLSS/nvngx_dlss.dll', fileName: 'nvngx_dlss.dll', folder: 'Engine/Plugins/DLSS', displayName: 'DLSS Super Resolution', currentVersion: '310.2.1', latestVersion: '310.9.1', latestRelease: 'dlss-310.9.1', state: 'outdated', origin: 'reverted', originalVersion: '310.2.1', originalState: 'saved', canUpdate: true, canRestore: false },
+      mockModFsr,
     ],
   }
 }
@@ -525,6 +645,69 @@ function mockDictationStop(params?: Record<string, unknown>) {
   return { ok: true, text: (before && !/[\s([{"'@#/]$/.test(before) ? ' ' : '') + 'This is what you said.', message: null }
 }
 
+// Voice messages in the browser build: bars that rise and fall while it "records" (ten a second, as the host's), then a
+// take to play back (a soft tone shaped by those levels, as a WAV where the host gives Ogg Opus) and a sent message with it.
+let mockVoiceTimer: number | undefined
+let mockVoiceTake: { data: string; type: string; duration: number; waveform: string; size: number } | null = null
+const mockVoiceLevels: number[] = []
+function mockVoiceMessage(params?: Record<string, unknown>) {
+  window.clearInterval(mockVoiceTimer)
+  if (params?.action === 'start') {
+    mockVoiceLevels.length = 0
+    mockVoiceTake = null
+    const started = performance.now()
+    mockVoiceTimer = window.setInterval(() => {
+      const t = (performance.now() - started) / 1000
+      const level = Math.max(0, Math.min(1, Math.sin(t * 2.1) * 0.45 + Math.sin(t * 6.7) * 0.25 + 0.35))
+      mockVoiceLevels.push(level)
+      emitHostEvent('discord.voiceMessageLevel', { level, seconds: Math.round(t * 100) / 100 })
+    }, 100)
+    return { ok: true, message: null }
+  }
+  if (params?.action === 'stop') {
+    if (mockVoiceLevels.length < 10) return { ok: false, message: 'That was too short to send.', take: null }
+    mockVoiceTake = { ...mockTone(mockVoiceLevels), type: 'audio/wav', duration: mockVoiceLevels.length / 10, waveform: mockWaveform(mockVoiceLevels) }
+    return { ok: true, message: null, take: mockVoiceTake }
+  }
+  if (params?.action === 'send') {
+    const take = mockVoiceTake
+    if (!take) return { ok: false, message: 'That voice message is gone. Record it again.' }
+    mockVoiceTake = null
+    const id = String(BigInt(Date.now() - 1420070400000) << BigInt(22))
+    const author = mockMessages.find(m => m.author.id === mockHome.me?.id)?.author ?? mockMessages[0].author
+    // Discord's CDN in the real thing; here the page's own blob: (its media-src takes no data: URLs).
+    const url = URL.createObjectURL(new Blob([Uint8Array.from(atob(take.data), c => c.charCodeAt(0))], { type: take.type }))
+    return { ok: true, message: null, sent: {
+      id, channel_id: String(params.channelId), type: 0, author, content: '', timestamp: new Date().toISOString(), embeds: [], mentions: [], flags: 8192,
+      attachments: [{ id, filename: 'voice-message.ogg', url, size: take.size, content_type: 'audio/ogg', duration_secs: take.duration, waveform: take.waveform }],
+    } }
+  }
+  mockVoiceTake = null
+  return { ok: true }
+}
+function mockTone(levels: number[]) {
+  const rate = 8000
+  const samples = levels.length * rate / 10
+  const view = new DataView(new ArrayBuffer(44 + samples * 2))
+  const text = (at: number, word: string) => [...word].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)))
+  text(0, 'RIFF'); view.setUint32(4, 36 + samples * 2, true); text(8, 'WAVE'); text(12, 'fmt ')
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, rate, true)
+  view.setUint32(28, rate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true); text(36, 'data'); view.setUint32(40, samples * 2, true)
+  for (let i = 0; i < samples; i++) view.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * 220 * i / rate) * 2500 * levels[Math.floor(i / (rate / 10))]), true)
+  const bytes = new Uint8Array(view.buffer)
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return { data: btoa(binary), size: bytes.length }
+}
+// Discord's waveform as the host makes it: at most 256 points, each the loudest it covers, 0 to 255.
+function mockWaveform(levels: number[]) {
+  const points = Math.min(256, levels.length)
+  const step = levels.length / points
+  const top = Math.max(0.5, ...levels)
+  const bytes = Array.from({ length: points }, (_, p) => Math.round(255 * Math.max(...levels.slice(Math.floor(p * step), Math.max(Math.floor(p * step) + 1, Math.floor((p + 1) * step)))) / top))
+  return btoa(String.fromCharCode(...bytes))
+}
+
 // Discord settings > Voice & Video and the rest, kept for the session so the pages can be clicked through.
 let mockDiscordClient: Record<string, unknown> = {
   inputProfile: 'exo', noiseSuppression: true, noiseSuppressionKind: 'ai', othersNoiseSuppression: false, onlyMyVoice: false, myVoiceLearned: false, myVoiceSeconds: 0, evenVoices: true, echoCancellation: true, voiceFocus: true, pushToTalk: false, pttDelay: 20,
@@ -543,14 +726,6 @@ const GB = 1024 ** 3
 const mockProperties: Record<string, GameProperties> = {}
 const STEAM_PROPERTIES: Partial<GameProperties> = {
   verifyLabel: 'Verify files',
-  autoUpdate: '0',
-  autoUpdateChoices: [
-    { value: '0', label: "Use Steam's setting" }, { value: '3', label: 'Keep it up to date' },
-    { value: '1', label: 'Only when I launch it' }, { value: '2', label: 'Before other games' },
-  ],
-  background: '0',
-  backgroundChoices: [{ value: '0', label: "Use Steam's setting" }, { value: '1', label: 'Always allow' }, { value: '2', label: 'Never' }],
-  cloud: true,
   language: 'english',
   languageChoices: [
     { value: 'english', label: 'English', sizeBytes: 0 }, { value: 'french', label: 'French', sizeBytes: 0 },
@@ -571,8 +746,8 @@ const STEAM_PROPERTIES: Partial<GameProperties> = {
   ],
   folder: '0',
   folderChoices: [{ value: '0', label: 'C:', detail: '412 GB free' }, { value: '1', label: 'D:', detail: '1210 GB free' }],
-  storeProperties: 'Steam',
-  overlay: false,
+  // Marvel Rivals reads the controller itself: Steam Input stays out, so no Controller in Steam row.
+  storeProperties: null,
 }
 const EPIC_PROPERTIES: Partial<GameProperties> = {
   cloudSync: true,
@@ -586,9 +761,9 @@ function mockPropertiesFor(id: string): GameProperties {
   const game = MOCK_GAMES.find(entry => entry.id === id)
   mockProperties[id] ??= {
     ok: true, store: game?.store ?? 'local', launchOptions: '', sizeBytes: game?.sizeBytes ?? null, verifyLabel: 'Repair',
-    canBrowse: true, running: !!game?.isRunning, autoUpdate: null, autoUpdateChoices: [], background: null, backgroundChoices: [],
-    cloud: null, cloudSync: false, language: null, languageChoices: [], beta: null, betaChoices: [], betaCode: false,
-    contentLabel: 'DLC', content: null, folder: null, folderChoices: [], moving: null, storeProperties: null, overlay: null,
+    canBrowse: true, running: !!game?.isRunning,
+    cloudSync: false, language: null, languageChoices: [], beta: null, betaChoices: [], betaCode: false,
+    contentLabel: 'DLC', content: null, folder: null, folderChoices: [], moving: null, storeProperties: null,
     ...(game?.store === 'steam' ? STEAM_PROPERTIES : game?.store === 'epic' ? EPIC_PROPERTIES : {}),
   }
   return mockProperties[id]
@@ -607,10 +782,6 @@ function mockSetProperty(params?: Record<string, unknown>) {
     next.content = (current.content ?? []).map(item => item.id === itemId ? { ...item, enabled: state === 'on' } : item)
     message = state === 'on' ? 'Steam is downloading it.' : 'Steam is removing its files.'
   } else if (key === 'launchOptions') next.launchOptions = value
-  else if (key === 'cloud') next.cloud = value === 'on'
-  else if (key === 'overlay') next.overlay = value === 'on'
-  else if (key === 'autoUpdate') next.autoUpdate = value
-  else if (key === 'background') next.background = value
   else if (key === 'language') { next.language = value; message = 'Steam is updating the game.' }
   else if (key === 'storeProperties') message = "Opened in Steam. Its Properties are under the gear on the game's page."
   mockProperties[id] = next
@@ -744,7 +915,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'library.folderArt': (params) => ({ ok: true, art: `data:image/png;base64,${String(params?.image ?? '')}` }),
   'library.refreshAll': () => ({ ok: true, achievements: 0, covers: 0 }),
   'game.repair': () => ({ ok: true, queued: false, message: 'Mock: would verify files.' }),
-  'game.extras': () => ({ ok: true, achievementsUnlocked: 23, achievementsTotal: 50 }),
+  'game.extras': () => ({ ok: true, achievementsUnlocked: 23, achievementsTotal: 50, driveHeat: { peak: 79, warn: 82, slowedSeconds: 40 } }),
   'game.cancelInstall': mockCancelInstall,
   'game.dequeue': mockOk,
   'game.progress': () => mockProgress,
@@ -833,6 +1004,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'discord.thread': () => ({ ok: true, thread: { id: '600000000000000003', name: 'New post' } }),
   'discord.typing': mockOk,
   'discord.upload': () => ({ ok: true, uploadId: 'mock' }),
+  'discord.voiceMessage': mockVoiceMessage,
   'discord.react': mockOk,
   'discord.emojis': () => ({ premium: false, guilds: [{ id: '200000000000000001', name: 'Exo Lab', icon: null, emojis: [{ id: '968812152267866172', name: 'Troll', animated: false, native: true }, { id: '968812607832203274', name: 'Yoshi', animated: false, native: false }] }] }),
   'discord.emojiFavorites': (p?: { action?: string; emoji?: string }) => {
@@ -1016,7 +1188,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'music.reload': mockOk,
   'app.version': () => ({ version: '1.0.0-dev' }),
   'app.checkUpdate': () => mockUpdate
-    ? { ok: true, updateAvailable: true, latest: '3.15.0', message: 'Version 3.15.0 is available.', current: '1.0.0-dev', upcoming: { version: '3.15.0', items: [
+    ? { ok: true, updateAvailable: true, offerOnOpen: true, latest: '3.15.0', message: 'Version 3.15.0 is available.', current: '1.0.0-dev', upcoming: { version: '3.15.0', items: [
         { icon: 'Download', title: "See what's coming", detail: "What's New shows the next version's changes before you install it." },
         { icon: 'Sparkle', title: 'Catch up on what you missed', detail: "Skip a few versions and What's New shows every one you missed." },
       ] } }
@@ -1075,15 +1247,15 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   }),
   'gpu.profile': (p) => mockGpu === 'intel' || mockGpu === 'amd' ? {
     ok: true, vendor: mockGpu, gpu: mockGpu === 'intel' ? 'Arc B580' : 'Radeon RX 9070 XT', series: 0, screen: { name: 'VG27AQ', hz: 165, vrr: true },
-    status: p?.action === 'apply' ? 'applied' : 'ready', gsync: false, canUndo: p?.action === 'apply', driverUpdated: false, items: [],
-    lowLatency: mockGpu === 'intel' ? p?.lowLatency ?? 'on' : null, antiLag: mockGpu === 'amd' ? p?.antiLag ?? 'games' : null,
+    status: mockApply('profile', p) ? 'applied' : 'ready', gsync: false, canUndo: mockApplied.has('profile'), driverUpdated: false, items: [],
+    lowLatency: mockGpu === 'intel' ? p?.lowLatency ?? 'on' : null,
     summary: mockGpu === 'intel'
       ? "Adaptive Sync on, frames capped at 157 fps, Low latency on, Intel's prebuilt shaders; Endurance Gaming and sharpening off"
-      : 'FreeSync on, frames capped at 157 fps, Anti-Lag while you play; Chill, Boost and Image Sharpening off',
+      : 'FreeSync on, frames capped at 157 fps, Anti-Lag on; Chill, Boost and Image Sharpening off',
   } : {
     ok: true, vendor: 'nvidia', gpu: 'RTX 3070', series: 30, screen: { name: 'VG248', hz: 165, vrr: false },
-    status: p?.action === 'apply' ? 'applied' : 'ready', gsync: p?.action === 'apply' && p.gsync === true,
-    canUndo: p?.action === 'apply', driverUpdated: false, items: [],
+    status: mockApply('profile', p) ? 'applied' : 'ready', gsync: p?.action === 'apply' && p.gsync === true,
+    canUndo: mockApplied.has('profile'), driverUpdated: false, items: [],
   },
   'system.about': () => ({
     name: 'Erix-PC', processor: mockIntelCpu ? 'Intel Core i7-14700K' : 'AMD Ryzen 5 5600X', cores: mockIntelCpu ? 20 : 6, threads: mockIntelCpu ? 28 : 12,
@@ -1091,11 +1263,9 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     memoryGb: 16, memoryType: 'DDR4', memorySpeed: 3600, memoryRated: 3600, memorySlotsUsed: 2, memorySlots: 4,
     motherboard: 'ASUS ROG STRIX B550-F GAMING WIFI II', bios: '3636', biosDate: '2026-01-04',
     windows: 'Windows 11 Pro', windowsVersion: '26H2', build: '26300.9711', secureBoot: true, tpm: '2.0', memoryIntegrity: false,
-    drives: [
-      { letter: 'C:', model: 'Samsung SSD 990 PRO with Heatsink 2TB', kind: 'NVMe SSD', totalGb: 1862.4, freeGb: 1203.7 },
-      { letter: 'D:', model: 'WDC WD20EZRZ-00Z5HB0', kind: 'Hard drive', totalGb: 1863, freeGb: 412.2 },
-    ],
-    network: 'Ethernet', networkMbps: 2500,
+    ...(mockNet === 'wifi'
+      ? { network: 'Wi-Fi', networkMbps: 1201, networkAdapter: 'Intel Wi-Fi 6E AX211 160MHz' }
+      : { network: 'Ethernet', networkMbps: mockNet === 'slow' ? 100 : 2500, networkAdapter: 'Intel Ethernet Controller I226-V' }),
   }),
   'system.health': (p) => {
     const cpu = mockIntelCpu ? 'Core i7-14700K' : 'Ryzen 5 5600X'
@@ -1105,12 +1275,13 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     return {
       ok: true,
       items: [
-        p?.action === 'apply'
-          ? { key: 'power', label: 'Power plan', detail: "Exo's plan", applied: true, canUndo: true }
+        mockApply('power', p)
+          ? { key: 'power', label: 'Power plan', detail: "Exo's plan", applied: true, canUndo: true, cpu }
           : { key: 'power', label: 'Power plan', detail: `Your PC uses “Nexus LiteOS Power Plan”. Exo's plan is tuned for your ${cpu}.`, cpu },
         p?.action === 'chipset'
           ? { key: 'chipset', label, detail: `Updating to ${to}. ${drop} for a moment`, busy: true }
           : { key: 'chipset', label, detail: `${from} installed · ${to} installs while you're away` },
+        ...mockNetItems(p),
       ],
     }
   },
@@ -1126,6 +1297,13 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     }
   },
   'system.mouseCore': mockMouseCore,
+  'system.drives': mockDrives,
+  'junk.scan': () => ({ ok: true, items: [
+    { id: 'temp', name: 'Temporary files', detail: '', bytes: 0.8e9, files: 412 },
+    { id: 'shaders', name: 'Old shader caches', detail: '', bytes: 36.6e9, files: 57 },
+    { id: 'exo', name: "Exo's old backups", detail: '', bytes: 0.35e9, files: 1 },
+  ] }),
+  'junk.clean': () => ({ ok: true, bytes: 37.7e9, files: 470 }),
   'stores.quiet': () => ({ ok: true, message: null }),
   'hdr.state': () => ({ supported: true, on: false, name: 'Mock OLED', peakNits: 1000, calibrated: false, verdict: 'great' }),
   'hdr.game': (p) => ({ ok: true, hdr: 'true', mode: typeof p?.mode === 'string' ? p.mode : 'auto' }),
@@ -1154,12 +1332,20 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     }],
   }),
   'gpu.import': () => ({ ok: false, cancelled: true, undo: null }),
-  'gpu.sensors': () => ({ ok: false }),
+  // An RTX 3070 at work, drifting so the PC room's readings move.
+  'gpu.sensors': () => {
+    const wave = Math.sin(Date.now() / 20_000)
+    return {
+      ok: true, temperature: 62 + wave * 8, watts: 150 + wave * 60, clock: 1800 + wave * 120, usage: 70 + wave * 25,
+      vramUsed: 5600 + wave * 600, vramTotal: 8192, fan: 1500 + wave * 300, limit: { on: 'temperature', warn: 83, bad: 93 },
+    }
+  },
   'gpu.driver': () => ({ ok: true, vendor: 'nvidia', card: 'RTX 3070', installed: '581.42', update: true, latest: { version: '581.57', size: 900_000_000, released: '2026-10-14', kind: 'game' } }),
   'gpu.game': (p) => {
     if (mockGpu === 'intel' && typeof p?.frameGen === 'string') mockFrameGen = p.frameGen
     return mockGpu === 'intel' ? { ok: true, vendor: 'intel', supported: true, frameGen: mockFrameGen }
-      : { ok: true, vendor: 'amd', supported: mockGpu === 'amd', afmf: p?.afmf === true, amdSoftware: true }
+      // ?gpu=amd: an RX 6600 as Exo decides (Helpers/FluidMotionFrames.cs): off for competitive games and Cyberpunk's own frame generation.
+      : { ok: true, vendor: 'amd', supported: mockGpu === 'amd', afmf: !/valorant|rivals|fortnite|cyberpunk/.test(String(p?.id)), amdSoftware: true }
   },
   'store.home': () => ({ ok: true, at: new Date().toISOString(), hero: [], shelves: [{ id: 'mock', title: 'Top sellers', items: [MOCK_STORE_TILE] }] }),
   'store.calendar': () => ({

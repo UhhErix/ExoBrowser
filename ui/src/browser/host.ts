@@ -14,7 +14,7 @@ const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome
 
 export const send = (...parts: (string | number)[]) => webview?.postMessage(parts.join('\t'))
 
-export type Tab = { id: number; url: string; title: string; loading?: boolean; pinned?: boolean; muted?: boolean; audible?: boolean; sleeping?: boolean; space: number; home?: string; split?: number; folder?: number; priv?: boolean; kept?: boolean }
+export type Tab = { id: number; url: string; title: string; loading?: boolean; blocked?: number; pinned?: boolean; muted?: boolean; audible?: boolean; sleeping?: boolean; space: number; home?: string; split?: number; folder?: number; priv?: boolean; kept?: boolean }
 /** A folder among a space's pinned tabs (side tabs): perhaps inside another, open or closed. */
 export type Folder = { id: number; space: number; parent: number; name: string; open: boolean; live?: boolean }
 /** A space: its own tabs, an icon, a color that becomes the accent while it's on screen, and optionally its own appearance. */
@@ -27,7 +27,7 @@ export type Extension = { id: string; name: string; enabled: boolean; builtIn?: 
 export type Download = { id: number; name: string; url: string; state: string; received: number; total: number; opens?: boolean }
 export type Settings = Record<string, string>
 /** Updates, as the host tells them: checking, current, available, downloading (percent), installing, error. */
-export type Update = { state: string; version: string; latest: string; message: string; percent: number; checked: number; installable: boolean; notes?: string }
+export type Update = { state: string; version: string; latest: string; message: string; percent: number; checked: number; installable: boolean; opening?: boolean; notes?: string }
 
 type IconSet = string | Record<string, string>
 type Action = { default_icon?: IconSet; default_popup?: string }

@@ -11,7 +11,8 @@ Exo Browser keeps its data in `%LocalAppData%\ExoBrowser`, beside the app (in `a
 - your settings (Boosts, Mods and your own CSS among them), open tabs, spaces and folders, history, archived tabs, bookmarks, site icons, downloads list and the extensions you added (`settings.tsv`, `session.tsv`, `spaces.tsv`, `history.tsv`, `archive.tsv`, `bookmarks.tsv`, `favicons.tsv`, `icons.tsv`, `iconmiss.tsv`, `downloads.tsv`, `extensions.tsv`);
 - the browser profile (`Profile`): cookies and sign-ins, site data, the cache, and your extensions' own data, kept by Microsoft Edge WebView2 as Edge keeps them;
 - Exo Vault (`vault.exovault`, and `vault.exovault.bak` from the save before): your logins, cards, notes and identities, encrypted (see **Exo Vault**);
-- a working copy of Exo Shield (`Builtin`).
+- a working copy of Exo Shield (`Builtin`);
+- a short log of what went wrong (`exo.log`: an update or download that failed, and where its file came from), never a page's address or a path on this PC. Copy logs, beside an error, puts it on your clipboard with Exo Browser's, Windows' and WebView2's versions, for you to paste into a report; it's never sent anywhere by itself.
 
 A private tab (Ctrl+Shift+N) runs on a profile kept in memory only: its cookies, sign-ins and site data stay apart from your other tabs and go when the last private tab closes, and what it visits never reaches your history or saved tabs.
 
@@ -69,9 +70,11 @@ Exo Browser runs on Microsoft Edge WebView2, part of Windows. WebView2 updates i
 
 Exo Shield's filter lists are built into each release. It downloads no lists and sends nothing about the pages you visit.
 
+The count beside the address (how many requests Exo Shield blocked on the page) is worked out on this PC and kept nowhere. Exo Shield hands the number to Exo Browser through the page itself, so that page's own scripts could read how many of its requests were blocked. Any page can tell much the same from what failed to load.
+
 ## Updates
 
-When Exo Browser starts, and every twelve hours while it runs, it asks Exo's update address which release is the newest (`exo-updates.exo-erix.workers.dev`, a Cloudflare Worker run for Exo). It answers from Exo Browser's releases on GitHub, or from its own copy of them when GitHub can't. It sees your IP address while it answers, and "ExoBrowser/" with the version you run; it keeps no logs and stores nothing about who asked. Only if it doesn't answer, Exo Browser asks GitHub itself (`github.com/UhhErix/ExoBrowser/releases/latest`), which sees the same. Settings > About > Check for updates asks at once.
+When Exo Browser starts, and every twelve hours while it runs, it asks Exo's update address which release is the newest (`updates.getexo.app`, on Exo's own domain, a Cloudflare Worker run for Exo). It answers from Exo Browser's releases on GitHub, or from its own copy of them when GitHub can't. It sees your IP address while it answers, and "ExoBrowser/" with the version you run; it keeps no logs and stores nothing about who asked. Only if it doesn't answer, Exo Browser asks GitHub itself (`github.com/UhhErix/ExoBrowser/releases/latest`), which sees the same. Settings > About > Check for updates asks at once.
 
 When you choose **Install update**, Exo Browser downloads that release's Setup and its SHA-256 from the same place (the update address hands them over from GitHub's download host, `github.com`, or its own copy), checks the file against that checksum, keeps it in `%LocalAppData%\ExoBrowser\Updates` and runs it. Setup installs over the version you have and keeps your data; the downloaded Setup is deleted the next time Exo Browser starts.
 

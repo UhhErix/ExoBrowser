@@ -6,21 +6,22 @@ import * as I from '../icons'
 import { api, onHost, send, setSetting, useBrowserValue } from '../host'
 import { Choice } from '../Choice'
 import { WindowButtons } from '../Chrome'
+import { focusWhenActive } from '../../lib/focusTrap'
 import { CreateVault } from '../vault/Gate'
 import { useVault } from '../vault/store'
 import './onboarding.css'
 
 /*
  * First run, in Exo Launcher's own first-run layout (styles/onboarding.css): a welcome, then Exo Vault, bringing your
- * things from the browsers on this PC, how Exo Browser looks, and making it the default. Every step can be skipped
+ * things from the browsers on this PC, how Exo Browser looks and moves, and making it the default. Every step can be skipped
  * and changed later in Settings; finishing marks "onboarded" so it never shows again.
  */
 
 const STEPS = [
-  { id: 'welcome', title: 'Welcome to Exo Browser', lede: 'Private from the first page, and in Exo’s look. Everything here can be changed later in Settings.' },
+  { id: 'welcome', title: 'Welcome to Exo Browser', lede: 'Ads and trackers blocked from the first page by Exo Shield, and Exo’s look throughout. Everything here can be changed later in Settings.' },
   { id: 'vault', title: 'Exo Vault', lede: 'Your passwords, encrypted on this PC and nowhere else. Make a master password now, or later in Settings.' },
   { id: 'bring', title: 'Bring your things', lede: 'Bookmarks, history, sign-ins and extensions from the browsers on this PC. Passwords go into Exo Vault.' },
-  { id: 'look', title: 'Your look', lede: 'Tabs across the top or down the side, and how dark Exo Browser is.' },
+  { id: 'look', title: 'Your look', lede: 'Tabs across the top or down the side, how dark Exo Browser is, and how much it moves.' },
   { id: 'default', title: 'Your default browser', lede: 'Open links from your other apps in Exo Browser. Windows asks you to pick it yourself, on its Default apps page.' },
 ] as const
 type StepId = (typeof STEPS)[number]['id']
@@ -29,7 +30,7 @@ function VaultStep() {
   const v = useVault()
   if (v.state === 'unlocked') return (
     <>
-      <Row label="Your vault is ready" detail="It locks itself when you step away, and whenever Windows locks" icon={<I.Vault />}><State on>Ready</State></Row>
+      <Row label="Your vault is ready" detail="It locks after the time you choose and whenever Windows locks, not when you close the browser" icon={<I.Vault />}><State on>Ready</State></Row>
       <Row label="Unlock with Windows Hello" detail={v.helloReady ? 'Your face, fingerprint or PIN instead of the master password' : "Windows Hello isn't set up on this PC"}>
         <Switch checked={v.hello} disabled={!v.helloReady} label="Unlock with Windows Hello" onChange={on => { send(on ? 'vaultHelloOn' : 'vaultHelloOff'); return Promise.resolve(null) }} />
       </Row>
@@ -71,6 +72,10 @@ function LookStep() {
         <Choice label="Appearance" value={settings.appearance || 'void'} choices={[{ value: 'void', label: 'Void' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'match', label: 'Match Windows' }]}
           onChange={value => setSetting('appearance', value)} />
       </Row>
+      {/* As this first start set it from Windows' animation effects (main.cpp); from here on only this switch decides. */}
+      <Row label="Reduce motion" detail="Things appear at once instead of sliding">
+        <Switch checked={settings.reduceMotion === 'on'} label="Reduce motion" onChange={on => { setSetting('reduceMotion', on ? 'on' : 'off'); return Promise.resolve(null) }} />
+      </Row>
     </>
   )
 }
@@ -102,7 +107,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   const heading = useRef<HTMLHeadingElement>(null)
   const step = STEPS[index]
   const last = index === STEPS.length - 1
-  useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [index])
+  // Each step's title takes the keyboard, as the window is active (a first start behind another app waits for it).
+  useEffect(() => { focusWhenActive(heading.current) }, [index])
   const go = (to: number) => { setDirection(to > index ? 1 : -1); setIndex(to) }
   return (
     <div className="exo-app exo-ob exb-ob">

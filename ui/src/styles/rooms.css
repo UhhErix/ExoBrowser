@@ -217,6 +217,14 @@
   animation: exo-switch var(--dur-base) var(--ease-out) backwards;
 }
 
+/* Exo Cinema's title: its poster, upright, as a poster is. */
+.exo-mini-cover.is-video,
+.exo-mini-cover.is-video img,
+.exo-mini-art.is-video {
+  width: 16px;
+  border-radius: 4px;
+}
+
 /* Clear on the capsule's glass, as a card inside glass is: the page's color under it read as a hole. */
 .exo-mini-art {
   display: grid;

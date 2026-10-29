@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import { Section, Row, State } from '../components/settings/parts'
 import { Switch } from '../components/Switch'
 import { Button } from '../components/ui/Button'
+import { Progress } from '../components/ui/Progress'
 import { openVault } from './vault/store'
 import { useGlide } from '../lib/glide'
 import { useScrollSpy } from '../lib/scrollSpy'
@@ -573,27 +574,22 @@ function Import({ sources }: { sources: [string, string, boolean][] }) {
 // What the version row says about updates.
 function updateDetail(u: Update | null) {
   const state = u?.state ?? 'idle'
-  if (!u || state === 'idle') return u?.checked ? `Checked ${ago(u.checked)}` : 'Updates come from GitHub'
+  if (!u || state === 'idle') return u?.checked ? `Checked ${ago(u.checked)}` : 'Checks for updates each time it opens'
   if (state === 'checking') return 'Checking for updates'
   if (state === 'available') return u.installable ? `Version ${u.latest} is ready to install. Exo Browser closes and opens again` : `Version ${u.latest} is out. Install it with its Setup`
-  if (state === 'downloading') return `Downloading ${u.latest}`
+  if (state === 'downloading') return `Downloading ${u.latest} · ${Math.max(0, u.percent)}%`
   if (state === 'installing') return `Installing ${u.latest}. Exo Browser closes and opens again`
   if (state === 'current') return `Up to date · checked ${ago(u.checked || Date.now() / 1000)}`
   return u.checked ? `Checked ${ago(u.checked)}` : ''
 }
 
-/** Install, with the download's progress filling the button (Exo Launcher's), or Check for updates. */
+/** Install update, or Check for updates; while one goes in, Exo's bar beside the words instead (never a bar in a button). */
 function UpdateButton({ u }: { u: Update | null }) {
   const state = u?.state ?? 'idle'
-  if (u && (state === 'available' || state === 'downloading' || state === 'installing')) {
-    const percent = state === 'installing' ? 100 : state === 'downloading' ? Math.max(0, u.percent) : 0
-    return (
-      <button type="button" className="exo-set-btn is-primary exo-set-progress" disabled={state !== 'available' || !u.installable}
-        onClick={() => send('updateInstall')} style={{ '--progress': percent / 100 } as CSSProperties}>
-        <span>{state === 'downloading' ? `Downloading ${percent}%` : state === 'installing' ? 'Installing' : 'Install update'}</span>
-      </button>
-    )
-  }
+  if (u && (state === 'downloading' || state === 'installing'))
+    return <Progress className="exb-update-row-bar" value={state === 'installing' ? null : Math.max(0, u.percent) / 100} label={`Updating to Exo Browser ${u.latest}`} />
+  if (u && state === 'available')
+    return <Button size="sm" className="exo-set-btn is-primary" isDisabled={!u.installable} onPress={() => send('updateInstall')}>Install update</Button>
   return <Button size="sm" className="exo-set-btn" isDisabled={state === 'checking'} onPress={() => send('updateCheck')}>{state === 'checking' ? 'Checking' : 'Check for updates'}</Button>
 }
 
@@ -656,7 +652,7 @@ function LookSection({ transparency }: { transparency?: boolean }) {
       <ToggleRow k="compact" label="Compact" detail="A thinner Bar and smaller buttons, for more page" fallback="off" />
       <ChoiceRow k="density" label="Tab size" fallback="standard" choices={[['roomy', 'Roomy'], ['standard', 'Standard'], ['dense', 'Dense']]} />
       <ChoiceRow k="textSize" label="Text size" fallback="standard" choices={[['small', 'Small'], ['standard', 'Standard'], ['large', 'Large']]} />
-      <ToggleRow k="reduceMotion" label="Reduce motion" detail="Things appear at once instead of sliding. Follows Windows when it asks for less motion" fallback="off" />
+      <ToggleRow k="reduceMotion" label="Reduce motion" detail="Things appear at once instead of sliding" fallback="off" />
     </Section>
   )
 }

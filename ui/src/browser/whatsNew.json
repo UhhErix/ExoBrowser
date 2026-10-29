@@ -1,5 +1,35 @@
 [
   {
+    "version": "1.3.0",
+    "items": [
+      {
+        "icon": "Download",
+        "title": "Updates as it opens",
+        "detail": "When a new version is out, the window opens on it with Update now, and its changes show here once it’s open."
+      },
+      {
+        "icon": "Shield",
+        "title": "What Exo Shield stopped",
+        "detail": "A shield by the star counts the ads and trackers Exo Shield blocked on the page you’re on."
+      },
+      {
+        "icon": "Sleep",
+        "title": "Tabs give their memory back",
+        "detail": "A tab you leave for a minute gives most of its memory back, and still opens at once when you return."
+      },
+      {
+        "icon": "Sparkles",
+        "title": "Windows 11 scrollbars",
+        "detail": "Thin scrollbars over the page, as Windows draws its own, and Reduce motion that only its own switch decides."
+      },
+      {
+        "icon": "Check",
+        "title": "Smoother all round",
+        "detail": "Split view opens with no black half, a quick reload never leaves a tab blank, and glass over a page is frosted all the way."
+      }
+    ]
+  },
+  {
     "version": "1.2.0",
     "items": [
       {

@@ -7,6 +7,7 @@ import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Alert, Check, ChevronDown, Close, Minus } from '../browser/icons'
 import { Button } from '../components/ui/Button'
+import { focusWhenActive } from '../lib/focusTrap'
 import '../tokens.css'
 import './setup.css'
 import { Switch } from '../components/Switch'
@@ -172,7 +173,8 @@ function Setup() {
   const [last, setLast] = useState<{ desktop: boolean; removeData: boolean }>({ desktop: true, removeData: false })
   // The window shows once the first screen has drawn, so it never opens empty.
   useEffect(() => { if (state) requestAnimationFrame(() => requestAnimationFrame(() => send('shown'))) }, [state])
-  useEffect(() => { document.querySelector<HTMLElement>('[data-autofocus]')?.focus({ preventScroll: true }) }, [screen, state])
+  // Each screen's own control takes the keyboard, as Setup's window is active (never pulling it in front of another app).
+  useEffect(() => { focusWhenActive(document.querySelector<HTMLElement>('[data-autofocus]')) }, [screen, state])
   if (!state) return null
   const go = (desktop: boolean, removeData = false) => {
     setLast({ desktop, removeData })

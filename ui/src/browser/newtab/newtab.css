@@ -120,7 +120,9 @@ body { overflow-x: hidden; scrollbar-width: none; }
 }
 .exb-card:hover .exb-card-x { opacity: 1; }
 
-.is-tiles .exb-card { width: 108px; height: 96px; gap: 10px; border-radius: var(--exo-card-radius, 14px); }
+.is-tiles .exb-card { width: 108px; height: 96px; gap: 10px; padding-inline: 6px; border-radius: var(--exo-card-radius, 14px); }
+/* A site's own name ("Good Food", "The Verge") fits the small card's label. */
+.is-tiles .exb-card-name { padding-inline: 8px; }
 .is-tiles .exb-card-face { width: 40px; height: 40px; border-radius: 12px; }
 .is-tiles .exb-card-face img { width: 26px; height: 26px; }
 .exb-card-face img.is-small { width: 18px; height: 18px; border-radius: 4px; }

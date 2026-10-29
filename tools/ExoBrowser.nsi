@@ -17,8 +17,12 @@
 !define ICON "..\src\app.ico"
 
 !define PRODUCT_NAME "Exo Browser"
-!define PRODUCT_PUBLISHER "Erix (UhhErix)"
-!define PRODUCT_WEB "https://github.com/UhhErix/ExoBrowser"
+; Every Exo app names the family as its publisher (src/main.cpp RefreshInstalledEntry keeps the same values); the
+; copyright is its owner's.
+!define PRODUCT_PUBLISHER "Exo"
+!define PRODUCT_COPYRIGHT "Erix (UhhErix)"
+!define PRODUCT_WEB "https://getexo.app/browser"
+!define PRODUCT_HELP "https://discord.gg/44mXWhaHP4"
 !ifdef EXO_TEST_ROOT
   ; A walk-through build (/DEXO_TEST_ROOT=<folder>): installs under that folder with its own registry entries,
   ; shortcut names and browser listing, never over the real Exo Browser.
@@ -57,6 +61,14 @@ AutoCloseWindow true
 BrandingText " "
 Icon "${ICON}"
 UninstallIcon "${ICON}"
+
+VIProductVersion "${PRODUCT_VERSION}.0"
+VIAddVersionKey /LANG=1033 "ProductName" "${PRODUCT_NAME}"
+VIAddVersionKey /LANG=1033 "CompanyName" "${PRODUCT_PUBLISHER}"
+VIAddVersionKey /LANG=1033 "FileDescription" "${PRODUCT_NAME} install engine"
+VIAddVersionKey /LANG=1033 "FileVersion" "${PRODUCT_VERSION}"
+VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright (c) 2026 ${PRODUCT_COPYRIGHT}"
 
 !include "LogicLib.nsh"
 !include "FileFunc.nsh"
@@ -346,6 +358,8 @@ Section "Exo Browser" SecApp
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "URLUpdateInfo" "${PRODUCT_WEB}"
+  WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "HelpLink" "${PRODUCT_HELP}"
   WriteRegStr HKCU "${PRODUCT_UNINST_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${PRODUCT_UNINST_KEY}" "NoRepair" 1

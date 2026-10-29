@@ -10,6 +10,29 @@ export const focusableSelector = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ')
 
+let waiting: { element: HTMLElement; options: FocusOptions } | null = null
+
+/**
+ * Focus the page moves by itself (a sheet or dialog opening or closing, a control coming back, a first-run step): at once
+ * while Exo's window is the active one, else once it is next activated. A WebView's focus() activates its whole window,
+ * and Exo starts in the background at sign-in and over games; it must never take the foreground from them. The newest
+ * waiting focus wins. Also a ref callback, for what takes focus as it mounts.
+ */
+export function focusWhenActive(element: HTMLElement | null, options: FocusOptions = { preventScroll: true }) {
+  if (!element) return
+  if (document.hasFocus()) {
+    waiting = null
+    element.focus(options)
+    return
+  }
+  if (!waiting) window.addEventListener('focus', () => {
+    const next = waiting
+    waiting = null
+    if (next?.element.isConnected) next.element.focus(next.options)
+  }, { once: true })
+  waiting = { element, options }
+}
+
 /** Keeps Tab and Shift+Tab inside a dialog: from its last control to its first and back. */
 export function trapTab(container: HTMLElement, event: KeyboardEvent) {
   if (event.key !== 'Tab') return
@@ -49,7 +72,7 @@ export function useDialogFocus(ref: RefObject<HTMLElement | null>, active = true
     const frame = requestAnimationFrame(() => {
       const dialog = ref.current
       if (!dialog || dialog.contains(document.activeElement)) return
-      ;(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog.querySelector<HTMLElement>(focusableSelector) ?? dialog).focus({ preventScroll: true })
+      focusWhenActive(dialog.querySelector<HTMLElement>('[data-autofocus]') ?? dialog.querySelector<HTMLElement>(focusableSelector) ?? dialog)
     })
     const tab = (event: KeyboardEvent) => {
       const dialog = ref.current
@@ -69,7 +92,7 @@ export function useDialogFocus(ref: RefObject<HTMLElement | null>, active = true
     return () => {
       cancelAnimationFrame(frame)
       document.removeEventListener('keydown', tab)
-      if (before?.isConnected) before.focus({ preventScroll: true })
+      if (before?.isConnected) focusWhenActive(before)
     }
   }, [ref, active])
 }

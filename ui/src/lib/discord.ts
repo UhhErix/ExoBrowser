@@ -125,6 +125,8 @@ export type DiscordChannel = {
   slowmode?: number
   canRead?: boolean
   canSend?: boolean
+  /** Send Voice Messages (with Attach Files) here; absent in a DM, which takes them. */
+  canVoice?: boolean
   muted?: boolean
   /** When a timed mute ends (ms). */
   mutedUntil?: number | null

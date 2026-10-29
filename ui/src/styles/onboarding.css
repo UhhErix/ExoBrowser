@@ -208,6 +208,28 @@
   margin: 0;
 }
 
+/* Best settings' check (gpu/BestSetup.tsx), in first run's last step and the PC room: beside its words, drawn in as a
+   step lands (tokens.css › .exo-motion-check.is-held), simply there for one that was already set. Here, not in
+   pc-room.css, since first run shows it before the PC room's code has loaded. */
+.exo-motion-check.exo-best-check {
+  position: static;
+  display: inline-block;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+.exo-motion-check.exo-best-check.is-static {
+  animation: none;
+  stroke-dashoffset: 0;
+}
+
+.exo-set-state .exo-best-check {
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
 :root[data-exo-motion='reduce'] {
   /* What appears still fades in (DESIGN.md › Motion › Reduce): nothing slides, grows or gives way. */
   .exo-ob-step {

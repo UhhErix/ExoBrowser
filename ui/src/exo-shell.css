@@ -44,7 +44,9 @@
 }
 
 /* A sheet's dim reaches over the Bar too, so the whole window steps back under it, not everything but the Bar.
-   The Bar still takes clicks (the dim passes them through). Anything hidden (Settings' room is always in the page) doesn't count. */
+   The Bar still takes clicks (the dim passes them through). Anything hidden (Settings' room is always in the page, and a
+   sheet left open in a room you switched away from is hidden by React with an inline display: none) doesn't count. On
+   Light the quarter dim (--exo-scrim-k) keeps the Bar's secondary words over 4.5:1 on its frost. */
 .exo-titlebar::after {
   content: "";
   position: absolute;
@@ -56,14 +58,8 @@
   transition: opacity var(--dur-move) var(--ease-out);
 }
 
-:root:has(:is(.exo-game-overlay-scrim, .exo-dc-modal-back, .exo-set-room, .exo-props-back, .exo-folder-back, .exo-folder-sheet-back, .exo-whats-new-back, .exo-dc-settings-backdrop):not([hidden], [hidden] *, .is-backstage, .is-backstage *)) .exo-titlebar::after {
+:root:has(:is(.exo-game-overlay-scrim, .exo-dc-modal-back, .exo-set-room, .exo-props-back, .exo-folder-back, .exo-folder-sheet-back, .exo-whats-new-back, .exo-dc-settings-backdrop):not([hidden], [hidden] *, [style*="display: none"] *, .is-backstage, .is-backstage *)) .exo-titlebar::after {
   opacity: 1;
-}
-
-/* On Light the dim greys the Bar's white frost under its dark words: half of it keeps them at 4.5:1 (the full dim
-   left them at 3.4:1), and they stay words you click. */
-:root[data-exo-theme="light"] .exo-titlebar::after {
-  background: rgb(0 0 0 / calc(0.31 * var(--exo-scrim-k)));
 }
 
 .exo-brand-logo {
@@ -88,8 +84,9 @@
 
 /* Gear and window controls: shape lives with the room tabs in styles/shelf.css. */
 
-/* The game sheet's primary action: a 44px capsule in the same control glass as Uninstall and Properties beside it (as
-   the darker art glass it read as a different, heavier button). Smaller primaries are .exo-set-btn.is-primary. */
+/* The game sheet's primary action: a 44px capsule, Exo's primary (the ink, solid, its words the page's color), so it
+   reads as the one thing to press over any art. As the control glass beside Uninstall and Properties it showed the art
+   through it and read washed out over bright covers. Smaller primaries are .exo-set-btn.is-primary. */
 .exo-play {
   position: relative;
   overflow: hidden;
@@ -102,12 +99,11 @@
   border: none;
   border-radius: 999px;
   font-family: var(--exo-font);
-  background: var(--exo-fill);
-  color: var(--color-fg);
-  box-shadow: var(--exo-rim);
+  background: var(--color-fg);
+  color: var(--color-primary-fg);
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;
-  transition: opacity var(--dur-press) var(--ease-out), background-color var(--dur-quick) var(--ease-out), box-shadow var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
+  transition: opacity var(--dur-press) var(--ease-out), background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
 }
 
 .exo-play:disabled {
@@ -199,11 +195,11 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  :is(.exo-set-btn, .exo-game-tool, .exo-shelf-sort-trigger, .exo-add-game-btn, .exo-game-close, .exo-play):hover:not(:disabled) {
+  :is(.exo-set-btn, .exo-game-tool, .exo-shelf-sort-trigger, .exo-add-game-btn, .exo-game-close):hover:not(:disabled) {
     background-color: var(--hover-fill);
   }
 
-  .exo-set-btn.is-primary:hover:not(:disabled) {
+  :is(.exo-set-btn.is-primary, .exo-play):hover:not(:disabled) {
     background-color: var(--exo-primary-hover);
   }
 }

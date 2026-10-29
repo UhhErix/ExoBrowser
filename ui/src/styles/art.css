@@ -255,7 +255,8 @@
   border: 0;
   padding: 0;
   background: rgb(0 0 0 / calc(.7 * var(--exo-scrim-k)));
-  cursor: default;
+  /* A press anywhere around the sheet closes it, so all of it says so, as the Bar's buttons do. */
+  cursor: pointer;
 }
 
 .exo-game-overlay-scrim:disabled {
@@ -277,9 +278,11 @@
   inset: 0;
   z-index: 1;
   background:
-    /* Deep enough under the info column that its secondary words keep 4.5:1 over the brightest art (measured from
-       the screen: the stats' labels were at 3.6:1 over a bright sky). */
-    linear-gradient(90deg, color-mix(in srgb, var(--color-bg) 55%, transparent) 0%, color-mix(in srgb, var(--color-bg) 50%, transparent) 50%, color-mix(in srgb, var(--color-bg) 45%, transparent) 100%),
+    /* The scrim under the words: light over the cover's side, so the art still shows, and 70% from where the words
+       start, so the readings (muted, 12px) keep 4.5:1 over the brightest art. Lighter toward the right, as it was, it
+       left Fortnite's white logo art behind Size and the lines' readings, and the stats' labels at 3.6:1 over a bright
+       sky. */
+    linear-gradient(90deg, color-mix(in srgb, var(--color-bg) 45%, transparent) 0%, color-mix(in srgb, var(--color-bg) 70%, transparent) 32%, color-mix(in srgb, var(--color-bg) 70%, transparent) 100%),
     linear-gradient(0deg, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 85%, transparent) 40%, transparent 95%);
 }
 

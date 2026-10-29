@@ -239,6 +239,11 @@
   color: var(--color-good);
 }
 
+/* A mod's files: the mod's name where the jump would be, a reading in Muted (Exo never updates them). */
+.exo-upscalers-mod {
+  color: var(--color-muted);
+}
+
 .exo-upscalers-card-note {
   margin: auto 0 0;
   font-size: calc(12px * var(--exo-scale, 1));

@@ -193,6 +193,10 @@ const leadOf = (priv: boolean, blank: boolean, secure: boolean) => priv ? I.Priv
 // The tab on screen, as each part of the Bar reads it: a part draws again only when what it shows changes.
 const activeTab = (b: { tabs: Tab[]; active: number }) => b.tabs.find(t => t.id === b.active)
 
+// 1,234 reads 1.2K beside the address: the field keeps its room for the address.
+const countFormat = new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 })
+const compactCount = (n: number) => countFormat.format(n)
+
 function Address({ onEdit }: { onEdit: () => void }) {
   const url = useBrowserValue(b => activeTab(b)?.url ?? '')
   const blank = !url || isNewTab(url)
@@ -200,6 +204,7 @@ function Address({ onEdit }: { onEdit: () => void }) {
   const marked = useBrowserValue(b => b.bookmarks.some(m => m[0] === url))
   const engine = useBrowserValue(b => b.settings.engine)
   const priv = useBrowserValue(b => !!activeTab(b)?.priv)
+  const blocked = useBrowserValue(b => activeTab(b)?.blocked ?? 0)
   // The field carries the page's loading: a light travels along it, then lands as a short glow that fades on the
   // flight time (browser.css). A page in within 300ms showed no light, so it lands with none either.
   const [landed, setLanded] = useState(false)
@@ -233,6 +238,12 @@ function Address({ onEdit }: { onEdit: () => void }) {
           : <span className="exb-address-url"><span className="exb-address-host">{host}</span><span className="exb-address-path">{rest}</span></span>}
       </button>
       {store ? <Button size="sm" className="exo-set-btn is-primary is-compact exb-store-add" onPress={() => send('extInstall', store[1])}>Install</Button> : null}
+      {/* What Exo Shield blocked on this page: ads, trackers and the like, as Chromium counts the requests it stopped. */}
+      {blank || !blocked ? null : (
+        <span className="exb-shield-count" role="status" aria-label={`Exo Shield blocked ${blocked.toLocaleString()} ads, trackers and other requests on this page`}>
+          <I.Shield size={14} />{compactCount(blocked)}
+        </span>
+      )}
       {blank ? null : (
         <Button variant="ghost" size="sm" isIconOnly className={`exo-titlebar-button exb-star${marked ? ' is-on' : ''}`} aria-label="Bookmark" aria-pressed={marked}
           aria-keyshortcuts="Control+D" onPress={() => send('bookmark')}>

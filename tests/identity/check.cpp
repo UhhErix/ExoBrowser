@@ -1,5 +1,5 @@
 // Independent check of the Exo identity spec v0 test vectors (ExoLauncher's plan, §2) for Exo Browser.
-// Every value in exo-identity-vectors.json (exo-identity-vectors/2) is worked out again here from the spec
+// Every value in exo-identity-vectors.json (exo-identity-vectors/4) is worked out again here from the spec
 // text with Windows' own crypto only (CNG: BCrypt, and NCrypt on the Software KSP), so Browser knows the spec
 // builds in C++ the way Launcher built it in C# before anything depends on it. No third-party code, JSON
 // reader included.
@@ -12,6 +12,8 @@
 #include <bcrypt.h>
 #include <ncrypt.h>
 #include <algorithm>
+#include <climits>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -895,19 +897,48 @@ static Bytes Nonce(const Bytes& base, uint64_t seq) {
 
 // ---- Device names (§2.13)
 
-// 1 to 64 Unicode scalar values. Refused anywhere: controls (U+0000-001F, U+007F-009F), the line and
-// paragraph separators, and the bidi embeddings, overrides and isolates. Refused first or last: white space.
-// Explicit lists, as the spec asks, not a runtime's Unicode tables.
+// 1 to 64 Unicode scalar values, nothing invisible (§2.13, §2.15). Explicit lists, as the spec asks, not a
+// runtime's Unicode tables; CheckDeviceNames compares each with the vectors' at every code point.
+
+// Refused anywhere: the controls, the line and paragraph separators, and Default_Ignorable_Code_Point.
+static bool RefusedAnywhere(unsigned u) {
+    static const unsigned ranges[][2] = {
+        {0x0000, 0x001F}, {0x007F, 0x009F}, {0x00AD, 0x00AD}, {0x034F, 0x034F}, {0x061C, 0x061C}, {0x115F, 0x1160}, {0x17B4, 0x17B5},
+        {0x180B, 0x180F}, {0x200B, 0x200F}, {0x2028, 0x2029}, {0x202A, 0x202E}, {0x2060, 0x206F}, {0x3164, 0x3164}, {0xFE00, 0xFE0F},
+        {0xFEFF, 0xFEFF}, {0xFFA0, 0xFFA0}, {0xFFF0, 0xFFF8}, {0x1BCA0, 0x1BCA3}, {0x1D173, 0x1D17A}, {0xE0000, 0xE0FFF},
+    };
+    for (auto& r : ranges)
+        if (u >= r[0] && u <= r[1]) return true;
+    return false;
+}
+
+// Refused first or last: White_Space, less what is refused anywhere.
+static bool NameSpace(unsigned u) {
+    return u == 0x20 || u == 0xA0 || u == 0x1680 || (u >= 0x2000 && u <= 0x200A) || u == 0x202F || u == 0x205F || u == 0x3000;
+}
+
+// What emoji are built on: pictographs, and the keycap bases a variation selector may follow.
+static bool Pictograph(unsigned u) {
+    return u == 0x203C || u == 0x2049 || (u >= 0x2100 && u <= 0x2BFF) || u == 0x3030 || u == 0x303D || u == 0x3297 || u == 0x3299 ||
+           (u >= 0x1F000 && u <= 0x1FAFF);
+}
+static bool KeycapBase(unsigned u) { return u == 0x23 || u == 0x2A || (u >= 0x30 && u <= 0x39) || u == 0xA9 || u == 0xAE; }
+static bool Tag(unsigned u) { return u >= 0xE0020 && u <= 0xE007E; }
+
 static bool NameOk(const std::string& name) {
     std::vector<unsigned> cps;
     if (!Utf8Decode(name, cps) || cps.empty() || cps.size() > 64) return false;
-    for (unsigned u : cps)
-        if (u <= 0x1F || (u >= 0x7F && u <= 0x9F) || u == 0x2028 || u == 0x2029 || (u >= 0x202A && u <= 0x202E) || (u >= 0x2066 && u <= 0x2069))
-            return false;
-    auto space = [](unsigned u) {
-        return u == 0x20 || u == 0xA0 || u == 0x1680 || (u >= 0x2000 && u <= 0x200A) || u == 0x202F || u == 0x205F || u == 0x3000;
-    };
-    return !space(cps.front()) && !space(cps.back());
+    for (size_t i = 0; i < cps.size(); i++) {
+        unsigned u = cps[i], before = i ? cps[i - 1] : 0, after = i + 1 < cps.size() ? cps[i + 1] : 0;
+        bool ok;
+        if (u == 0x200D) ok = (Pictograph(before) || (i && before == 0xFE0F)) && Pictograph(after);  // the joiner
+        else if (u == 0xFE0E || u == 0xFE0F) ok = i && (Pictograph(before) || KeycapBase(before));  // the selectors
+        else if (Tag(u)) ok = i && (before == 0x1F3F4 || Tag(before)) && (Tag(after) || after == 0xE007F);  // a flag's tags
+        else if (u == 0xE007F) ok = i && Tag(before);  // its cancel tag
+        else ok = !RefusedAnywhere(u);
+        if (!ok) return false;
+    }
+    return !NameSpace(cps.front()) && !NameSpace(cps.back());
 }
 
 // ---- The sync batch (§2.7): a 0x01 envelope's data, taken whole or not at all
@@ -945,9 +976,9 @@ static bool ReadBatch(const std::string& bytes, const std::string& app, std::str
 
 struct Member {
     std::string name;
-    Bytes sigPub;
+    Bytes sigPub, encPub;
     bool recovery = false;
-    long long addSeq = 0;  // the seq of its own add: the mutual-removal tie-break
+    long long addSeq = 0;  // the seq of its own (latest) add: a PC's rank in a fork
 };
 
 struct Chain {
@@ -955,26 +986,58 @@ struct Chain {
     std::map<std::string, Member> devices;
     std::string head;  // the last change's hash; "" before the first
     long long next = 0;
-    bool recoveryUsed = false;
+    std::set<std::string> actions;  // every applied change's (by, op, device, at): a re-sign of one already in is dropped
 };
+
+// A fork's ranks (§2.13): the recovery entry first, then each PC by the seq of its own add.
+static long long Rank(const Chain& chain, const std::string& id) {
+    auto it = chain.devices.find(id);
+    if (it == chain.devices.end()) return LLONG_MAX;
+    return it->second.recovery ? -1 : it->second.addSeq;
+}
+
+// Exactly these fields, the required ones present (§2.15: a new field comes with a new v).
+static bool Fields(const Json& o, std::initializer_list<const char*> required, std::initializer_list<const char*> optional = {}) {
+    if (o.kind != Json::Object) return false;
+    for (const char* f : required)
+        if (o[f].kind == Json::Missing) return false;
+    for (auto& [name, _] : o.fields)
+        if (std::none_of(required.begin(), required.end(), [&](const char* f) { return name == f; }) &&
+            std::none_of(optional.begin(), optional.end(), [&](const char* f) { return name == f; }))
+            return false;
+    return true;
+}
+
+static std::string Action(const Json& c) {
+    Json a;
+    a.kind = Json::Object;
+    a.fields = {{"at", c["at"]}, {"by", c["by"]}, {"device", c["device"]}, {"op", c["op"]}};
+    return Canonical(a);
+}
 
 // A change's hash: the hex SHA-256 of its canonical form without its own sig. The nested device record of
 // an add keeps its sig: that is content the change's signature covers.
 static std::string ChangeHash(const Json& c) { return Hex(Sha256(Canonical(Without(c, "sig")))); }
 
+// The steps the last Apply refused it at, so a refused vector can be checked for its own reason.
+static std::vector<std::string> g_refusedAt;
+
 // Checks one change against the chain and applies it when everything holds. With `report`, each step is a
 // check line under that section; without, it only answers.
 static bool Apply(Chain& chain, const Json& c, const char* report = nullptr, const std::string& label = "") {
     bool ok = true;
+    g_refusedAt.clear();
     auto step = [&](bool good, const std::string& what) {
         if (report) Check(report, label + " " + what, good);
+        if (!good) g_refusedAt.push_back(what);
         ok = ok && good;
         return good;
     };
     const std::string& op = c["op"].s;
     const Json& d = c["device"];
-    step(c.kind == Json::Object && c["v"].kind == Json::Int && c["v"].n == 1 && c["exoId"].s == chain.exoId && c["seq"].kind == Json::Int &&
-             c["seq"].n == chain.next && c["prev"].kind == Json::String && c["prev"].s == chain.head && c["at"].kind == Json::Int,
+    step(Fields(c, {"v", "exoId", "seq", "prev", "op", "device", "by", "at", "sig"}), "exactly a change's fields");
+    step(c["v"].kind == Json::Int && c["v"].n == 1 && c["exoId"].s == chain.exoId && c["seq"].kind == Json::Int && c["seq"].n == chain.next &&
+             c["prev"].kind == Json::String && c["prev"].s == chain.head && c["at"].kind == Json::Int,
          "v 1, the list's exoId, seq " + std::to_string(chain.next) + ", prev = the head's hash");
 
     // Who signed it: the first change by the device it adds, every later one by a device already listed.
@@ -991,34 +1054,43 @@ static bool Apply(Chain& chain, const Json& c, const char* report = nullptr, con
     }
     step(FromBase64Url(c["sig"].s, sig) && Verify(signer, "exo-change/1" + Canonical(Without(c, "sig")), sig),
          "signature (exo-change/1) is low-s and verifies");
-    if (byRecovery) step(op == "add" && !chain.recoveryUsed, "the recovery entry signs one add and nothing else");
+    auto recoveryEntry = std::find_if(chain.devices.begin(), chain.devices.end(), [](auto& m) { return m.second.recovery; });
+    bool hasRecovery = recoveryEntry != chain.devices.end();
 
     if (op == "add") {
         Bytes sigPub, recordSig, encPub;
+        // The flag is there only as true (§2.16): false is refused as a record's field, and means no recovery entry.
         bool recovery = d["recovery"].kind == Json::Bool && d["recovery"].b;
-        step(d.kind == Json::Object && d["v"].kind == Json::Int && d["v"].n == 1 && FromBase64Url(d["sigPub"].s, sigPub) && ValidPoint(sigPub) &&
+        step(Fields(d, {"v", "id", "name", "created", "sigPub", "encPub", "apps", "sig"}, {"recovery"}) &&
+                 (d["recovery"].kind == Json::Missing || recovery) && d["created"].kind == Json::Int && d["apps"].kind == Json::Array &&
+                 std::all_of(d["apps"].items.begin(), d["apps"].items.end(), [](const Json& a) { return a.kind == Json::String; }),
+             "exactly a device record's fields (recovery only as true)");
+        step(d["v"].kind == Json::Int && d["v"].n == 1 && FromBase64Url(d["sigPub"].s, sigPub) && ValidPoint(sigPub) &&
                  d["id"].s == Hex(Sha256(sigPub).substr(0, 16)),
              "device record v 1, id = first 16 bytes of SHA-256(sigPub)");
         step(FromBase64Url(d["sig"].s, recordSig) && Verify(sigPub, "exo-device/1" + Canonical(Without(d, "sig")), recordSig),
              "device record signature (exo-device/1) is low-s and verifies under its own sigPub");
-        if (recovery) {
-            bool another = std::any_of(chain.devices.begin(), chain.devices.end(), [](auto& m) { return m.second.recovery; });
-            step(d["encPub"].kind == Json::Missing && !another, "the recovery entry has no encPub and is the only one");
-        } else {
-            step(FromBase64Url(d["encPub"].s, encPub) && ValidPoint(encPub), "encPub is a P-256 point");
-        }
+        step(FromBase64Url(d["encPub"].s, encPub) && ValidPoint(encPub), "encPub is a P-256 point");
+        // The recovery entry is the root (§2.12): a PC adds one only when there is none; the entry adds the next
+        // code's in its own place.
+        if (recovery) step(byRecovery || !hasRecovery, byRecovery ? "the recovery entry adds the next code's entry in its own place" : "a PC adds a recovery entry only when there is none");
         step(NameOk(d["name"].s), "name passes the name rule");
         step(!chain.devices.count(d["id"].s), "a device not already listed");
         if (!ok) return false;
-        chain.devices[d["id"].s] = {d["name"].s, sigPub, recovery, c["seq"].n};
-        if (byRecovery) chain.recoveryUsed = true;
+        if (recovery && byRecovery) chain.devices.erase(c["by"].s);
+        chain.devices[d["id"].s] = {d["name"].s, sigPub, encPub, recovery, c["seq"].n};
     } else if (op == "remove") {
         step(d.kind == Json::String && chain.devices.count(d.s), "removes a listed device");
+        bool targetRecovery = d.kind == Json::String && hasRecovery && recoveryEntry->first == d.s;
+        if (targetRecovery) step(byRecovery, "only the recovery entry removes itself (no PC removes it)");
         if (!ok) return false;
         chain.devices.erase(d.s);
     } else if (op == "rename") {
+        // No one renames the recovery entry, and it renames nothing (§2.16); one rule says why, the first that applies.
         auto it = chain.devices.find(d["id"].s);
-        step(it != chain.devices.end() && d.fields.size() == 2 && NameOk(d["name"].s), "renames a listed device to a valid name");
+        if (byRecovery) step(false, "the recovery entry never renames");
+        else if (it != chain.devices.end() && it->second.recovery) step(false, "no one renames the recovery entry");
+        step(it != chain.devices.end() && Fields(d, {"id", "name"}) && NameOk(d["name"].s), "renames a listed device to a valid name");
         if (!ok) return false;
         it->second.name = d["name"].s;
     } else {
@@ -1028,41 +1100,98 @@ static bool Apply(Chain& chain, const Json& c, const char* report = nullptr, con
     if (!ok) return false;
     chain.head = ChangeHash(c);
     chain.next++;
+    chain.actions.insert(Action(c));
     return true;
 }
 
-// The fork rule (§2.13) for two changes with the same seq after the same prev; returns which one (0 or 1)
-// every device keeps.
-static int ForkWinner(const Chain& base, const Json& a, const Json& b) {
+// The fork rule (§2.13, in passes over the whole set since §2.15) for every change seen with the same seq after
+// the same prev; returns the index every device keeps, whatever order they came in.
+static size_t ForkWinner(const Chain& base, const std::vector<Json>& set) {
+    // 1. Removes, oldest author first (the recovery entry, then each PC by its add's seq; one author's by hash):
+    //    one whose author is already struck is passed over, any other strikes the device it removes.
+    std::vector<size_t> removes;
+    for (size_t i = 0; i < set.size(); i++)
+        if (set[i]["op"].s == "remove" && set[i]["device"].kind == Json::String) removes.push_back(i);
+    std::sort(removes.begin(), removes.end(), [&](size_t a, size_t b) {
+        long long ra = Rank(base, set[a]["by"].s), rb = Rank(base, set[b]["by"].s);
+        return ra != rb ? ra < rb : ChangeHash(set[a]) < ChangeHash(set[b]);
+    });
+    std::set<std::string> struck;
+    for (size_t i : removes)
+        if (!struck.count(set[i]["by"].s) && set[i]["device"].s != set[i]["by"].s) struck.insert(set[i]["device"].s);
+    // 2. A struck device's changes are out. 3. The lowest hash of the rest, its lowercase hex compared as text.
+    size_t best = SIZE_MAX;
+    for (size_t i = 0; i < set.size(); i++)
+        if (!struck.count(set[i]["by"].s) && (best == SIZE_MAX || ChangeHash(set[i]) < ChangeHash(set[best]))) best = i;
+    return best;
+}
+
+// Pass 0 (§2.16): an author with two or more different changes after one head equivocated; all of them are dropped
+// there, by every device that has seen them, and the author stays listed.
+static std::set<std::string> Equivocators(const std::vector<Json>& set) {
+    std::map<std::string, std::set<std::string>> byAuthor;
+    for (const Json& c : set) byAuthor[c["by"].s].insert(ChangeHash(c));
+    std::set<std::string> out;
+    for (auto& [author, hashes] : byAuthor)
+        if (hashes.size() > 1) out.insert(author);
+    return out;
+}
+
+// The chain a device keeps from every change it has seen (§2.13): from the base's head, the winner among the changes
+// after the head that apply there (pass 0, then the fork rule), until there are none.
+static Chain Resolve(const Chain& base, const std::vector<Json>& seen) {
+    Chain chain = base;
+    for (;;) {
+        std::vector<Json> next;
+        std::set<std::string> hashes;
+        for (const Json& c : seen) {
+            Chain trial = chain;
+            if (c["prev"].s == chain.head && hashes.insert(ChangeHash(c)).second && Apply(trial, c)) next.push_back(c);
+        }
+        std::set<std::string> cheats = Equivocators(next);
+        std::vector<Json> fair;
+        for (const Json& c : next)
+            if (!cheats.count(c["by"].s)) fair.push_back(c);
+        size_t w = fair.empty() ? SIZE_MAX : ForkWinner(chain, fair);
+        if (w >= fair.size() || !Apply(chain, fair[w])) return chain;
+    }
+}
+
+// /2's rule, pairwise, kept to show what it did with three or more: a remove beats its target's change, of two
+// removing each other the one added earlier, else the lower hash.
+static int PairwiseWinner(const Chain& base, const Json& a, const Json& b) {
     auto removesAuthorOf = [](const Json& x, const Json& y) {
         return x["op"].s == "remove" && x["device"].kind == Json::String && x["device"].s == y["by"].s;
     };
     bool ab = removesAuthorOf(a, b), ba = removesAuthorOf(b, a);
-    // 1. A remove beats any concurrent change by the device it removes.
     if (ab != ba) return ab ? 0 : 1;
-    // 2. Two devices removing each other: the remove by the one added earlier wins.
-    if (ab && ba) {
-        auto ia = base.devices.find(a["by"].s), ib = base.devices.find(b["by"].s);
-        if (ia != base.devices.end() && ib != base.devices.end() && ia->second.addSeq != ib->second.addSeq)
-            return ia->second.addSeq < ib->second.addSeq ? 0 : 1;
-    }
-    // 3. Otherwise the lower hash, its lowercase hex compared as text.
+    if (ab && ba && Rank(base, a["by"].s) != Rank(base, b["by"].s)) return Rank(base, a["by"].s) < Rank(base, b["by"].s) ? 0 : 1;
     return ChangeHash(a) < ChangeHash(b) ? 0 : 1;
 }
 
-// The loser is dropped when it no longer applies: its author was removed, the device it adds is in, the
-// one it removes (or renames) is gone. Otherwise its author signs it again on top.
-static bool StillApplies(const Chain& after, const Json& loser) {
-    const Json& d = loser["device"];
-    if (!after.devices.count(loser["by"].s)) return false;
-    if (loser["op"].s == "add") return !after.devices.count(d["id"].s);
-    if (loser["op"].s == "remove") return after.devices.count(d.s) > 0;
-    if (loser["op"].s == "rename") return after.devices.count(d["id"].s) > 0;
-    return false;
+// Why a change of a losing branch is dropped on re-sign (§2.13), or "" when its author signs it again on top.
+static std::string WhyDropped(const Chain& after, const Json& c) {
+    const Json& d = c["device"];
+    const std::string& op = c["op"].s;
+    if (!after.devices.count(c["by"].s)) return "its author was removed";
+    if (after.actions.count(Action(c))) return "the same action is already in the chain";
+    bool byRecovery = after.devices.at(c["by"].s).recovery;
+    bool hasRecovery = std::any_of(after.devices.begin(), after.devices.end(), [](auto& m) { return m.second.recovery; });
+    if (op == "add") {
+        if (after.devices.count(d["id"].s)) return "the device it adds is in";
+        if (d["recovery"].kind == Json::Bool && d["recovery"].b && !byRecovery && hasRecovery) return "its author may no longer sign it";
+    } else if (op == "remove") {
+        if (!after.devices.count(d.s)) return "the device it removes is gone";
+        if (after.devices.at(d.s).recovery && !byRecovery) return "its author may no longer sign it";
+    } else if (op == "rename") {
+        if (!after.devices.count(d["id"].s)) return "the device it renames is gone";
+        if (byRecovery) return "its author may no longer sign it";
+    }
+    return "";
 }
 
-// What a change says, apart from where it sits in the chain and when it was signed.
-static std::string Content(const Json& c) { return Canonical(Without(Without(Without(Without(c, "sig"), "seq"), "prev"), "at")); }
+// What a change says, apart from where it sits in the chain (a re-sign keeps all of it, `at` included).
+static std::string Content(const Json& c) { return Canonical(Without(Without(Without(c, "sig"), "seq"), "prev")); }
 
 static std::string Ids(const Chain& chain) {
     std::string s;
@@ -1181,6 +1310,31 @@ static void CheckDeviceNames(const Json& n) {
         Check(S, "accepted \"" + t.s + "\" (" + std::to_string(cps.size()) + " scalar values)", NameOk(t.s));
     }
     for (const Json& t : n["refused"].items) Check(S, "refused \"" + t["name"].s + "\" (" + t["why"].s + ")", !NameOk(t["name"].s));
+
+    // The spec's lists, as the vectors carry them, against this checker's at every code point.
+    auto in = [](const Json& list, unsigned u) {
+        for (const Json& r : list.items) {
+            size_t dash = r.s.find('-');
+            unsigned lo = (unsigned)strtoul(r.s.substr(0, dash).c_str(), nullptr, 16);
+            unsigned hi = dash == std::string::npos ? lo : (unsigned)strtoul(r.s.substr(dash + 1).c_str(), nullptr, 16);
+            if (u >= lo && u <= hi) return true;
+        }
+        return false;
+    };
+    const Json& e = n["exceptInEmoji"];
+    int anywhere = 0, edges = 0, pictographs = 0, keycaps = 0;
+    for (unsigned u = 0; u <= 0x10FFFF; u++) {
+        if (u >= 0xD800 && u <= 0xDFFF) continue;
+        anywhere += in(n["refusedAnywhere"], u) != RefusedAnywhere(u);
+        edges += in(n["refusedFirstOrLast"], u) != NameSpace(u);
+        pictographs += in(e["pictographs"], u) != Pictograph(u);
+        keycaps += in(e["keycapBases"], u) != KeycapBase(u);
+    }
+    Check(S, "refused-anywhere list = this checker's, at every code point", anywhere == 0, "0 differences", std::to_string(anywhere));
+    Check(S, "refused-first-or-last list = this checker's, at every code point", edges == 0, "0 differences", std::to_string(edges));
+    Check(S, "pictographs = this checker's, at every code point", pictographs == 0, "0 differences", std::to_string(pictographs));
+    Check(S, "keycap bases = this checker's, at every code point", keycaps == 0, "0 differences", std::to_string(keycaps));
+    Check(S, "U+200F (refused since /3) is refused", !NameOk("a\xE2\x80\x8F" "b"));
 }
 
 static std::string Joined(const std::vector<Bytes>& list) {
@@ -1411,34 +1565,73 @@ static void CheckRecovery(const Json& r) {
     Check(S, "typed back as printed reads as the same code", ParseRecovery(text, typed) && typed == code);
 
     Bytes prk = Extract("exo recovery v1", code);
-    int cb = -1, cs = -1;
-    Bytes boxD = DeriveScalar(prk, "box", &cb), signD = DeriveScalar(prk, "sign", &cs), wrap = Expand(prk, "wrap", 32);
+    int cb = -1, cs = -1, ce = -1;
+    Bytes boxD = DeriveScalar(prk, "box", &cb), signD = DeriveScalar(prk, "sign", &cs), sealD = DeriveScalar(prk, "seal", &ce);
     Same(S, "box scalar (counter " + std::to_string(cb) + ")", r["boxScalar"].s, Hex(boxD));
     Same(S, "sign scalar (counter " + std::to_string(cs) + ")", r["signScalar"].s, Hex(signD));
-    Same(S, "wrap key Expand(Extract(\"exo recovery v1\", code), \"wrap\", 32)", r["wrapKey"].s, Hex(wrap));
-    Bytes recoverySalt = "exo recovery v1";
-    Same(S, "  again through CNG's HKDF, SALT_AND_FINALIZE", r["wrapKey"].s, Hex(CngHkdf(code, &recoverySalt, "wrap", 32)));
+    Same(S, "seal scalar (counter " + std::to_string(ce) + ")", r["sealScalar"].s, Hex(sealD));
+    Bytes recoverySalt = "exo recovery v1", first = "seal" + Bytes(1, (char)ce);
+    Same(S, "  seal again through CNG's HKDF, SALT_AND_FINALIZE", r["sealScalar"].s, Hex(CngHkdf(code, &recoverySalt, first, 32)));
     CheckPublic(S, "box", boxD, r["boxPublicKey"].s);
     CheckPublic(S, "sign", signD, r["signPublicKey"].s);
+    CheckPublic(S, "seal", sealD, r["sealPublicKey"].s);
     Same(S, "box id", r["boxId"].s, BoxId(Unhex(r["boxPublicKey"].s)));
     Bytes msg = "exo-change/1 check";
     Check(S, "the d-only sign key signs (NCrypt, made low-s) and verifies", Verify(Unhex(r["signPublicKey"].s), msg, LowS(NcryptSignRaw(signD, msg))));
 
-    // The kit: {v:1, exoId, epoch, syncKey (base64url)} canonical, padded, sealed 01 || nonce || AES-256-GCM.
+    // The kit (§2.12): canonical {by, epoch, exoId, syncKey (base64url), v:1} in a kind 0x02 envelope to the entry's
+    // encPub (the seal key), mailbox id the box's 16 raw bytes, signed by the PC that posts it (`by`).
     const Json& want = r["kit"];
-    Bytes sealed = Unhex(r["sealedKit"].s), nonce = Unhex(r["nonce"].s), aad = "exo-recovery/1" + Unhex(r["boxId"].s), padded, kitText;
-    std::string plaintext = "{\"epoch\":" + std::to_string(want["epoch"].n) + ",\"exoId\":\"" + want["exoId"].s + "\",\"syncKey\":\"" +
-                            Base64Url(Unhex(want["syncKey"].s)) + "\",\"v\":1}";
-    Same(S, "kit plaintext: canonical, syncKey in base64url", r["plaintext"].s, plaintext);
-    Same(S, "kit AAD = \"exo-recovery/1\" || box id (16 raw bytes)", r["aad"].s, Hex(aad));
-    Same(S, "sealed kit = 01 || nonce || AES-256-GCM(wrap, pad(kit))", r["sealedKit"].s, Hex(Bytes(1, '\x01') + nonce + Seal(wrap, nonce, aad, Pad(plaintext))));
-    bool opened = sealed.size() > 13 && sealed[0] == 1 && Open(wrap, sealed.substr(1, 12), aad, sealed.substr(13), padded) && Unpad(padded, kitText);
-    Check(S, "a reader opens and unpads the sealed kit to that plaintext", opened && kitText == r["plaintext"].s);
+    std::string plaintext = "{\"by\":\"" + want["by"].s + "\",\"epoch\":" + std::to_string(want["epoch"].n) + ",\"exoId\":\"" + want["exoId"].s +
+                            "\",\"syncKey\":\"" + Base64Url(Unhex(want["syncKey"].s)) + "\",\"v\":1}";
+    Same(S, "kit plaintext: canonical, exactly by, epoch, exoId, syncKey (base64url), v", r["plaintext"].s, plaintext);
+    Bytes sealed = Unhex(r["sealedKit"].s), box = Unhex(r["boxId"].s), pkR = Unhex(r["sealPublicKey"].s), signer = Unhex(r["signerPublicKey"].s);
+    Bytes header = sealed.substr(0, 6), aad = EnvelopeAad(box, header), info = r["hpkeInfo"].s, padded, kitText;
+    Check(S, "kit envelope is kind 0x02 (02 02 || epoch)", header.size() == 6 && header[0] == 2 && header[1] == 2);
+    Same(S, "kit AAD = \"exo-env/1\" || box id (16 raw bytes) || bytes 0..5", r["aad"].s, Hex(aad));
+    Same(S, "kit HPKE info is \"exo-env/1 to-device\"", "exo-env/1 to-device", info);
+    hpke::Encapsulated enc = hpke::Encap(Unhex(r["ephemeralScalar"].s), pkR);
+    hpke::Context c = hpke::KeySchedule(enc.sharedSecret, info);
+    Bytes body = header + enc.enc + Seal(c.key, c.baseNonce, aad, Pad(plaintext));
+    Same(S, "kit bytes before the signature = header || enc || HPKE seal of pad(kit) to the seal key", Hex(body),
+         Hex(sealed.substr(0, std::min(sealed.size(), body.size()))));
+    Check(S, "kit length 6 + 65 + P + 16 + 64", sealed.size() == body.size() + 64);
+    Check(S, "kit signature by the posting PC is low-s and verifies", sealed.size() > body.size() && Verify(signer, body, sealed.substr(body.size())));
+    // Opened with the code alone: the seal scalar it derives.
+    hpke::Context o = hpke::KeySchedule(hpke::Decap(sealed.substr(6, 65), sealD), info);
+    bool opened = sealed.size() > 71 + 64 && Open(o.key, o.baseNonce, aad, sealed.substr(71, sealed.size() - 71 - 64), padded) && Unpad(padded, kitText);
+    Check(S, "the code's seal key opens and unpads the kit to that plaintext", opened && kitText == r["plaintext"].s);
+    auto readKit = [](const std::string& text, Json& kit) {
+        Bytes key;
+        return ParseJson(text, kit) && Canonical(kit) == text && Fields(kit, {"by", "epoch", "exoId", "syncKey", "v"}) && kit["v"].kind == Json::Int &&
+               kit["v"].n == 1 && kit["epoch"].kind == Json::Int && LowerHex(kit["by"].s, 32) && FromBase64Url(kit["syncKey"].s, key) && key.size() == 32;
+    };
     Json kit;
     Bytes keyFromKit;
-    Check(S, "the kit reads back: canonical, v 1, exoId, epoch, syncKey",
-          ParseJson(kitText, kit) && Canonical(kit) == kitText && kit.fields.size() == 4 && kit["v"].n == 1 && kit["exoId"].s == want["exoId"].s &&
-              kit["epoch"].n == want["epoch"].n && FromBase64Url(kit["syncKey"].s, keyFromKit) && Hex(keyFromKit) == want["syncKey"].s);
+    Check(S, "the kit reads back with the same Exo ID, epoch, poster and sync key",
+          readKit(kitText, kit) && kit["exoId"].s == want["exoId"].s && kit["epoch"].n == want["epoch"].n && kit["by"].s == want["by"].s &&
+              FromBase64Url(kit["syncKey"].s, keyFromKit) && Hex(keyFromKit) == want["syncKey"].s);
+    // §2.15: a field the kit doesn't have, or a v the reader doesn't know, is refused.
+    std::string extra = plaintext.substr(0, plaintext.size() - 1) + ",\"x\":1}", v2 = plaintext.substr(0, plaintext.size() - 2) + "2}";
+    Json refused;
+    Check(S, "refused: a kit with a field it doesn't have", !readKit(extra, refused));
+    Check(S, "refused: a kit with v 2", !readKit(v2, refused));
+
+    // §2.16: the header's epoch is the code's number (its recovery entry's place among the chain's: 1 for the first),
+    // the recovery box's own counter, not the sync key's epoch inside. A reader opens only a kit with its code's number.
+    auto epochOf = [](const Bytes& kitEnvelope) {
+        return kitEnvelope.size() >= 6 ? (uint32_t)(unsigned char)kitEnvelope[2] << 24 | (uint32_t)(unsigned char)kitEnvelope[3] << 16 |
+                                             (uint32_t)(unsigned char)kitEnvelope[4] << 8 | (uint32_t)(unsigned char)kitEnvelope[5]
+                                       : 0u;
+    };
+    uint32_t number = (uint32_t)r["headerEpoch"].n;
+    Same(S, "kit header epoch = the code's number (" + r["headerEpochIs"].s.substr(0, 40) + "...)", std::to_string(number), std::to_string(epochOf(sealed)));
+    Check(S, "the code's number is not the kit's sync-key epoch", (long long)number != want["epoch"].n);
+    for (const Json& t : r["refusedKits"].items) {
+        Bytes other = Unhex(t["sealedKit"].s);
+        Check(S, "refused kit (" + t["why"].s + "): its header epoch " + std::to_string(epochOf(other)) + " isn't the code's number",
+              other.size() >= 6 && other[0] == 2 && other[1] == 2 && epochOf(other) != number);
+    }
 }
 
 static void CheckDeviceList(const Json& root) {
@@ -1455,14 +1648,35 @@ static void CheckDeviceList(const Json& root) {
         Same(S, n + " prev = the previous change's hash", chain.head, c["prev"].s);
         Apply(chain, c, S, n);
     }
-    Bytes firstSigPub, recoverySigPub;
+    Bytes firstSigPub, recoverySigPub, recoveryEncPub, posterSigPub;
     FromBase64Url(list["changes"][0]["device"]["sigPub"].s, firstSigPub);
-    for (auto& [id, m] : chain.devices)
-        if (m.recovery) recoverySigPub = m.sigPub;
+    const Json& rec = root["recovery"];
+    // The code's entry is the first added (by a PC); the chain then has it add the next code's in its place.
+    for (const Json& c : list["changes"].items)
+        if (c["op"].s == "add" && c["device"]["recovery"].kind != Json::Missing && recoverySigPub.empty()) {
+            FromBase64Url(c["device"]["sigPub"].s, recoverySigPub);
+            FromBase64Url(c["device"]["encPub"].s, recoveryEncPub);
+        }
+    for (const Json& c : list["changes"].items)
+        if (c["op"].s == "add" && c["device"]["id"].s == rec["kit"]["by"].s) FromBase64Url(c["device"]["sigPub"].s, posterSigPub);
     Same(S, "Exo ID = base32 of the first 16 bytes of SHA-256(first device's sigPub)", list["exoId"].s, Base32(Sha256(firstSigPub).substr(0, 16)));
-    Same(S, "the recovery kit carries the same Exo ID", list["exoId"].s, root["recovery"]["kit"]["exoId"].s);
-    Same(S, "the recovery entry's sigPub is the recovery code's sign key", root["recovery"]["signPublicKey"].s, Hex(recoverySigPub));
+    Same(S, "the recovery kit carries the same Exo ID", list["exoId"].s, rec["kit"]["exoId"].s);
+    Same(S, "the recovery entry's sigPub is the recovery code's sign key", rec["signPublicKey"].s, Hex(recoverySigPub));
+    Same(S, "the recovery entry's encPub is the recovery code's seal key", rec["sealPublicKey"].s, Hex(recoveryEncPub));
+    Same(S, "the kit's poster (by) is a listed PC, its sigPub the kit's signer", rec["signerPublicKey"].s, Hex(posterSigPub));
+    long long entries = std::count_if(chain.devices.begin(), chain.devices.end(), [](auto& m) { return m.second.recovery; });
+    Check(S, "the code replaced itself: one recovery entry at the end, not the first", entries == 1 && !chain.devices.count(Hex(Sha256(recoverySigPub).substr(0, 16))));
     Same(S, "devices at the end of the chain", Ids(list["devicesAtEnd"]), Ids(chain));
+    // A code's number (§2.16): its entry's place among the chain's recovery entries, 1 for the first.
+    int codes = 0, kitCode = 0;
+    for (const Json& c : list["changes"].items)
+        if (c["op"].s == "add" && c["device"]["recovery"].kind == Json::Bool && c["device"]["recovery"].b) {
+            codes++;
+            Bytes pub;
+            if (FromBase64Url(c["device"]["sigPub"].s, pub) && pub == recoverySigPub) kitCode = codes;
+        }
+    Same(S, "the code's number at the end of the chain (recovery entries added)", std::to_string(list["codeNumberAtEnd"].n), std::to_string(codes));
+    Same(S, "the kit's code is number " + std::to_string(kitCode) + ", its header epoch", std::to_string(rec["headerEpoch"].n), std::to_string(kitCode));
 
     // The hash no longer moves with the signature, and the signature's high-s twin is refused.
     const Json& first = list["changes"][0];
@@ -1483,33 +1697,185 @@ static void CheckForks(const Json& root) {
     bool baseOk = !f["base"].items.empty();
     for (const Json& c : f["base"].items) baseOk = Apply(base, c) && baseOk;
     Check(S, "the base chain applies (" + std::to_string(f["base"].items.size()) + " changes)", baseOk);
+    for (auto& [id, rank] : f["ranks"].fields)
+        Same(S, "rank of " + id.substr(0, 8) + " (the recovery entry -1, a PC its add's seq)", std::to_string(rank.n), std::to_string(Rank(base, id)));
+    Same(S, "every device in the base has a rank", std::to_string(base.devices.size()), std::to_string(f["ranks"].fields.size()));
     for (size_t k = 0; k < f["cases"].items.size(); k++) {
         const Json& cs = f["cases"][k];
-        const Json &a = cs["changes"][0], &b = cs["changes"][1];
+        const std::vector<Json>& set = cs["changes"].items;
         std::string n = "case " + std::to_string(k + 1);
-        Same(S, n + " change 0 hash", cs["hashes"][0].s, ChangeHash(a));
-        Same(S, n + " change 1 hash", cs["hashes"][1].s, ChangeHash(b));
-        Chain ca = base, cb = base;
-        Check(S, n + " both changes apply on the base alone (a real fork: same seq, same prev)",
-              Apply(ca, a) && Apply(cb, b) && a["seq"].n == b["seq"].n && a["prev"].s == b["prev"].s);
-        int w = ForkWinner(base, a, b);
+        bool real = set.size() >= 2;
+        for (size_t i = 0; i < set.size(); i++) {
+            Same(S, n + " change " + std::to_string(i) + " hash", cs["hashes"][i].s, ChangeHash(set[i]));
+            Chain alone = base;
+            real = Apply(alone, set[i]) && set[i]["seq"].n == set[0]["seq"].n && set[i]["prev"].s == set[0]["prev"].s && real;
+        }
+        Check(S, n + " every change applies on the base alone (a real fork of " + std::to_string(set.size()) + ": same seq, same prev)", real);
+        // Pass 0: an author with two different changes here equivocated, and none of them count (§2.16).
+        std::set<std::string> cheats = Equivocators(set);
+        std::string cheatsWant, cheatsGot;
+        for (const Json& e : cs["equivocated"].items) cheatsWant += e.s + " ";
+        for (auto& e : cheats) cheatsGot += e + " ";
+        Same(S, n + " equivocated authors", cheatsWant, cheatsGot);
+        std::vector<size_t> fairAt;
+        std::vector<Json> fair;
+        for (size_t i = 0; i < set.size(); i++)
+            if (!cheats.count(set[i]["by"].s)) { fairAt.push_back(i); fair.push_back(set[i]); }
+        size_t fw = fair.empty() ? SIZE_MAX : ForkWinner(base, fair);
+        size_t w = fw < fair.size() ? fairAt[fw] : SIZE_MAX;
         Same(S, n + " winner: " + cs["rule"].s, std::to_string(cs["winner"].n), std::to_string(w));
-        int hashOnly = ChangeHash(a) < ChangeHash(b) ? 0 : 1;
-        if (k < 2) Check(S, n + " a hash-only rule would keep the other change", hashOnly != cs["winner"].n);
-        const Json &winner = w ? b : a, &loser = w ? a : b;
+        if (w >= set.size()) continue;
+        const Json& winner = set[w];
+        Same(S, n + " head = the winner's hash", cs["head"].s, ChangeHash(winner));
+        size_t hashOnly = 0;
+        for (size_t i = 1; i < set.size(); i++)
+            if (ChangeHash(set[i]) < ChangeHash(set[hashOnly])) hashOnly = i;
+        if (hashOnly != w) Check(S, n + " a hash-only rule would keep another change", true);
+
+        // Every arrival order of the fork's changes ends on the same head (/2's rule, pairwise as they came in, beside it).
+        std::vector<size_t> order(set.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = i;
+        std::set<std::string> heads;
+        std::set<size_t> pairwiseHeads;
+        int orders = 0;
+        do {
+            std::vector<Json> seen;
+            size_t kept = order[0];
+            for (size_t i : order) {
+                seen.push_back(set[i]);
+                if (seen.size() > 1) kept = PairwiseWinner(base, set[kept], set[i]) ? i : kept;
+            }
+            heads.insert(Resolve(base, seen).head);
+            pairwiseHeads.insert(kept);
+            orders++;
+        } while (std::next_permutation(order.begin(), order.end()));
+        Check(S, n + " the same head in all " + std::to_string(orders) + " arrival orders", heads.size() == 1 && *heads.begin() == ChangeHash(winner));
+        if (set.size() >= 3 && cheats.empty()) {
+            bool cycle = true;  // no change beats every other pairwise
+            for (size_t i = 0; i < set.size(); i++) {
+                bool beatsAll = true;
+                for (size_t j = 0; j < set.size(); j++)
+                    if (i != j && PairwiseWinner(base, set[i], set[j]) != 0) beatsAll = false;
+                if (beatsAll) cycle = false;
+            }
+            Check(S, n + " /2's pairwise rule, as changes came in, ends on " +
+                         (pairwiseHeads.size() == 1 ? std::string("one head") : std::to_string(pairwiseHeads.size()) + " different heads") +
+                         (cycle ? " (it goes round: no change beats every other)" : ""),
+                  true);
+            if (k == 3) Check(S, n + " is the three-way cycle: /2's pairwise rule goes round on it", cycle && pairwiseHeads.size() > 1);
+        }
+
+        // Re-signing (§2.13, §2.16): the losers that still apply, in their authors' rank order, each followed by its
+        // branch, on top of the head, one after another; each keeps its content and `at` and takes the next seq and the
+        // head as prev. One that no longer applies is dropped; an equivocation is never signed again.
         Chain after = base;
         Apply(after, winner);
-        bool still = StillApplies(after, loser);
-        if (cs["reapplied"].kind == Json::Missing) {
-            Check(S, n + " the loser is dropped: it no longer applies", !still);
-        } else {
-            const Json& r = cs["reapplied"];
-            Check(S, n + " the loser still applies, so its author signs it again", still);
-            Check(S, n + " re-applied = the loser's content by its author, seq " + std::to_string(winner["seq"].n + 1) + ", prev = the winner's hash",
-                  r["seq"].n == winner["seq"].n + 1 && r["prev"].s == ChangeHash(winner) && r["by"].s == loser["by"].s && Content(r) == Content(loser));
-            Check(S, n + " the re-applied change applies on top of the winner", Apply(after, r));
+        std::vector<Json> everything = set;
+        std::string dropped, droppedWant;
+        for (const Json& d : cs["droppedOnResign"].items) droppedWant += d["hash"].s.substr(0, 8) + " (" + d["why"].s + ") ";
+        std::vector<Json> cheated, pending;
+        for (size_t i = 0; i < set.size(); i++)
+            if (i != w) (cheats.count(set[i]["by"].s) ? cheated : pending).push_back(set[i]);
+        std::sort(cheated.begin(), cheated.end(), [](const Json& a, const Json& b) { return ChangeHash(a) < ChangeHash(b); });
+        for (const Json& c : cheated) dropped += ChangeHash(c).substr(0, 8) + " (an equivocation: never signed again) ";
+        std::sort(pending.begin(), pending.end(), [&](const Json& a, const Json& b) {
+            long long ra = Rank(base, a["by"].s), rb = Rank(base, b["by"].s);
+            return ra != rb ? ra < rb : ChangeHash(a) < ChangeHash(b);
+        });
+        std::vector<Json> queue;
+        for (const Json& loser : pending) {
+            queue.push_back(loser);
+            std::string tip = ChangeHash(loser);
+            for (const Json& b : cs["branch"].items)
+                if (b["prev"].s == tip) { queue.push_back(b); tip = ChangeHash(b); }
+        }
+        for (const Json& b : cs["branch"].items) everything.push_back(b);
+        size_t next = 0;
+        for (const Json& p : queue) {
+            std::string why = WhyDropped(after, p);
+            if (!why.empty()) {
+                dropped += ChangeHash(p).substr(0, 8) + " (" + why + ") ";
+                continue;
+            }
+            std::string m = n + " re-signed " + std::to_string(next) + " (" + p["op"].s + " by " + p["by"].s.substr(0, 4) + ")";
+            if (!Check(S, m + " is in the vectors, in rank order", next < cs["resigned"].items.size())) break;
+            const Json& r = cs["resigned"][next++];
+            Check(S, m + ": the same content and `at`, seq " + std::to_string(after.next) + ", prev = the head",
+                  Content(r) == Content(p) && r["at"].n == p["at"].n && r["seq"].n == after.next && r["prev"].s == after.head);
+            Check(S, m + " applies, signed again by its author", Apply(after, r));
+            everything.push_back(r);
+        }
+        Same(S, n + " dropped on re-sign", droppedWant, dropped);
+        Same(S, n + " re-signed count", std::to_string(cs["resigned"].items.size()), std::to_string(next));
+        // An equivocator stays listed: its next honest change, at a higher seq, counts (§2.16).
+        for (const Json& c : cs["after"].items) {
+            Check(S, n + " " + c["by"].s.substr(0, 4) + "'s later change at seq " + std::to_string(c["seq"].n) + " is accepted", Apply(after, c));
+            everything.push_back(c);
         }
         Same(S, n + " devices after", Ids(cs["devicesAfter"]), Ids(after));
+        Same(S, n + " final head (everything applied)", cs["finalHead"].s, after.head);
+        Same(S, n + " final head as a device resolves everything it has seen", cs["finalHead"].s, Resolve(base, everything).head);
+        // The head after each arrival, in the orders the vectors list (§2.16: the set decides, not the order).
+        for (size_t a = 0; a < cs["arrivals"].items.size(); a++) {
+            const Json& arrival = cs["arrivals"][a];
+            std::vector<Json> seen;
+            std::string got, want;
+            for (size_t i = 0; i < arrival["order"].items.size(); i++) {
+                const std::string& h = arrival["order"][i].s;
+                for (const Json& c : everything)
+                    if (ChangeHash(c) == h) { seen.push_back(c); break; }
+                got += Resolve(base, seen).head.substr(0, 8) + " ";
+                want += arrival["heads"][i].s.substr(0, 8) + " ";
+            }
+            Same(S, n + " arrival order " + std::to_string(a + 1) + ": the head after each change", want, got);
+        }
+    }
+}
+
+// Changes a listed device signed that are refused anyway (§2.12, §2.13, §2.15), on the fork base.
+static void CheckDeviceListRefused(const Json& root) {
+    const char* S = "deviceListRefused";
+    Chain base;
+    base.exoId = root["deviceList"]["exoId"].s;
+    for (const Json& c : root["forks"]["base"].items) Apply(base, c);
+    for (const Json& t : root["deviceListRefused"].items) {
+        const Json& c = t["change"];
+        Bytes sig;
+        auto by = base.devices.find(c["by"].s);
+        bool signedByListed = by != base.devices.end() && FromBase64Url(c["sig"].s, sig) && Verify(by->second.sigPub, "exo-change/1" + Canonical(Without(c, "sig")), sig);
+        Chain copy = base;
+        bool refused = !Apply(copy, c);
+        // Refused by the one rule the vector names, nothing else: its signature and every other step hold.
+        const std::string& why = t["why"].s;
+        auto says = [&](const char* text) { return why.find(text) != std::string::npos; };
+        std::string rule = says("removes the recovery")           ? "only the recovery entry removes itself (no PC removes it)"
+                           : says("second recovery")              ? "a PC adds a recovery entry only when there is none"
+                           : says("recovery entry renames")       ? "the recovery entry never renames"
+                           : says("renames the recovery entry")   ? "no one renames the recovery entry"
+                           : says("\"recovery\": false")          ? "exactly a device record's fields (recovery only as true)"
+                           : says("zero-width")                   ? "renames a listed device to a valid name"
+                           : says("field")                        ? "exactly a change's fields"
+                                                                  : "(no rule known for this vector)";
+        std::string at;
+        for (auto& s : g_refusedAt) at += (at.empty() ? "" : "; ") + s;
+        Check(S, "refused (" + why + "): signed by a listed device, refused only by \"" + rule + "\"",
+              signedByListed && refused && g_refusedAt.size() == 1 && g_refusedAt[0] == rule, rule, at);
+    }
+}
+
+// Removals that are a device's to make (§2.16): the recovery entry turning recovery off, and a PC leaving.
+static void CheckDeviceListAccepted(const Json& root) {
+    const char* S = "deviceListAccepted";
+    Chain base;
+    base.exoId = root["deviceList"]["exoId"].s;
+    for (const Json& c : root["forks"]["base"].items) Apply(base, c);
+    for (const Json& t : root["deviceListAccepted"].items) {
+        Chain after = base;
+        std::string at;
+        bool ok = Apply(after, t["change"]);
+        for (auto& s : g_refusedAt) at += (at.empty() ? "" : "; ") + s;
+        Check(S, "accepted (" + t["why"].s + ")", ok, "accepted", at);
+        Same(S, "  devices after", Ids(t["devicesAfter"]), Ids(after));
     }
 }
 
@@ -1574,8 +1940,8 @@ int wmain(int argc, wchar_t** argv) {
     std::string lf;
     for (size_t i = 0; i < text.size(); i++)
         if (!(text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n')) lf += text[i];
-    Same("file", "SHA-256 (LF line endings) matches the plan's 2.11", "7a993bb873ac5836f00b48f6fba4f219a836de8d3eaa8152bd6d946f796dbed0", Hex(Sha256(lf)));
-    Same("file", "version", "exo-identity-vectors/2", v["version"].s);
+    Same("file", "SHA-256 (LF line endings) matches the one Launcher sent with /4", "2106312e6c62806121b7aa73a002eda7d90dee37fb5a054303101b8a6a83f9df", Hex(Sha256(lf)));
+    Same("file", "version", "exo-identity-vectors/4", v["version"].s);
     Check("file", "Software KSP opens", NCryptOpenStorageProvider(&g_ksp, MS_KEY_STORAGE_PROVIDER, 0) == ERROR_SUCCESS);
 
     CheckRfc9180();
@@ -1594,6 +1960,8 @@ int wmain(int argc, wchar_t** argv) {
     CheckRecovery(v["recovery"]);
     CheckDeviceList(v);
     CheckForks(v);
+    CheckDeviceListRefused(v);
+    CheckDeviceListAccepted(v);
     CheckSignatures(v["signatures"]);
 
     // A scalar blob whose X/Y is some other key's point must be refused while CNG validates keys, so a

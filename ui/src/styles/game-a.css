@@ -88,9 +88,10 @@
   padding: 0;
 }
 
-/* Upscalers and Shaders: one row each, like an iOS Settings row (name, state, a chevron to its
-   System page; the whole row is the button), hairlines between, so the page stays short. The
-   hover fill reaches 10px past the text on both sides, so the text lines up with the page. */
+/* The game's lines (Upscalers, Shaders, Optimize, HDR, frame generation): one row each, like an iOS Settings row
+   (name, reading, then a chevron to its PC page, or the row's own control, at the right edge), hairlines between, so
+   the page stays short. A line that opens something is a button whose hover fill reaches 10px past the text on both
+   sides, so the text lines up with the page; a reading (.is-reading) sits in the same places and lights nothing. */
 .exo-game-lines {
   margin-top: 16px;
 }
@@ -117,12 +118,12 @@
   transition: background-color var(--dur-quick) var(--ease-out), color var(--dur-quick) var(--ease-out);
 }
 
-.exo-game-line-row:hover {
+.exo-game-line-row:not(.is-reading):hover {
   background: var(--hover-fill);
   color: var(--color-fg);
 }
 
-.exo-game-line-row:active {
+.exo-game-line-row:not(.is-reading):active {
   background: var(--exo-pressed);
 }
 
@@ -135,9 +136,11 @@
   color: var(--color-muted);
 }
 
+/* As wide as the longest name ("Fluid Motion Frames"), in the name's own em, so every reading starts on one edge at any text size. */
 .exo-game-line-name {
   flex: none;
-  width: 96px;
+  width: 10.5em;
+  white-space: nowrap;
   color: var(--color-fg);
   font-size: calc(13px * var(--exo-scale, 1));
   font-weight: 600;

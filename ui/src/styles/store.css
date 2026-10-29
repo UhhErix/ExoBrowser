@@ -805,7 +805,7 @@ button.exo-sgp-thumb::after {
   top: 50%;
   left: 50%;
   translate: -50% -50%;
-  color: var(--color-fg);
+  color: var(--exo-on-media);
   filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.8));
 }
 

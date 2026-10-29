@@ -38,6 +38,7 @@
     "src/components/ui/DictateButton.tsx",
     "src/components/ui/ErrorNote.tsx",
     "src/components/ui/Menu.tsx",
+    "src/components/ui/Progress.tsx",
     "src/components/ui/Spinner.tsx",
     "src/exo-shell.css",
     "src/fonts.css",

@@ -60,7 +60,8 @@ export type DlssStatusItem = {
   currentRelease?: string | null
   latestVersion?: string | null
   latestRelease?: string | null
-  state?: 'current' | 'outdated' | 'newer' | 'unknown'
+  /** mod: an upscaler mod's file, which Exo leaves alone (named in `mod`). */
+  state?: 'current' | 'outdated' | 'newer' | 'unknown' | 'mod'
   /** shipped: the game's own file. exo: Exo's write. reverted: the store put the original back over Exo's write. changed: a game update replaced Exo's write. other: another tool swapped it. */
   origin?: 'shipped' | 'exo' | 'reverted' | 'changed' | 'other'
   originalVersion?: string | null
@@ -68,6 +69,8 @@ export type DlssStatusItem = {
   canUpdate?: boolean
   canRestore?: boolean
   skipReason?: string | null
+  /** The upscaler mod whose file this is (HelixSR, OptiScaler, …; "Mod" when unnamed): never updated or restored over. */
+  mod?: string | null
 }
 
 export type DlssStatus = {
@@ -276,6 +279,8 @@ export type VoiceStages = {
  */
 export type MicHeard = { speechDb: number | null; quietDb: number | null; clipping: boolean; quiet: boolean; gated: boolean; cleaned: boolean; addedDb: number }
 export type MicLevel = { level: number; gateLevel: number; after: number; voiced: boolean; stages: VoiceStages; heard?: MicHeard }
+/** A recorded voice message, kept by the host until sent: its file (base64, and its type) to listen to, its seconds, Discord's waveform (base64) and size in bytes. */
+export type VoiceMessageTake = { data: string; type: string; duration: number; waveform: string; size: number }
 
 /** Something Go Live can share: a screen or an app's window, its picture and icon (data URLs), and the game it is, if one. */
 export type GoLiveSource = { id: string; kind: 'screen' | 'window'; title: string; app: string; icon?: string | null; thumb?: string | null; game?: string | null; height?: number }
@@ -473,6 +478,8 @@ export type GameSettingsState = {
   /** False until the game has written its settings file. */
   found?: boolean
   groups?: GameSettingsGroup[] | null
+  /** Exo wrote them again after the game's update reset them; false once the game has run since. */
+  again?: boolean
 }
 export type HdrGame = {
   ok: boolean
@@ -496,7 +503,7 @@ export type GpuProfileItem = { key: string; label: string; value: string; why: s
 
 /**
  * System > Graphics > Driver and profile: Exo's global profile for this PC's GeForce series, G-SYNC or No G-SYNC,
- * for its Radeon, with an Anti-Lag choice, or for its Intel GPU, with a Low latency choice.
+ * for its Radeon (Anti-Lag always on), or for its Intel GPU, with a Low latency choice.
  * status: applied (the driver holds it all), changed (applied before, something
  * moved since), ready (not applied), manual (AMD or Intel when Exo can't reach their driver: set by hand), none (no GPU Exo can tune).
  */
@@ -517,8 +524,6 @@ export type GpuProfile = {
   driverUpdated: boolean
   /** Set by hand (manual) only. */
   items: GpuProfileItem[]
-  /** Radeon: Anti-Lag while a game Exo launched runs (games), always, or off. */
-  antiLag?: RadeonAntiLag | null
   /** Intel: Low latency mode on, on with boost, or off. */
   lowLatency?: IntelLowLatency | null
   /** Radeon and Intel: what the profile does, in one line. */
@@ -527,33 +532,39 @@ export type GpuProfile = {
   games?: { title: string; profile?: string | null; values: { label: string; words: string }[] }[] | null
 }
 
-export type RadeonAntiLag = 'games' | 'always' | 'off'
 export type IntelLowLatency = 'on' | 'boost' | 'off'
 /** XeSS frame generation for one game: the game's own choice, or the driver's 2x, 3x or 4x override. */
 export type IntelFrameGen = 'game' | '2x' | '3x' | '4x'
 
-/** System > Graphics: what the GPU reports right now (a Radeon's, through AMD's driver); ok false when nothing to show. */
+/**
+ * PC › Graphics: what the GPU reports right now (a Radeon's through ADLX, a GeForce's through NvAPI and NVML), in °C, W,
+ * MHz, MB, RPM and %; ok false when there is nothing to show, and while a game runs.
+ */
 export type GpuSensors = {
   ok: boolean
   temperature?: number | null
   hotspot?: number | null
+  memoryTemperature?: number | null
   watts?: number | null
   clock?: number | null
   vramUsed?: number | null
   vramTotal?: number | null
   fan?: number | null
   usage?: number | null
+  /** The card's own limits, on the reading they apply to: warm from `warn`, hot from `bad` (°C). */
+  limit?: { on: 'temperature' | 'hotspot'; warn: number; bad: number } | null
 }
 
 /**
- * Game sheet > driver frame generation: whether this PC has it; on a Radeon, Fluid Motion Frames on for the game and whether
- * AMD Software runs; on Intel, the game's XeSS frame generation.
+ * Game sheet > driver frame generation: whether this PC has it; on a Radeon, whether Exo turns Fluid Motion Frames on for
+ * the game (its own decision, nothing to set) and whether AMD Software runs; on Intel, the game's XeSS frame generation.
  */
 export type GpuGame = {
   ok: boolean
   message?: string | null
   vendor?: 'amd' | 'intel'
   supported?: boolean
+  /** Exo turns Fluid Motion Frames on as the game starts. */
   afmf?: boolean
   amdSoftware?: boolean
   frameGen?: IntelFrameGen
@@ -570,7 +581,7 @@ export type GpuImportAnswer = {
 
 /** System > This PC: one row per setup problem (none when all is well); power switches to Exo's plan for cpu, with Undo; chipset Exo updates (busy while it installs, applied while it waits for a restart, url only after a failed install). */
 export type PcHealthItem = {
-  key: 'ram' | 'rebar' | 'power' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref' | 'network' | 'netlink'
+  key: 'ram' | 'rebar' | 'power' | 'chipset' | 'gpusched' | 'gpupref' | 'network' | 'netlink'
   label: string
   detail: string
   url?: string | null
@@ -585,9 +596,42 @@ export type PcHealthItem = {
 export type PcHealth = { ok: boolean; message?: string | null; items: PcHealthItem[] }
 
 /**
- * PC › Overview's About card (PcAbout.cs): what this PC is, null where Windows can't say. name: its maker's model, else
- * the name Windows gives it. Memory speeds in MT/s (rated above speed: EXPO/XMP off), drive sizes in GB as Explorer counts
- * them, networkMbps the link speed. tpm: "2.0", "1.2" or "None".
+ * PC › Drives (Drives.cs): one physical drive. link: the PCIe generation and lanes negotiated against the drive's own
+ * (NVMe only); temperature in °C against the drive's warning and critical points; health as the drive reports it
+ * (lifeUsed in % of its rated writes); space in bytes, read only when asked (what fills it: games by size, shader caches
+ * with the old ones among them, Exo's own folder, leftovers of removed games, the rest); games: the biggest on it;
+ * verdicts: a line for each thing wrong, nothing for what's fine (bad: a fault, else something to change).
+ */
+export type DriveInfo = {
+  id: string
+  model?: string | null
+  kind: string
+  link?: { gen: number; width: number; maxGen: number; maxWidth: number } | null
+  firmware?: string | null
+  firmwareSlots?: number | null
+  vendor?: { name: string; tool: string; url: string } | null
+  temperature?: { now: number; warn?: number | null; critical?: number | null } | null
+  health?: {
+    lifeUsed?: number | null; spare?: number | null; writtenTb?: number | null; hours?: number | null; powerCycles?: number | null
+    unsafeShutdowns?: number | null; mediaErrors?: number | null; badSectors?: number | null
+  } | null
+  volumes: { letter: string; totalGb: number; freeGb: number }[]
+  space?: { total: number; free: number; games: number; caches: number; oldCaches: number; exo: number; leftovers: number; other: number } | null
+  games: { id: string; title: string; bytes: number; cacheBytes: number }[]
+  verdicts: { key: string; text: string; bad: boolean }[]
+}
+
+/** A drive setting Exo fixes with Windows' permission: write-cache flushing back on, Windows' weekly optimize able to run. */
+export type DriveFix = { key: 'flush' | 'optimize'; label: string; detail: string; applied: boolean; canUndo: boolean; restart: boolean }
+export type DriveAction = 'flush' | 'flush-undo' | 'optimize' | 'optimize-undo' | 'all'
+/** A game's last session whose drive came near its warning point or slowed itself (DriveHeat.cs): its peak °C and how long it slowed. */
+export type DriveHeat = { peak: number; warn?: number | null; slowedSeconds: number }
+export type DrivesState = { ok: boolean; message?: string | null; fixes: DriveFix[]; drives: DriveInfo[] }
+
+/**
+ * PC › This PC and Network (PcAbout.cs): what this PC is, null where Windows can't say. name: its maker's model, else
+ * the name Windows gives it. Memory speeds in MT/s (rated above speed: EXPO/XMP off); network the connection's kind
+ * ("Ethernet" or "Wi-Fi"), networkMbps its link speed. tpm: "2.0", "1.2" or "None". The drives are PC › Drives' (DriveInfo).
  */
 export type PcAbout = {
   name?: string | null
@@ -614,9 +658,10 @@ export type PcAbout = {
   secureBoot?: boolean | null
   tpm?: string | null
   memoryIntegrity?: boolean | null
-  drives: { letter: string; model?: string | null; kind: string; totalGb: number; freeGb: number }[]
   network?: string | null
   networkMbps?: number | null
+  /** The connection's adapter as Windows names it ("Intel Ethernet Controller I226-V"). */
+  networkAdapter?: string | null
   /**
    * Windows against the newest feature version Microsoft lists for everyone (its page read at most once a day). name:
    * "Windows 11" or "Windows 10"; version "26H2"; build "26300.9711" (with the monthly update); newest "26H2" and
@@ -790,7 +835,7 @@ export interface InstalledApp {
 
 /** One kind of junk on this PC (junk.scan): its size and how many files. */
 export interface JunkItem {
-  id: 'temp' | 'crash' | 'thumbs' | 'bin'
+  id: 'temp' | 'crash' | 'thumbs' | 'shaders' | 'exo' | 'bin'
   name: string
   detail: string
   bytes: number
@@ -991,7 +1036,6 @@ export interface LauncherSettings {
   autoUpdateChipset?: boolean
   /** Whose chipset driver this PC has and Exo updates: AMD's on a Ryzen, Intel's on an Intel processor (read-only: shows Keep the AMD or Intel chipset driver up to date). */
   chipset?: 'amd' | 'intel' | null
-  /** Steam overlay for a Steam game Exo has not set yet (default off); Properties sets one game. */
   /** Steam's and Epic's own pop-ups and sounds kept off (Settings > Game stores > Notifications and sounds). */
   /** The Library's folders, in their order on the grid. */
   libraryFolders?: LibraryFolder[]
@@ -1130,6 +1174,8 @@ export interface InstallResponse {
   handoffOnly?: boolean
   needsDependencies?: boolean
   missingDependencies?: MissingDependency[]
+  /** The install would leave its drive nearly full and Exo's question was answered Cancel: nothing started. */
+  declined?: boolean
 }
 
 export interface PausedDownload {
@@ -1185,11 +1231,6 @@ export interface GameProperties {
   canBrowse: boolean
   /** The game is running: nothing that changes its files can start. */
   running: boolean
-  autoUpdate: string | null
-  autoUpdateChoices: PropertyChoice[]
-  background: string | null
-  backgroundChoices: PropertyChoice[]
-  cloud: boolean | null
   /** Epic: saves sync on request. */
   cloudSync: boolean
   language: string | null
@@ -1203,14 +1244,11 @@ export interface GameProperties {
   folder: string | null
   folderChoices: PropertyChoice[]
   moving: { done: number; total: number } | null
-  /** The store whose own Properties page opens for what Exo leaves to it. */
+  /**
+   * Steam, for a Steam game whose controller Steam Input maps: its layout is on Steam's own page. Exo keeps the overlay,
+   * Steam Input, cloud saves and updates itself, with no row.
+   */
   storeProperties: string | null
-  /** Steam overlay for this game; null for other stores. */
-  overlay: boolean | null
-  /** Steam Input for this game: native (it reads the controller itself), steam (Steam translates), or default (Steam decides). */
-  controller?: 'native' | 'steam' | 'default' | null
-  /** The game reads a PlayStation controller itself (its store page says so). */
-  readsPlayStation?: boolean
   /** A game that isn't Steam's, started through Steam for Steam Input (it reads Xbox controllers only); null where not offered. */
   throughSteam?: boolean | null
   /** The game's own shader caches together (0 once cleared); null for a game Exo can't rebuild them for (Call of Duty only for now). */
@@ -1219,16 +1257,16 @@ export interface GameProperties {
 
 /** The host leaves empty values out: each one a store does not have reads as null here, so its row stays hidden. */
 const PROPERTY_NULLS = {
-  launchOptions: null, sizeBytes: null, verifyLabel: null, autoUpdate: null, background: null, cloud: null, language: null,
-  beta: null, content: null, folder: null, moving: null, storeProperties: null, overlay: null,
+  launchOptions: null, sizeBytes: null, verifyLabel: null, language: null,
+  beta: null, content: null, folder: null, moving: null, storeProperties: null,
 } as const
 function withNulls(properties: GameProperties): GameProperties {
   return { ...PROPERTY_NULLS, ...properties }
 }
 
 export type GamePropertyKey =
-  | 'launchOptions' | 'autoUpdate' | 'background' | 'cloud' | 'cloudSync' | 'language'
-  | 'beta' | 'betaCode' | 'content' | 'folder' | 'storeProperties' | 'overlay' | 'controller' | 'throughSteam' | 'shaders'
+  | 'launchOptions' | 'cloudSync' | 'language'
+  | 'beta' | 'betaCode' | 'content' | 'folder' | 'storeProperties' | 'throughSteam' | 'shaders'
 
 /** Desktop app install (Spotify). */
 export interface DesktopInstallResponse {
@@ -1347,6 +1385,8 @@ export interface HostEventMap {
   'game.runState': { id: string; isRunning: boolean; canStop: boolean }
   /** Stored achievement counts for an exact id changed (after play or a sheet-open read). */
   'game.achievements': { id: string; unlocked: number; total: number }
+  /** Exo wrote a game's Optimize again after its update reset it (title: the game's name). */
+  'game.optimizedAgain': { title: string }
   /** The shader precompile moved on (at most four a second) or ended (ok set). */
   /** The Exo Shaders engine changed its list or a game's record: read shaders.status again. */
   'shaders.changed': Record<string, never>
@@ -1364,7 +1404,6 @@ export interface HostEventMap {
   'store.sale': { appId: string; name: string; final?: number | null; discount: number; currency?: string | null; price?: string | null }
   /** A newer version of something this PC runs (its graphics driver, chipset driver, Lucid), found once; page is where its update is. */
   /** A newer Exo came out while it runs (the version watch); the update banner offers it. */
-  'app.updateFound': { version: string }
   'versions.new': { id: string; name: string; version: string; installed?: string | null; page: 'graphics' | 'overview' | 'devices' }
   /** An input report from an open HID device; data is base64 without the ID byte. */
   'hid.input': { device: string; reportId: number; data: string }
@@ -1436,6 +1475,10 @@ export interface HostEventMap {
   'discord.userSettings': Partial<AccountSettings>
   /** The live microphone through the call's own chain: the loudest level in and out (dBFS), whether the gate is open, and what ran. */
   'discord.micLevel': MicLevel
+  /** While a voice message records, ten times a second: its loudness (0 to 1) and length so far. */
+  'discord.voiceMessageLevel': { level: number; seconds: number }
+  /** A voice message ended by itself: keep (20 minutes up, or the microphone went): stop it into review; else deleted, with why. */
+  'discord.voiceMessageEnded': { keep?: boolean; message?: string }
   /** Dictation's setting or speech model changed (lib/dictation.ts). */
   'dictation.state': DictationState
   /** While a take listens, about 20 times a second: its loudness, 0 to 1. */
@@ -1723,7 +1766,7 @@ export const host = {
   repair: (id: string) =>
     rawCall<InstallResponse>('game.repair', { id }),
   gameExtras: (id: string) =>
-    rawCall<{ ok: boolean; achievementsUnlocked?: number | null; achievementsTotal?: number | null; message?: string }>('game.extras', { id }),
+    rawCall<{ ok: boolean; achievementsUnlocked?: number | null; achievementsTotal?: number | null; driveHeat?: DriveHeat | null; message?: string }>('game.extras', { id }),
   openFolder: (id: string) => rawCall<{ ok: boolean; message?: string }>('game.openFolder', { id }),
   properties: (id: string) => rawCall<GameProperties>('game.properties', { id }).then(withNulls),
   /** One Properties change; `secret` (a beta access code) never goes in `value`. */
@@ -2037,6 +2080,12 @@ export const host = {
   /** ping: false sends a reply without pinging its author (Discord's @ OFF); forward sends that message here, content as a note after it. */
   discordSend: (channelId: string, content: string, replyTo?: string, uploads?: string[], options: { ping?: boolean; forward?: { channelId: string; messageId: string }; descriptions?: Record<string, string> } = {}) =>
     rawCall<{ ok: boolean; message?: string | null; sent?: DiscordMessage | null }>('discord.send', { channelId, content, ...(replyTo ? { replyTo } : {}), ...(uploads?.length ? { uploads } : {}), ...options }, 120_000),
+  /**
+   * A voice message, recorded by the host on Exo's microphone chain: start (discord.voiceMessageLevel while it records),
+   * stop (the take to listen to, kept by the host), cancel (dropped), send (the kept take to a channel; replyTo and ping as discordSend's).
+   */
+  discordVoiceMessage: (params: { action: 'start' | 'stop' | 'cancel' } | { action: 'send'; channelId: string; replyTo?: string; ping?: boolean }) =>
+    rawCall<{ ok: boolean; message?: string | null; take?: VoiceMessageTake | null; sent?: DiscordMessage | null }>('discord.voiceMessage', params, 120_000),
   /** One base64 piece of a file for the next message; the first piece (no uploadId) starts it. */
   discordUpload: (piece: { uploadId?: string; name?: string; type?: string; data?: string; cancel?: boolean }) =>
     rawCall<{ ok: boolean; message?: string; uploadId?: string }>('discord.upload', piece, 30_000),
@@ -2282,20 +2331,23 @@ export const host = {
   gpuDisplay: (action: 'state' | 'set' | 'adjust' | 'video' | 'override' = 'state', change?: DisplayChange) =>
     rawCall<DisplayState>('gpu.display', { action, ...(change ?? {}) }, 30_000),
   /**
-   * System > Graphics > Driver and profile: Exo's global profile for this PC; apply the G-SYNC or No G-SYNC variant (a
-   * Radeon's with its Anti-Lag choice, an Intel GPU's with its Low latency choice), backing up what it replaces, or undo it.
+   * System > Graphics > Driver and profile: Exo's global profile for this PC; apply the G-SYNC or No G-SYNC variant (an
+   * Intel GPU's with its Low latency choice), backing up what it replaces, or undo it.
    */
-  gpuProfile: (action?: 'apply' | 'undo', gsync?: boolean, latency?: { antiLag?: RadeonAntiLag; lowLatency?: IntelLowLatency }) =>
+  gpuProfile: (action?: 'apply' | 'undo', gsync?: boolean, latency?: { lowLatency?: IntelLowLatency }) =>
     rawCall<GpuProfile>('gpu.profile', action ? { action, ...(action === 'apply' ? { gsync: gsync === true, ...latency } : {}) } : {}, 30_000),
   /** System > Graphics: the GPU's temperature, power, clock, VRAM and fan now. */
   gpuSensors: () => rawCall<GpuSensors>('gpu.sensors', {}, 15_000),
+  /** PC › Drives: every drive and the fix rows; `space` adds what fills each drive (slow the first time); an action sets or undoes a fix, Windows asking once. */
+  systemDrives: (action?: DriveAction, space = false) =>
+    rawCall<DrivesState>('system.drives', { ...(action ? { action } : {}), ...(space ? { space: true } : {}) }, 75_000),
   /** Game sheet: a game's driver frame generation (a Radeon's Fluid Motion Frames, Intel's XeSS override); with a change, sets it for the game. */
-  gpuGame: (id: string, change?: { afmf?: boolean; frameGen?: IntelFrameGen }) => rawCall<GpuGame>('gpu.game', { id, ...change }, 30_000),
+  gpuGame: (id: string, change?: { frameGen?: IntelFrameGen }) => rawCall<GpuGame>('gpu.game', { id, ...change }, 30_000),
   /** A Profile Inspector import to the global profile: pick a .nip (waits for the picker), apply, undo, cancel, or state. */
   gpuImport: (action: 'pick' | 'apply' | 'undo' | 'cancel' | 'state') =>
     rawCall<GpuImportAnswer>('gpu.import', { action }, action === 'pick' ? 10 * 60_000 : 30_000),
-  /** System > This PC: the checks; apply or undo AMD's power plan tuning; gamemode and gpusched open Windows' Game Mode and Graphics settings. */
-  systemHealth: (action?: 'apply' | 'undo' | 'chipset' | 'gamemode' | 'gpusched' | 'gpupref' | 'gpupref-undo' | 'network' | 'network-undo') => rawCall<PcHealth>('system.health', action ? { action } : {}, 35_000),
+  /** System > This PC: the checks; apply or undo Exo's power plan; gpusched opens Windows' Graphics settings. */
+  systemHealth: (action?: 'apply' | 'undo' | 'chipset' | 'gpusched' | 'gpupref' | 'gpupref-undo' | 'network' | 'network-undo') => rawCall<PcHealth>('system.health', action ? { action } : {}, 35_000),
   /** PC › Overview: what this PC is (processor, memory, drives, board, BIOS, Windows, security, connection). */
   systemAbout: () => rawCall<PcAbout>('system.about', {}, 15_000),
   /** System > This PC > Interrupts: the devices; apply switches every one that can to MSI mode, undo puts all back, revert one. Waits on Windows' permission prompt. */

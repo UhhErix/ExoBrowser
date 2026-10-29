@@ -3506,6 +3506,11 @@ video.exo-dc-media {
   color: var(--dc-text);
 }
 
+/* Light's ink on its deep red read 2.8:1; the words a red fill takes there are white (5.6:1). */
+:root[data-exo-theme="light"] .exo-dc-new span {
+  color: var(--color-on-bad);
+}
+
 .exo-dc-item-names {
   display: flex;
   flex: 1;
@@ -4960,8 +4965,9 @@ button.exo-dc-pf-badge {
   pointer-events: none;
 }
 
-/* Replying, editing or attaching: that strip is the top of the same glass field, the field growing up,
-   its rim of light on the top strip. */
+/* Replying, editing or attaching: that strip is the top of the same glass field, the field growing up. One rim
+   goes round the whole field, drawn over both parts: each drawing its own left the strip a closed ring and the
+   box under it with no rim on its sides or foot, so the field looked broken in two. */
 .exo-dc .exo-dc-compose-bar,
 .exo-dc .exo-dc-files {
   padding: 8px 16px;
@@ -4973,17 +4979,24 @@ button.exo-dc-pf-badge {
 .exo-dc .exo-dc-compose-bar,
 .exo-dc .exo-dc-files:first-child {
   border-radius: var(--exo-panel-radius) var(--exo-panel-radius) 0 0;
-  box-shadow: var(--exo-rim);
 }
 
 .exo-dc .exo-dc-compose-bar + .exo-dc-files {
   border-radius: 0;
-  box-shadow: none;
 }
 
 .exo-dc .exo-dc-input-row.is-attached {
   border-radius: 0 0 var(--exo-panel-radius) var(--exo-panel-radius);
   box-shadow: inset 0 1px 0 rgb(var(--exo-ink-rgb) / 0.06);
+}
+
+.exo-dc .exo-dc-compose:has(> .exo-dc-input-row.is-attached)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--exo-panel-radius);
+  box-shadow: var(--exo-rim);
+  pointer-events: none;
 }
 
 /* Headers and panes divided by hairlines only. */
@@ -6102,7 +6115,7 @@ button.exo-dc-gifv {
   width: clamp(56px, calc(var(--tile-w, 480px) * 0.17), 128px);
   height: clamp(56px, calc(var(--tile-w, 480px) * 0.17), 128px);
   border-radius: 999px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  box-shadow: var(--exo-lift-shadow);
 }
 
 /* Nobody in the channel yet, or still connecting: the channel, quietly, in the middle. */
@@ -6907,6 +6920,133 @@ button.exo-dc-poll-answer:hover:not(:disabled) {
   color: var(--color-muted);
   font-size: calc(12px * var(--exo-scale, 1));
   font-variant-numeric: tabular-nums;
+}
+
+/* The recorder (VoiceRecorder.tsx): while a voice message is under way it takes the composer's row, the box and its
+   tools set aside under it (the draft waits). Delete, the take, then Stop or Send. */
+.exo-dc-input-row.is-voice > :not(.exo-dc-recorder) {
+  display: none;
+}
+
+.exo-dc-recorder {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 36px;
+}
+
+/* While it records: a dot that turns red once the microphone is on, the time, and the voice's bars arriving at the
+   right edge, the oldest running off the left. */
+.exo-dc-recorder-take {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0 8px;
+}
+
+.exo-dc-recorder-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(var(--exo-ink-rgb) / 0.3);
+}
+
+.exo-dc-recorder-dot.is-on {
+  background: var(--color-bad);
+}
+
+.exo-dc-recorder-time {
+  flex: none;
+  min-width: 4ch;
+  color: var(--color-fg);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.exo-dc-recorder-wave {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+  height: 24px;
+  overflow: hidden;
+}
+
+.exo-dc-recorder-wave i {
+  flex: none;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-fg);
+}
+
+/* Under Reduce motion nothing slides: one still bar across, as tall as the voice is loud. */
+.exo-dc-recorder-wave.is-still i {
+  flex: 1;
+  border-radius: 999px;
+}
+
+/* In review, the take's player in the row: no pill of its own, and Play a quiet control like the row's others. */
+.exo-dc-recorder .exo-dc-voice-msg {
+  flex: 1;
+  width: auto;
+  height: 36px;
+  margin: 0;
+  padding: 0 8px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.exo-dc-recorder .exo-dc-voice-msg-play {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: var(--dc-text);
+  transition: background-color var(--dur-quick) var(--ease-out);
+}
+
+.exo-dc-recorder .exo-dc-voice-msg-play:hover {
+  background: var(--hover-fill);
+}
+
+/* Send: the recorder's one primary, a round button in the ink. */
+.exo-dc-recorder-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-fg);
+  color: var(--color-primary-fg);
+  cursor: pointer;
+  transition: background-color var(--dur-quick) var(--ease-out), scale var(--dur-quick) var(--ease-out);
+}
+
+.exo-dc-recorder-send:hover {
+  background: var(--exo-primary-hover);
+}
+
+.exo-dc-recorder-send:active {
+  scale: 0.97;
+  transition-duration: var(--dur-press);
+}
+
+.exo-dc-recorder-send:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+[data-exo-motion="reduce"] .exo-dc-recorder-send:active {
+  scale: none;
 }
 
 /* Any other sound file: its name, then the player. */

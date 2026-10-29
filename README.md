@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.2.0">What's new in 1.2.0</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.3.0">What's new in 1.3.0</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.2.0/ExoBrowser-Setup.exe) | 1.2.0 | `2f9b271ccac8be1b546229d75c0d512fc563990da469942a029f804d8fb3b2b2` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.3.0/ExoBrowser-Setup.exe) | 1.3.0 | `aa3efad266a608e20e06386965591c3fe20947298a06687622b16e00f6a43ade` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.2.0):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.3.0):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -37,7 +37,7 @@ Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
 
 ## What's built in
 
-- **Exo Shield:** ads, trackers, malware, cookie notices and pop-ups blocked before they load, on every site, always on. YouTube ads are blocked like any other; for Twitch, which puts ads inside the stream, Exo Shield asks for each stream from a country Twitch shows no ads in, and the video still comes straight from Twitch.
+- **Exo Shield:** ads, trackers, malware, cookie notices and pop-ups blocked before they load, on every site, always on, with how many it blocked on the page beside the address. YouTube ads are blocked like any other; for Twitch, which puts ads inside the stream, Exo Shield asks for each stream from a country Twitch shows no ads in, and the video still comes straight from Twitch.
 - **Exo Vault:** logins, cards, notes and identities encrypted on this PC, with no account and no cloud. It fills sign-in forms, makes strong passwords, shows 2FA codes and opens with Windows Hello.
 - **Tabs that stay in order:** spaces, favorites, pinned tabs in folders, live folders and an optional archive.
 - **Private by default:** address lookups go encrypted to Cloudflare, Microsoft Edge's balanced tracking prevention is on, private tabs keep nothing, and there's no Exo account, no ads and no telemetry.
@@ -122,7 +122,7 @@ Exo Browser is a native Windows app (C++) built on Microsoft Edge WebView2, the 
 ## Privacy and safety
 
 - **No Exo account, no ads, no analytics, no telemetry.** Exo Browser has no server of its own. Your history, bookmarks, spaces, settings and vault stay in `%LocalAppData%\ExoBrowser`.
-- **What leaves your PC** is what browsing needs: the sites you open, your address lookups (to Cloudflare), your searches (to the engine or site you pick), the feeds of sites you follow in live folders, the Twitch playlist requests Exo Shield routes, Chrome Web Store downloads when you add an extension, and the update check to GitHub. The [privacy policy](PRIVACY.md) lists every destination and what is sent.
+- **What leaves your PC** is what browsing needs: the sites you open, your address lookups (to Cloudflare), your searches (to the engine or site you pick), the feeds of sites you follow in live folders, the Twitch playlist requests Exo Shield routes, Chrome Web Store downloads when you add an extension, and the update check to Exo's update address (GitHub when it doesn't answer). The [privacy policy](PRIVACY.md) lists every destination and what is sent.
 - **Your passwords never leave this PC** unless you export them, and an export is encrypted with a password you choose.
 - **Found a security problem?** Please [report it privately](https://github.com/UhhErix/ExoBrowser/security/advisories/new), not in a public issue. See [SECURITY.md](SECURITY.md).
 

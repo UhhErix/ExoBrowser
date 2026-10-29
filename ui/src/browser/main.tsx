@@ -17,7 +17,7 @@ import { engineOf, hostOf } from './search'
 import { Chrome, isAutohide, isVertical, useLayoutReport, widthOf } from './Chrome'
 import { accentOf, density, isCompact } from './look'
 import { importArc } from './arc'
-import { WhatsNew } from './WhatsNew'
+import { UpdateOffer, WhatsNew, useOffering } from './WhatsNew'
 import { Switcher } from './Switcher'
 import { useMods } from './Mods'
 import { MenuLayer, MenuScrim, closeMenu, downloadsMenu, extensionsMenu, menuKind } from './menus'
@@ -128,6 +128,20 @@ function importFrom(m: Record<string, unknown>) {
   return `Imported ${spaces ? `${spaces} spaces with their tabs, ` : ''}${marks} bookmarks, ${m.visits} pages, ${m.cookies ?? 0} sign-ins${exts ? `, ${exts} extensions` : ''}${engine} from ${m.name}${m.note ? `. ${m.note}` : ''}`
 }
 
+// Reduce motion: Exo's own switch decides (a first start sets it from Windows' animation effects, main.cpp), and Windows'
+// choice stands in only until the settings come. Pages in tabs keep seeing Windows' own.
+function useMotion(loaded: boolean, setting: string | undefined) {
+  useEffect(() => {
+    const root = document.documentElement
+    if (loaded) { root.dataset.exoMotion = setting === 'on' ? 'reduce' : 'full'; return }
+    const windows = matchMedia('(prefers-reduced-motion: reduce)')
+    const apply = () => { root.dataset.exoMotion = windows.matches ? 'reduce' : 'full' }
+    apply()
+    windows.addEventListener('change', apply)
+    return () => windows.removeEventListener('change', apply)
+  }, [loaded, setting])
+}
+
 function App() {
   // What this frame shows of the store, each read alone: a tab's title or a download's progress draws only what shows it.
   const prefs = useBrowserValue(b => b.settings)
@@ -139,6 +153,7 @@ function App() {
   const version = useBrowserValue(b => b.update?.version ?? '')
   const [settings, setSettings] = useState<{ open: boolean; section: string }>({ open: false, section: '' })
   const [warm, setWarm] = useState(false)
+  const offering = useOffering()
   useEffect(() => { warmers.add(setWarm); return () => { warmers.delete(setWarm) } }, [])
   const vaultOpen = useVaultOpen()
   const { toast, hold } = useToasts()
@@ -162,18 +177,10 @@ function App() {
     root.style.setProperty('--exb-accent-rgb', rgb)
     root.style.setProperty('--exb-accent-ink', ink)
   }, [tint, rgb, ink])
-  // Exo's Text size (small 0.9, standard 1, large 1.14) and Reduce motion (on, or as Windows asks).
+  // Exo's Text size (small 0.9, standard 1, large 1.14) and Reduce motion.
   const textSize = prefs.textSize
-  const calm = prefs.reduceMotion === 'on'
-  useEffect(() => {
-    const root = document.documentElement
-    root.style.setProperty('--exo-scale', String({ small: 0.9, large: 1.14 }[textSize] ?? 1))
-    const windows = matchMedia('(prefers-reduced-motion: reduce)')
-    const apply = () => { if (calm || windows.matches) root.dataset.exoMotion = 'reduce'; else delete root.dataset.exoMotion }
-    apply()
-    windows.addEventListener('change', apply)
-    return () => windows.removeEventListener('change', apply)
-  }, [textSize, calm])
+  useEffect(() => { document.documentElement.style.setProperty('--exo-scale', String({ small: 0.9, large: 1.14 }[textSize] ?? 1)) }, [textSize])
+  useMotion(settingsLoaded, prefs.reduceMotion)
 
   // Settings, as Ctrl+H or a page asks; not over first run.
   useEffect(() => onHost('settings.open', m => { if (isFirstRun()) return; closeMenu(); setSettings({ open: true, section: (m.section as string) || '' }) }), [])
@@ -220,7 +227,8 @@ function App() {
       {vaultOpen ? <Suspense fallback={null}><VaultSheet /></Suspense> : null}
       <VaultFill />
       {firstRun ? <Suspense fallback={null}><Onboarding onDone={() => { setSetting('onboarded', '1'); if (version) setSetting('whatsNewSeen', version) }} /></Suspense> : null}
-      <WhatsNew blocked={firstRun || settings.open} />
+      <UpdateOffer blocked={firstRun} />
+      <WhatsNew blocked={firstRun || settings.open || offering} />
       <Status />
       {/* Exo's questions before what can't be undone (ask.ts), over everything here. */}
       <ConfirmHost />

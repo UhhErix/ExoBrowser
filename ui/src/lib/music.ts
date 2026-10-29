@@ -63,14 +63,21 @@ export type MusicAction = 'play' | 'pause' | 'toggle' | 'previous' | 'next' | 's
 /** A song as listen-along matches it across services: its name, its artists as each service writes them, its length. */
 export type MatchSong = { title: string; artists: string[]; durationMs?: number | null }
 
-/** The selected provider's song, from its own page or its own Windows media session. */
+/** Who the mini player is following: the chosen music service, or Exo Cinema's video. */
+export type NowPlayingProvider = MusicService | 'cinema'
+
+/** The selected provider's song, from its own page or its own Windows media session, or Exo Cinema's video. */
 export type MusicPlayback = {
   /** Host publish order; an older answer never replaces a newer event. */
   seq?: number
-  provider: MusicService
+  provider: NowPlayingProvider
   status: 'playing' | 'paused' | 'stopped' | 'none'
   title: string
   artist: string
+  /** "video" for Exo Cinema. */
+  kind?: 'music' | 'video'
+  /** Exo Cinema's line under the title: an episode's "Show · S1:E2", a movie's year. */
+  subtitle?: string | null
   artworkDataUrl?: string | null
   positionMs?: number | null
   durationMs?: number | null

@@ -337,7 +337,7 @@
   border: 0;
   border-radius: 999px;
   background: var(--color-fg);
-  color: var(--exo-ink-inverse, #000);
+  color: var(--color-primary-fg);
   cursor: pointer;
   transition: scale var(--dur-quick) var(--ease-out);
 }

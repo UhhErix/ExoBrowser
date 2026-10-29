@@ -82,6 +82,8 @@ kbd,
   --color-primary-fg: #000000;
   --color-good: #3dd68c;
   --color-bad: #ff5c5c;
+  /* Warm, short of bad: a reading near its limit (a GPU at its temperature target). 11.8:1 on black, 7.8:1 on Dark's glass. */
+  --color-warn: #ffb340;
   /* Text on a good or bad fill: the pale status colours take black (white on them read 1.9:1 and 2.8:1). */
   --color-on-good: #000000;
   --color-on-bad: #000000;
@@ -222,9 +224,21 @@ body,
   --exo-solid-fill: #121212;
   /* Solid large glass (sheets, menus): the floating layer's own color, never a sheet's transparent float. */
   --exo-solid-panel: #000;
-  /* How dark a dialog dims the page behind it: full on Void, half on Dark and Light (on Dark's charcoal page the
-     full dim landed on Void's black behind every sheet). */
+  /* How dark a dialog dims the page behind it: full on Void, half on Dark (on Dark's charcoal page the full dim landed
+     on Void's black behind every sheet), a quarter on Light (half greyed the light page flat, under a sheet of light
+     glass that then read washed out on it). */
   --exo-scrim-k: 1;
+  /* Not installed (Library): the cover recedes. Darker and drained on Void and Dark (the host bakes it into the grid's
+     thumbnail, &dim=1; this is its fallback); on Light a veil of the page over the art (a black dim there read as holes). */
+  --exo-not-installed: saturate(0.45) brightness(0.42);
+  /* Done (Motion › Done): the art's dim under the green check. */
+  --exo-done-dim: rgb(0 0 0 / 0.55);
+  /* A glyph drawn straight on a picture or video (a trailer's play mark): the lightest ink, in every Appearance. */
+  --exo-on-media: #ffffff;
+  /* A picture lifted off its tile (a face in a call). */
+  --exo-lift-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  /* What a color is mixed into for a tinted fill (a super reaction, Discord's red warning): black, white on Light. */
+  --exo-tint-base: #000;
 }
 
 /* Appearance (Settings › General; lib/appearance.ts). Void is the page above: AMOLED black. Dark is charcoal #121212
@@ -272,6 +286,7 @@ body,
   --exo-solid-fill: #1e1e1e;
   --exo-solid-panel: #1e1e1e;
   --exo-scrim-k: 0.5;
+  --exo-on-media: #e0e0e0;
 
   /* Dark's own glass and lifts, so Void's black never reaches it (each Appearance stands on its own). */
   --hover-fill: rgb(255 255 255 / 0.1);
@@ -325,6 +340,8 @@ body,
   /* Green and red dark enough for 4.5:1 on the light page and on light glass over art (#d12f2f read 4.2:1 there). */
   --color-good: #0a5830;
   --color-bad: #c42020;
+  /* Amber as dark: 5.4:1 on the light page, 4.8:1 on #e8e8e8. */
+  --color-warn: #8a5a00;
   --color-on-good: #ffffff;
   --color-on-bad: #ffffff;
   --color-card: #ffffff;
@@ -340,7 +357,7 @@ body,
   --exo-float-line: #e0e0e0;
   --exo-tile: #e8e8e8;
   --exo-control-line: #c4c4c4;
-  /* Light glass over the darkest art is #c7c7c7 (small) and #bcbcbc (large): secondary words #4a4a4a keep 4.6:1 and more. */
+  /* Light glass over the darkest art is #c7c7c7 (small) and #cccccc (large): secondary words #4a4a4a keep 4.6:1 and more. */
   --exo-glass-secondary: #4a4a4a;
   --exo-glass-panel-secondary: #4a4a4a;
   /* Glassy UI's light glass (liquid.css, light): a white frost, brightened and saturated, its rim lit bright with
@@ -352,8 +369,10 @@ body,
   --glassy-shadow: 0 0 0 transparent;
   --glassy-shadow-raised: 0 0 36px rgb(0 0 0 / 0.16);
   --glassy-sheen: none;
-  --glassy-overlay: rgb(255 255 255 / 0.74);
-  --glassy-overlay-tone: brightness(1);
+  /* Large glass is Glassy's 80% white frost over a lifted backdrop: over the dimmed page a sheet is near white (#f9),
+     standing clear of the dim around it; at 74% over an unlifted backdrop it was #e9 on #a8, one washed-out gray. */
+  --glassy-overlay: rgb(255 255 255 / 0.8);
+  --glassy-overlay-tone: brightness(1.08);
   --glassy-pane: rgb(255 255 255 / 0.55);
   --glassy-pane-tone: brightness(1.06) saturate(1.6);
   --exo-fill: rgb(255 255 255 / 0.72);
@@ -368,7 +387,13 @@ body,
   --glassy-still-control: rgb(255 255 255 / 0.8);
   --exo-solid-fill: #ffffff;
   --exo-solid-panel: #ffffff;
-  --exo-scrim-k: 0.5;
+  --exo-scrim-k: 0.26;
+  /* Not installed: half the page's color over the art, and some of its color drained. */
+  --exo-not-installed: saturate(0.5) opacity(0.5);
+  /* Done: a light veil, so the dark green check reads on the art (on a black dim it vanished). */
+  --exo-done-dim: rgb(255 255 255 / 0.62);
+  --exo-lift-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  --exo-tint-base: #ffffff;
 }
 
 /*
@@ -395,7 +420,7 @@ body,
   inset: 0;
   z-index: 4;
   border-radius: inherit;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--exo-done-dim);
   box-shadow: inset 0 0 0 1px var(--color-good);
   opacity: 0;
   animation: exo-done var(--dur-hold) var(--ease-out) forwards;

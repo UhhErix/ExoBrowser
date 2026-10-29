@@ -21,7 +21,7 @@ type Data = {
   material: string
   bookmarkStyle: string
   tiles: string
-  /** Settings › Look › Reduce motion: on, or off (then Windows' own choice decides). */
+  /** Settings › Look › Reduce motion: on or off, Exo's own switch (a first start set it from Windows' animation effects). */
   motion?: string
   /** How far the Bar and side tabs push this page in: it shifts back by half, so it sits in the window's middle. */
   insetTop?: number
@@ -84,6 +84,15 @@ function pickQuote() {
 // A site with no icon still gets its own color, the same every time.
 const hue = (site: string) => { let h = 0; for (const c of site) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 360 }
 const siteName = (url: string) => { const raw = hostOf(url).split('.').slice(-2, -1)[0] || hostOf(url); return raw.charAt(0).toUpperCase() + raw.slice(1) }
+// A most-visited tile's name: the site's own, as its page title gives it ("Classic lasagne | Good Food" is Good Food,
+// "Home - The GitHub Blog" The GitHub Blog), the part of the title its address names; else the address's own name.
+const tileName = (url: string, title: string) => {
+  const label = (hostOf(url).split('.').slice(-2, -1)[0] || hostOf(url)).toLowerCase()
+  const plain = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const parts = (title || '').split(/\s+[|\-–—·:]\s+/).map(s => s.trim()).filter(s => s && s.length <= 32)
+  const named = parts.filter(p => plain(p).length >= 3 && (label.includes(plain(p)) || plain(p).includes(label))).sort((a, b) => a.length - b.length)[0]
+  return named ?? siteName(url)
+}
 
 /** A card: the site's colors under Liquid Glass, its icon (or its letter until one is found) and its name. */
 function Card({ url, title, icon, sharp, index, onRemove }: { url: string; title: string; icon: string; sharp?: boolean; index: number; onRemove: () => void }) {
@@ -198,10 +207,12 @@ function Page() {
     root.dataset.exoTheme = theme
     if (material === 'solid') root.dataset.exoGlass = 'solid'; else delete root.dataset.exoGlass
   }, [theme, material])
-  // Reduce motion, as the Bar has it (Exo's setting, or Windows asking for less): the cards arrive and lift without moving.
+  // Reduce motion, as the Bar has it: Exo's own switch decides (the cards arrive and lift without moving), and Windows'
+  // choice stands in only until the page's data comes.
   useEffect(() => {
+    if (motion) { document.documentElement.dataset.exoMotion = motion === 'on' ? 'reduce' : 'full'; return }
     const windows = matchMedia('(prefers-reduced-motion: reduce)')
-    const apply = () => { document.documentElement.dataset.exoMotion = motion === 'on' || windows.matches ? 'reduce' : 'full' }
+    const apply = () => { document.documentElement.dataset.exoMotion = windows.matches ? 'reduce' : 'full' }
     apply()
     windows.addEventListener('change', apply)
     return () => windows.removeEventListener('change', apply)
@@ -233,7 +244,7 @@ function Page() {
       }} /> : null}
       {data && data.tiles !== 'off' && data.top.length ? (
         <section className="exb-ntp-marks is-tiles" aria-label="Most visited">
-          {data.top.map(([url, , icon, sharp], i) => <Card key={url} url={url} title={siteName(url)} icon={icon} sharp={sharp} index={i} onRemove={() => send('forget', url)} />)}
+          {data.top.map(([url, title, icon, sharp], i) => <Card key={url} url={url} title={tileName(url, title)} icon={icon} sharp={sharp} index={i} onRemove={() => send('forget', url)} />)}
         </section>
       ) : null}
       {menu ? (

@@ -1171,3 +1171,47 @@
 .exo-whats-new-foot > .exo-set-btn {
   justify-content: center;
 }
+
+/* The update sheet (WhatsNewSheet.tsx › UpdateSheet): What's New's card at 420px, with no list: "Update available", the
+   version under it, then Update now across its foot. While it goes in, the words and the large Exo bar take the foot's
+   place at the button's height, so the card never changes size. */
+.exo-whats-new.is-update {
+  grid-template-rows: none;
+  width: min(100%, 420px);
+}
+
+.exo-update-head {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.exo-update-head > p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: calc(13px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.exo-update-progress {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-height: 32px;
+  color: var(--color-muted);
+  font-size: calc(12px * var(--exo-scale, 1));
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* The window's own buttons over the Bar's, while a screen holds the window (HoldWindow.tsx): the screen's dim and inert
+   Bar are under them, so minimize, maximize and close still answer. Measured onto the Bar's; this is where they start. */
+.exo-window-buttons {
+  position: fixed;
+  top: 8px;
+  right: var(--exo-gap);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

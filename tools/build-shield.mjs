@@ -70,9 +70,67 @@ manifest.web_accessible_resources.push(...ttvManifest.web_accessible_resources.f
 manifest.permissions = [...new Set([...manifest.permissions, ...ttvManifest.permissions])];
 manifest.host_permissions = [...new Set([...manifest.host_permissions, ...ttvManifest.host_permissions])];
 manifest.background = { service_worker: "exo-background.js", type: "module" };
-writeFileSync(new URL("exo-background.js", out), `import "/js/background.js";\nimport "/ttv/${ttvManifest.background.service_worker}";\n`);
-// A stamp per build, so the browser sees a new manifest and loads the new files.
-manifest.version_name = `${manifest.version} (Exo ${new Date().toISOString().slice(0, 16)})`;
+// The count beside the address in Exo Browser's Bar: what Exo Shield blocked on each tab's page. The worker hears
+// each rule that matched (an unpacked extension with declarativeNetRequestFeedback) and counts those that block: a
+// request stopped, or a script swapped for its harmless stand-in. Exceptions and header changes block nothing and don't
+// count (Chromium's own badge counted them, and the page before's last
+// beacons), nor do tracking parameters taken off a link (the request still goes). exo-count.js hands each new count
+// to that page's browser (chrome.webview): only the number goes.
+manifest.permissions = [...new Set([...manifest.permissions, "declarativeNetRequestFeedback"])];
+const blocks = (x) => x.action.type === "block" || (x.action.type === "redirect" && !x.action.redirect?.transform);
+const notCounted = {};
+for (const r of manifest.declarative_net_request.rule_resources) {
+  const ids = JSON.parse(readFileSync(new URL(r.path, out), "utf8")).filter((x) => !blocks(x)).map((x) => x.id);
+  if (ids.length) notCounted[r.id] = ids;
+}
+writeFileSync(new URL("exo-count-skip.json", out), JSON.stringify(notCounted));
+writeFileSync(new URL("exo-count.js", out), `// Exo Shield's count for Exo Browser's Bar (tools/build-shield.mjs): what it blocked on the page in each tab.
+const dnr = chrome.declarativeNetRequest;
+const skip = new Set(), counts = new Map(), sent = new Map(), due = new Map();
+const ready = fetch("/exo-count-skip.json").then((r) => r.json()).then((lists) => {
+  for (const [ruleset, ids] of Object.entries(lists)) for (const id of ids) skip.add(ruleset + "#" + id);
+}).catch(() => {});
+// uBlock Origin Lite's own rules (dynamic, and per session) change as it runs: read again at most once a minute.
+let ownRead = 0;
+async function readOwn() {
+  if (Date.now() - ownRead < 60000) return;
+  ownRead = Date.now();
+  try {
+    for (const [ruleset, rules] of [["_dynamic", await dnr.getDynamicRules()], ["_session", await dnr.getSessionRules()]])
+      for (const r of rules) if (r.action.type !== "block" && (r.action.type !== "redirect" || r.action.redirect?.transform)) skip.add(ruleset + "#" + r.id);
+  } catch {}
+}
+function report(tabId) {
+  due.delete(tabId);
+  const n = counts.get(tabId) ?? 0;
+  if (sent.get(tabId) === n) return;
+  sent.set(tabId, n);
+  chrome.scripting.executeScript({
+    target: { tabId }, world: "MAIN", injectImmediately: true, args: [n],
+    func: (n) => { try { window.chrome?.webview?.postMessage("exo-shield\t" + n); } catch {} },
+  }).catch(() => {});
+}
+dnr.onRuleMatchedDebug?.addListener(async ({ request, rule }) => {
+  const tabId = request.tabId;
+  if (tabId < 0) return;
+  await ready;
+  if (rule.rulesetId.startsWith("_")) await readOwn();
+  if (skip.has(rule.rulesetId + "#" + rule.ruleId)) return;
+  counts.set(tabId, (counts.get(tabId) ?? 0) + 1);
+  // A burst is one report, 300 ms after its first.
+  if (!due.has(tabId)) due.set(tabId, setTimeout(() => report(tabId), 300));
+});
+// A new page in the tab counts from zero.
+chrome.tabs.onUpdated.addListener((tabId, info) => { if (info.status === "loading") { counts.set(tabId, 0); sent.delete(tabId); } });
+chrome.tabs.onRemoved.addListener((tabId) => { clearTimeout(due.get(tabId)); due.delete(tabId); counts.delete(tabId); sent.delete(tabId); });
+`);
+writeFileSync(new URL("exo-background.js", out), `import "/js/background.js";\nimport "/ttv/${ttvManifest.background.service_worker}";\nimport "/exo-count.js";\n`);
+// Each build is its own version (uBlock Origin Lite's, then the hours since 2026 began) and its own stamp (version_name,
+// to the minute). WebView2 keeps running the service worker an extension was added with, new files and version or not,
+// so the browser removes and adds Exo Shield again whenever the stamp it was added with isn't this one (main.cpp).
+const ubolVersion = manifest.version;
+manifest.version = `${ubolVersion}.${Math.floor((Date.now() - Date.UTC(2026, 0, 1)) / 3600000)}`;
+manifest.version_name = `${ubolVersion} (Exo ${new Date().toISOString().slice(0, 16)})`;
 writeFileSync(new URL("manifest.json", out), JSON.stringify(manifest, null, 2));
 
 const details = JSON.parse(readFileSync(new URL("rulesets/ruleset-details.json", out), "utf8"));
@@ -87,7 +145,7 @@ details.splice(4, 0, {
 writeFileSync(new URL("rulesets/ruleset-details.json", out), JSON.stringify(details));
 // What it is made of, for the browser's About: versions, how many filters and listed sites, and when.
 writeFileSync(new URL("exo-shield.json", out), JSON.stringify({
-  ubol: manifest.version, ttv: ttvManifest.version, hagezi: domains.length,
+  ubol: ubolVersion, ttv: ttvManifest.version, hagezi: domains.length,
   filters: details.filter((d) => d.enabled).reduce((n, d) => n + (d.filters?.accepted ?? 0), 0), built: new Date().toISOString(),
 }));
 
@@ -124,7 +182,7 @@ writeFileSync(bg, bgSource.replace(onMessageHook, "    if ( typeof request?.what
 `));
 
 // The GPL's notice of what changed, and where this build's source is.
-writeFileSync(new URL("NOTICE.txt", out), NOTICE(manifest.version, ttvManifest.version, domains.length));
+writeFileSync(new URL("NOTICE.txt", out), NOTICE(ubolVersion, ttvManifest.version, domains.length));
 
 console.log(`Exo Shield ${manifest.version}: ${domains.length} HaGeZi domains in ${rules.length} rules`);
 
@@ -145,6 +203,9 @@ Changes, made by tools/build-shield.mjs (October 2026 and later):
 - No popup, options page or keyboard shortcuts.
 - TTV LOL PRO merged in (ttv/), with ad reports off and no first-run page; one service worker runs both
   (exo-background.js).
+- How many requests it blocked on each tab's page (exceptions and header changes left out), handed to that page's
+  Exo Browser for the count beside its address (exo-count.js and exo-count-skip.json, with the
+  declarativeNetRequestFeedback permission).
 
 Source for this build, with the script that makes it: https://github.com/UhhErix/exo-shield
 uBlock Origin Lite: https://github.com/uBlockOrigin/uBOL-home  TTV LOL PRO: https://github.com/younesaassila/ttv-lol-pro

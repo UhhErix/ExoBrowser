@@ -10,6 +10,9 @@ export type AppUpdateResponse = {
   current?: string
   message?: string
   upcoming?: WhatsNewWire
+  offerOnOpen?: boolean
+  notNow?: boolean
+  problem?: string
 }
 export type WhatsNewWire = {
   version: string

@@ -209,12 +209,16 @@ export function MenuLayer() {
     const menu = ref.current
     if (!menu || !open) return
     if (!menu.matches(':popover-open')) menu.showPopover()
+    // Never over the Bar's band or the side tabs: there the window has no page under the menu to frost. A tab's menu
+    // down the side opens just beside the tabs, and in a window too narrow for it there (540 px beside the side tabs)
+    // it narrows, its longest words ending in "…", instead of being moved back over them to stay in the window.
+    const edges = pageEdges(BAR_MENUS.has(open.kind))
+    const minLeft = edges.left ? edges.left + 6 : 8
+    const room = innerWidth - minLeft - 8
+    menu.style.maxWidth = room < 360 ? `${Math.max(220, room)}px` : ''
     const w = menu.offsetWidth, h = menu.offsetHeight
     const left = open.right ? open.x - w : open.x
-    // Never over the Bar's band or the side tabs: there the window has no page under the menu to frost. A tab's menu
-    // down the side opens just beside the tabs.
-    const edges = pageEdges(BAR_MENUS.has(open.kind))
-    menu.style.left = `${Math.max(edges.left ? edges.left + 6 : 8, Math.min(left, innerWidth - w - 8))}px`
+    menu.style.left = `${Math.max(minLeft, Math.min(left, innerWidth - w - 8))}px`
     menu.style.top = `${Math.max(edges.top ? edges.top + 6 : 8, Math.min(open.y + 4, innerHeight - h - 8))}px`
     menu.style.transformOrigin = open.right ? 'top right' : 'top left'
     if (!menu.contains(document.activeElement)) menu.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true })

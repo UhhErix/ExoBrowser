@@ -551,7 +551,7 @@
 }
 
 /* Pressed (DESIGN.md › Controls): one fill for every raised or quiet control, the step past hover. */
-:is(.exo-set-btn:not(.is-primary), .exo-game-tool, .exo-play, .exo-shelf-sort-trigger,
+:is(.exo-set-btn:not(.is-primary), .exo-game-tool, .exo-shelf-sort-trigger,
   .exo-add-game-btn, .exo-game-close, .exo-shelf-chip, .exo-music-sort, .exo-music-mini button,
   .exo-dc-icon-btn, .exo-dc-tab:not(.is-add), .button--ghost, .exo-capture-btn, .exo-mouse-pill,
   .exo-dc-item, .exo-dc-member, .exo-dc-server-name, .exo-dc-me-who, .exo-dc-input-btn, .exo-dc-new-bar-read,
@@ -831,6 +831,18 @@
 /* Discord's settings: Discord's User Settings layout in Exo's look, over the whole room. */
 /* Discord's settings float over the room in one panel (1200 by 880 at most), as Discord's own do now; a press
    on the dimmed room around it closes them. */
+/* A press outside a Discord panel or dialog closes it: the dimmed space shows it can be pressed, the panel itself
+   keeps its own pointer. */
+.exo-dc-settings-backdrop,
+.exo-dc-modal-back {
+  cursor: pointer;
+}
+
+.exo-dc-settings-backdrop > *,
+.exo-dc-modal-back > * {
+  cursor: auto;
+}
+
 .exo-dc-settings-backdrop {
   position: absolute;
   inset: 0;
@@ -1074,25 +1086,22 @@
   gap: 8px;
 }
 
-/* Upscalers inside a PC panel: its note and action sit on the panel's title line, at its right edge (as a
-   Devices panel's head), not on a line of their own under it. */
-.exo-system-panel:has(.exo-gpu-bar) {
-  position: relative;
-}
-
-.exo-system-panel .exo-gpu-bar {
+/* Upscalers in the PC room: its note and action sit on the section's title line, at its right edge (as Devices'
+   Rescan), not on a line of their own under it; its games' covers stand on the page. */
+.exo-pc-section .exo-gpu-bar {
   position: absolute;
-  top: 8px;
-  right: 24px;
+  top: 0;
+  right: 0;
+  min-height: 32px;
   margin: 0;
 }
 
-.exo-system-panel .exo-upscalers-body {
-  padding: 6px 0 12px;
+.exo-pc-section .exo-upscalers-body {
+  padding: 0;
 }
 
 /* Nothing to update is one line in the room, not a block: the check beside its words. */
-.exo-system-panel .exo-upscalers-clear {
+.exo-pc-section .exo-upscalers-clear {
   flex-direction: row;
   justify-content: flex-start;
   gap: 10px;
@@ -1100,7 +1109,7 @@
   padding: 4px 0;
 }
 
-.exo-system-panel .exo-upscalers-clear-mark {
+.exo-pc-section .exo-upscalers-clear-mark {
   width: 24px;
   height: 24px;
   margin: 0;

@@ -338,13 +338,14 @@
     "proxy",
     "tabs",
     "webRequest",
-    "webRequestAuthProvider"
+    "webRequestAuthProvider",
+    "declarativeNetRequestFeedback"
   ],
   "short_name": "Exo Shield",
   "storage": {
     "managed_schema": "managed_storage.json"
   },
-  "version": "2026.1026.1812",
+  "version": "2026.1026.1812.7226",
   "web_accessible_resources": [
     {
       "resources": [
@@ -462,5 +463,5 @@
       "css": []
     }
   ],
-  "version_name": "2026.1026.1812 (Exo 2026-10-28T17:23)"
+  "version_name": "2026.1026.1812 (Exo 2026-10-29T02:54)"
 }

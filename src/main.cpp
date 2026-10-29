@@ -98,6 +98,7 @@ struct Tab {
     bool kept = false;         // Keep this tab: never archived, and never asleep (frozen or closed) to save memory
     bool crashed = false;      // its page's process went while it was off screen: loaded again when it's shown
     bool pipped = false;       // AutoPip floated its video as it was left: put back as it comes on screen
+    int blocked = 0;           // what Exo Shield blocked on the page it shows (its exo-count.js), beside the address
 };
 
 // A space: a set of tabs of its own (its pinned tabs and the one last on screen too), with a name, an icon, a color
@@ -163,6 +164,7 @@ struct App {
     int nextFolder = 1;
     std::vector<Archived> archive;  // tabs the archive closed, newest last (archive.tsv)
     bool overlay = false, fullscreen = false, elementFullscreen = false, minimized = false;
+    bool modal = false;  // What's New or the update sheet is up: nothing behind it, the Bar's keys included, works
     bool statePending = false, sessionDirty = false, historyDirty = false, tracking = false;
     int capture = 0, hover = 0, focus = 0;
     RECT contentRect{};
@@ -279,6 +281,29 @@ static void WriteFileUtf8(const std::wstring& path, const std::string& data) {
         if (table) lastWrite[path] = hash;
     } else {
         DeleteFileW(tmp.c_str());
+    }
+}
+
+// exo.log, beside your data: a line for what went wrong and where, never a page's address or a path on this PC, so
+// Copy logs can hand it on as it is. It keeps its last 64 KB.
+static void LogLine(const std::wstring& line) {
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    wchar_t at[24];
+    swprintf_s(at, L"%04u-%02u-%02u %02u:%02u:%02u ", t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+    std::wstring path = g.dataDir + L"\\exo.log";
+    std::string text = Utf8(at + line + L"\n");
+    HANDLE f = CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, 0, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return;
+    DWORD written;
+    WriteFile(f, text.data(), (DWORD)text.size(), &written, nullptr);
+    LARGE_INTEGER size{};
+    GetFileSizeEx(f, &size);
+    CloseHandle(f);
+    if (size.QuadPart > 128 * 1024) {
+        std::string all = ReadFileUtf8(path);
+        size_t from = all.size() > 64 * 1024 ? all.find('\n', all.size() - 64 * 1024) : std::string::npos;
+        if (from != std::string::npos) WriteFileUtf8(path, all.substr(from + 1));
     }
 }
 
@@ -480,7 +505,7 @@ static std::wstring TabJson(const Tab* t) {
            L",\"pinned\":" + Bool(t->pinned) + L",\"space\":" + std::to_wstring(t->space) +
            (t->home.empty() ? L"" : L",\"home\":" + Json(t->home)) + (t->split ? L",\"split\":" + std::to_wstring(t->split) : L"") +
            (t->folder ? L",\"folder\":" + std::to_wstring(t->folder) : L"") + (t->priv ? L",\"priv\":true" : L"") +
-           (t->kept ? L",\"kept\":true" : L"") + L"}";
+           (t->kept ? L",\"kept\":true" : L"") + (t->blocked ? L",\"blocked\":" + std::to_wstring(t->blocked) : L"") + L"}";
 }
 
 static void ArmSleep();
@@ -641,7 +666,7 @@ static void IconWorker();
 // skips this check.
 enum class Egress { Update, Extension, Icon, Feed };
 static const struct { Egress why; const wchar_t* host; } kDestinations[] = {
-    {Egress::Update, L"exo-updates.exo-erix.workers.dev"},  // Exo's update address: the newest release, its files
+    {Egress::Update, L"updates.getexo.app"},  // Exo's update address: the newest release, its files
     {Egress::Update, L"github.com"},              // Settings > About, when Exo's address doesn't answer: the same from GitHub
     {Egress::Extension, L"clients2.google.com"},  // an extension added from the Chrome Web Store
 };
@@ -758,12 +783,16 @@ static std::wstring BookmarksJson() {
     return L"[" + items + L"]";
 }
 
-// The most visited sites, one address each, by visits weighted for how recent they are.
+// The most visited sites, one address each, by visits weighted for how recent they are; a site already among your
+// bookmarks (the row above them on a new tab) isn't shown twice.
 static std::wstring TopSitesJson() {
     long long now = NowSeconds();
     struct Site { double score = 0; const Visit* best = nullptr; };
     std::unordered_map<std::wstring, Site> sites;
+    std::unordered_set<std::wstring> marked;
+    for (auto& b : g.bookmarks) marked.insert(SiteOf(b.url));
     for (auto& [_, v] : g.history) {
+        if (marked.count(SiteOf(v.url))) continue;
         double days = (double)(now - v.last) / 86400.0;
         double recency = days < 1 ? 100 : days < 4 ? 70 : days < 14 ? 50 : days < 31 ? 30 : days < 90 ? 10 : 2;
         Site& s = sites[SiteOf(v.url)];
@@ -1490,7 +1519,12 @@ static std::wstring ExtensionsJson(HRESULT hr, ICoreWebView2BrowserExtensionList
         if (sname.rfind(L"Microsoft", 0) == 0) continue;
         if (sname == L"Exo Shield") {
             g_shieldId = sid;
-            if (!enabled) ext->Enable(TRUE, Callback<ICoreWebView2BrowserExtensionEnableCompletedHandler>([](HRESULT) { return S_OK; }).Get());
+            bool on = true;
+#ifdef EXO_MEDIA
+            // A build for the pictures (never released) can show a page as it is without Exo Shield, for a before and after.
+            on = GetEnvironmentVariableW(L"EXO_MEDIA_SHIELD_OFF", nullptr, 0) == 0;
+#endif
+            if (!enabled != !on) ext->Enable(on, Callback<ICoreWebView2BrowserExtensionEnableCompletedHandler>([](HRESULT) { return S_OK; }).Get());
             continue;
         }
         std::wstring folder = ExtensionFolder(sid, sname);
@@ -1891,6 +1925,29 @@ static wge::IGraphicsEffectSource Tone(wge::IGraphicsEffectSource s, float k, fl
 
 static float Scale() { return g.dpi / 96.f; }
 
+// A build for the pictures (cl /DEXO_MEDIA, never released) can draw the whole window at a scale of its own
+// (EXO_MEDIA_SCALE=2: twice the pixels, the same layout), so a shot stays sharp where the website zooms into it.
+static float MediaScale() {
+#ifdef EXO_MEDIA
+    static float scale = [] {
+        wchar_t v[8] = L"";
+        GetEnvironmentVariableW(L"EXO_MEDIA_SCALE", v, 8);
+        float f = (float)_wtof(v);
+        return f >= 1.f && f <= 4.f ? f : 0.f;
+    }();
+    return scale;
+#else
+    return 0.f;
+#endif
+}
+static void MediaRaster(ICoreWebView2Controller* c) {
+    if (!c || !MediaScale()) return;
+    if (ComPtr<ICoreWebView2Controller3> c3; SUCCEEDED(c->QueryInterface(IID_PPV_ARGS(&c3)))) {
+        c3->put_ShouldDetectMonitorScaleChanges(FALSE);
+        c3->put_RasterizationScale(MediaScale());
+    }
+}
+
 // Exo's glass, its filters in its order (Exo Launcher's styles/glass.css and tokens.css, in ui/src):
 //   small: --exo-control-glass, blur(10px) then Void brightness(0.46) saturate(1.8); Dark brightness(0.46) contrast(0.9)
 //          saturate(1.8); Light brightness(1.06) saturate(1.6). Exo's own is 0.62, for controls over its black rooms:
@@ -1934,9 +1991,23 @@ static bool WindowsTransparency() {
     return on != 0;
 }
 static bool SeeThrough() { return Setting(L"material", L"glass") == L"window" && WindowsTransparency(); }
+// Under the pages, the band's own color (the Appearance's page color): glass over a page's top edge (Search's first row,
+// the top of a menu) blurs into it, as Exo's CSS glass blurs what's behind it. Without it that frost blurred in nothing
+// above the page, came out half see-through, and the page under it read sharp. See-through leaves it out: the band is
+// the desktop then.
+static wuc::SpriteVisual g_sceneBase{nullptr};
 static void ApplyBackdrop() {
     if (!g.hwnd || !g.compositor) return;
     bool on = SeeThrough();
+    if (g.scene) {
+        if (!g_sceneBase) {
+            g_sceneBase = g.compositor.CreateSpriteVisual();
+            g_sceneBase.RelativeSizeAdjustment({1, 1});
+            g.scene.Children().InsertAtBottom(g_sceneBase);
+        }
+        g_sceneBase.Brush(g.compositor.CreateColorBrush(winrt::Windows::UI::Color{255, GetRValue(g.page), GetGValue(g.page), GetBValue(g.page)}));
+        g_sceneBase.IsVisible(!on);
+    }
     BOOL use = on;
     DwmSetWindowAttribute(g.hwnd, 17 /* DWMWA_USE_HOSTBACKDROPBRUSH */, &use, sizeof use);
     if (!on) {
@@ -2261,9 +2332,8 @@ static bool Shown(const Tab* t) {
 }
 
 // A pane's place in the window: 2 or 3 side by side, 4 in a grid, 6 px apart; one tab fills the content area.
-static RECT PaneRect(const Tab* t) {
-    auto panes = Panes();
-    size_t n = panes.size(), i = std::find(panes.begin(), panes.end(), t) - panes.begin();
+// Pane i of n in the content area: side by side, four as two rows of two.
+static RECT PaneRectAt(size_t i, size_t n) {
     RECT c = g.contentRect;
     if (n < 2 || i >= n) return c;
     LONG gap = Px(6), w = c.right - c.left, h = c.bottom - c.top;
@@ -2271,6 +2341,10 @@ static RECT PaneRect(const Tab* t) {
     LONG cw = (w - gap * (LONG)(cols - 1)) / (LONG)cols, rh = (h - gap * (LONG)(rows - 1)) / (LONG)rows;
     LONG x = c.left + (LONG)col * (cw + gap), y = c.top + (LONG)row * (rh + gap);
     return {x, y, col == cols - 1 ? c.right : x + cw, row == rows - 1 ? c.bottom : y + rh};
+}
+static RECT PaneRect(const Tab* t) {
+    auto panes = Panes();
+    return PaneRectAt(std::find(panes.begin(), panes.end(), t) - panes.begin(), panes.size());
 }
 
 // Each pane's view where it belongs; in a split, each rounded at its corners.
@@ -2365,9 +2439,21 @@ static ICoreWebView2Controller* CtlFor(int target) {
 
 static void FocusTarget(int target) {
     if (ICoreWebView2Controller* c = CtlFor(target)) {
-        c->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
         g.focus = target;
+        // Only in the window in front: moving focus into a window behind another app activated it, over that app (a
+        // window opened in the background, a game in front). WM_SETFOCUS moves it there as the window is next activated.
+        if (GetForegroundWindow() == g.hwnd) c->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC);
     }
+}
+
+// Reload, or, for a tab whose page hasn't come yet (just woken from sleep, its view still on the about:blank it starts
+// on), go to that page: reloading the blank one cancelled the tab's own load and left it empty for good.
+static void ReloadTab(Tab* t) {
+    if (!t || !t->core) return;
+    LPWSTR source = nullptr;
+    t->core->get_Source(&source);
+    if (Take(source) == L"about:blank" && !t->url.empty() && t->url != L"about:blank") t->core->Navigate(t->url.c_str());
+    else t->core->Reload();
 }
 
 // A part of the chrome page over the content that takes the pointer while the page keeps the keyboard
@@ -2579,6 +2665,17 @@ static std::wstring ExpectedId(const std::wstring& folder) {
     return IdOfKey(key);
 }
 
+// Which build an extension folder holds: its manifest's version_name (Exo's builds stamp each one to the minute), else
+// its version; empty without either.
+static std::wstring ManifestVersion(const std::wstring& folder) {
+    std::string m = ReadFileUtf8(folder + L"\\manifest.json");
+    size_t at = m.find("\"version_name\"");
+    if (at == std::string::npos) at = m.find("\"version\"");
+    if (at == std::string::npos) return L"";
+    size_t open = m.find('"', m.find(':', at) + 1), close = m.find('"', open + 1);
+    return open == std::string::npos || close == std::string::npos ? L"" : Wide(m.substr(open + 1, close - open - 1));
+}
+
 // A private tab's profile (made again after the last one closed): Edge's Strict tracking prevention, the Appearance, no
 // passwords or form data saved, and Exo Shield.
 static void ConfigurePrivate(ICoreWebView2* core) {
@@ -2610,10 +2707,8 @@ static void ConfigurePrivate(ICoreWebView2* core) {
                 [](HRESULT hr, ICoreWebView2BrowserExtension*) -> HRESULT {
                     if (SUCCEEDED(hr)) return S_OK;
                     wchar_t line[96];
-                    swprintf_s(line, L"private profile: Exo Shield failed 0x%08lx\n", (unsigned long)hr);
-                    std::string log = Utf8(line);
-                    HANDLE f = CreateFileW((g.dataDir + L"\\exo.log").c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, 0, nullptr);
-                    if (f != INVALID_HANDLE_VALUE) { DWORD w; WriteFile(f, log.data(), (DWORD)log.size(), &w, nullptr); CloseHandle(f); }
+                    swprintf_s(line, L"private profile: Exo Shield failed 0x%08lx", (unsigned long)hr);
+                    LogLine(line);
                     return S_OK;
                 }).Get());
             return S_OK;
@@ -2677,9 +2772,13 @@ static void ConfigureProfile(ICoreWebView2* core) {
                     for (auto& s : shipped) {
                         if (sname.rfind(s.name, 0) != 0) continue;
                         auto it = g_extFolders.find(sid);
-                        std::wstring expected = ExpectedId(BuiltinFolder(s.folder));
+                        std::wstring folder = BuiltinFolder(s.folder), expected = ExpectedId(folder);
+                        // A new build (each has its own version) is added again: WebView2 keeps running the service
+                        // worker an extension was first added with, whatever its folder says now, so a new Exo Shield
+                        // worker (its count for the Bar) never ran until it was removed and added once more.
+                        bool current = Setting((std::wstring(L"builtin.") + s.folder).c_str(), L"") == ManifestVersion(folder);
                         if (it != g_extFolders.end() && it->second == g.dataDir + L"\\Builtin\\" + s.folder &&
-                            (expected.empty() || expected == sid))
+                            (expected.empty() || expected == sid) && current)
                             present.push_back(s.folder);
                         else stale->push_back(ext);
                     }
@@ -2727,6 +2826,8 @@ static void ConfigureProfile(ICoreWebView2* core) {
                             ext->get_Id(&id);
                             g_extFolders[Take(id)] = folder;
                             SaveExtFolders();
+                            g.settings[L"builtin." + folder.substr(folder.find_last_of(L'\\') + 1)] = ManifestVersion(folder);
+                            SaveSettings();
                         } else {
                             wchar_t code[16];
                             swprintf_s(code, L"0x%08X", (unsigned)hr);
@@ -2745,6 +2846,66 @@ static void ApplyFind(Tab* t);
 static void ServeApi(ICoreWebView2WebResourceRequestedEventArgs* a);
 static void TrackDownload(ICoreWebView2DownloadStartingEventArgs* a, int tabId);
 static void DownloadTick();
+// Split view: `tab` joins the split of `with`, beside its last pane (at most 4), and comes on screen with it.
+static void JoinSplit(int withId, int tabId) {
+    Tab *a2 = FindTab(withId), *t = FindTab(tabId);
+    if (!a2 || a2->peek) return;
+    if (!a2->split) a2->split = g.nextSplit++;
+    int group = a2->split;
+    if (t && t != a2 && !t->peek && std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 4) {
+        if (t->split && t->split != group)
+            if (int old = t->split; std::count_if(g.tabs.begin(), g.tabs.end(), [old](auto& x) { return x->split == old; }) <= 2)
+                for (auto& x : g.tabs) if (x->split == old) x->split = 0;
+        t->split = group;
+        t->space = a2->space ? a2->space : g.space;
+        // Beside the last pane, so the split reads left to right as it shows.
+        size_t from = IndexOf(t->id), after = IndexOf(a2->id);
+        for (size_t j = 0; j < g.tabs.size(); j++) if (g.tabs[j]->split == group && j != from) after = j;
+        auto up = std::move(g.tabs[from]);
+        g.tabs.erase(g.tabs.begin() + from);
+        if (from < after) after--;
+        g.tabs.insert(g.tabs.begin() + std::min(after + 1, g.tabs.size()), std::move(up));
+        g.activeId = t->id;
+    }
+    if (std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 2) a2->split = 0;
+    ShowActive();
+    if (Tab* now = Active(); now && now->ctl) FocusTarget(now->id);
+}
+
+// A tab that hasn't drawn its page (asleep: closed for memory or frozen, its view never shown) joins once it has: a view
+// out of sight draws nothing, so shown at once it was the window's black beside the page for a quarter of a second.
+// It's drawn first, out of sight at the page's size, and the split opens as it has its page (1.5 s at most). Moved on
+// to another tab by then, it doesn't.
+static const UINT kTimerSplit = 16;
+static struct { int with = 0, tab = 0; ULONGLONG since = 0, drawing = 0; } g_pendingSplit;
+static void FinishPendingSplit() {
+    KillTimer(g.hwnd, kTimerSplit);
+    auto pending = g_pendingSplit;
+    g_pendingSplit = {};
+    if (pending.with && pending.with == g.activeId) JoinSplit(pending.with, pending.tab);
+}
+static void TickPendingSplit() {
+    Tab* t = FindTab(g_pendingSplit.tab);
+    ULONGLONG now = GetTickCount64();
+    if (!t || g_pendingSplit.with != g.activeId) { KillTimer(g.hwnd, kTimerSplit); g_pendingSplit = {}; return; }
+    if (now - g_pendingSplit.since > 1500) { FinishPendingSplit(); return; }
+    if (!t->ctl || t->creating) return;
+    if (!g_pendingSplit.drawing) {
+        // At the size it will have: the last pane of the split it joins.
+        size_t n = Panes().size() + 1;
+        t->ctl->put_Bounds(PaneRectAt(n - 1, n));
+        t->ctl->put_IsVisible(TRUE);  // drawing (a frozen page wakes), its visual not yet in the window
+        g_pendingSplit.drawing = now;
+        return;
+    }
+    if (!t->loading && now - g_pendingSplit.drawing >= 150) FinishPendingSplit();
+}
+static void WakeForSplit(Tab* with, Tab* t) {
+    g_pendingSplit = {with->id, t->id, GetTickCount64(), 0};
+    SetTimer(g.hwnd, kTimerSplit, 30, nullptr);
+    EnsureView(t, nullptr);
+}
+
 static void OnUiMessage(const std::wstring& msg);
 static void InstallStoreExtension(const std::wstring& id);
 extern const wchar_t kStoreScriptRef[];
@@ -3130,6 +3291,15 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
             }
             else if (msg == L"exo-zap-end" && id == g_zapId)
                 EndZap();
+            else if (msg.rfind(L"exo-shield\t", 0) == 0 && msg.size() > 11 && msg.size() <= 17 &&
+                     std::all_of(msg.begin() + 11, msg.end(), iswdigit)) {
+                // Exo Shield's count for the page in this tab (exo-count.js). A page could send its own; it would
+                // only ever change the number shown for itself.
+                if (Tab* t = FindTab(id); t && t->blocked != _wtoi(msg.c_str() + 11)) {
+                    t->blocked = _wtoi(msg.c_str() + 11);
+                    QueueState();
+                }
+            }
             return S_OK;
         }).Get(), &tok);
     t->core->AddScriptToExecuteOnDocumentCreated(kStoreScriptRef, nullptr);
@@ -3144,11 +3314,14 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
         c4->add_DownloadStarting(Callback<ICoreWebView2DownloadStartingEventHandler>(
             [id](ICoreWebView2*, ICoreWebView2DownloadStartingEventArgs* a) -> HRESULT { TrackDownload(a, id); return S_OK; }).Get(), &tok);
     t->core->add_SourceChanged(Callback<ICoreWebView2SourceChangedEventHandler>(
-        [id](ICoreWebView2* core, ICoreWebView2SourceChangedEventArgs*) -> HRESULT {
+        [id](ICoreWebView2* core, ICoreWebView2SourceChangedEventArgs* a) -> HRESULT {
             if (Tab* t = FindTab(id)) {
                 LPWSTR u = nullptr;
                 core->get_Source(&u);
                 t->url = Take(u);
+                // A new document: the last page's count, even one that came in after its navigation began, goes.
+                BOOL fresh = FALSE;
+                if (a && SUCCEEDED(a->get_IsNewDocument(&fresh)) && fresh) t->blocked = 0;
                 if (t->url.rfind(L"chrome-search://", 0) == 0 || t->url.rfind(L"edge://newtab", 0) == 0) {
                     core->Navigate(kNewTab);
                     return S_OK;
@@ -3188,6 +3361,8 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
                     return S_OK;
                 }
                 if (CleanNavigation(t->core.Get(), a, url, t->cleanedFrom, t->cleanedAt)) return S_OK;
+                // A new page counts its own (Chromium starts the tab's count again as it commits).
+                if (t->blocked) { t->blocked = 0; QueueState(); }
                 BOOL user = FALSE, redirected = FALSE;
                 a->get_IsUserInitiated(&user);
                 a->get_IsRedirected(&redirected);
@@ -3386,7 +3561,10 @@ static void CreateView(Tab* t) {
                     return S_OK;
                 }
                 t->creating = false;
-                if (SUCCEEDED(hr) && comp) SetupTab(t, comp);
+                if (SUCCEEDED(hr) && comp) {
+                    if (ComPtr<ICoreWebView2Controller> c; SUCCEEDED(comp->QueryInterface(IID_PPV_ARGS(&c)))) MediaRaster(c.Get());
+                    SetupTab(t, comp);
+                }
                 return S_OK;
             }).Get());
 }
@@ -3403,7 +3581,7 @@ static void ShowActive() {
                 c19->put_MemoryUsageTargetLevel(COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL);
             t->suspended = t->lowMemory = false;
         }
-        if (t->crashed && t->core) { t->crashed = false; t->core->Reload(); }
+        if (t->crashed && t->core) { t->crashed = false; ReloadTab(t); }
         // Placed while it was away: its page's popups (a select's list) open at its window's place now.
         t->ctl->NotifyParentWindowPositionChanged();
     };
@@ -3925,7 +4103,10 @@ static bool SleepWork() {
 // How long a tab off screen waits before each step down, from this PC's memory as it is right now: with memory to
 // spare a tab you go back to is as you left it (closed only after an hour or more, longer with more memory), and the
 // tighter memory gets the sooner they step down, so the PC never pages. Fixed steps (lower memory after a minute,
-// frozen after five, closed after thirty) made a tab left a few minutes ago slow to come back on every PC.
+// frozen after five, closed after thirty) made a tab left a few minutes ago slow to come back on every PC: frozen, it
+// took 16 to 36 ms to show again (4 to 16 awake), and closed it loaded again. Lower memory alone costs less than a
+// frame (about 15 ms to show again the first time, 10 awake) and gives back most of what a page holds (eight sites left
+// a minute and a half: 1 GB in use instead of 2.4), so every PC takes that step after a minute.
 struct SleepSteps { ULONGLONG low, freeze, discard; };
 
 // Exo Launcher's sign that a game is running (Local\ExoLauncher.GameRunning: set while one runs, and absent while Exo
@@ -3948,10 +4129,10 @@ static SleepSteps SleepStepsNow() {
     else {
         ULONGLONG gb = (m.ullTotalPhys + (1ull << 29)) >> 30;  // 15.9 GB of usable memory is a 16 GB PC
         ULONGLONG discard = gb >= 32 ? 240 * minute : gb >= 16 ? 120 * minute : gb >= 8 ? 60 * minute : 30 * minute;
-        s = m.dwMemoryLoad >= 80 ? SleepSteps{5 * minute, 10 * minute, std::max(30 * minute, discard / 2)} : SleepSteps{10 * minute, 15 * minute, discard};
+        s = m.dwMemoryLoad >= 80 ? SleepSteps{1 * minute, 10 * minute, std::max(30 * minute, discard / 2)} : SleepSteps{1 * minute, 15 * minute, discard};
     }
-    // A game running: memory and processor time to the game, from tabs nobody is looking at. None closes for it.
-    if (GameRunning()) { s.low = std::min(s.low, 1 * minute); s.freeze = std::min(s.freeze, 2 * minute); }
+    // A game running: processor time to the game, from tabs nobody is looking at. None closes for it.
+    if (GameRunning()) s.freeze = std::min(s.freeze, 2 * minute);
     return s;
 }
 
@@ -4213,11 +4394,8 @@ static void DownloadState(Download* d, ICoreWebView2DownloadOperation* op) {
                 COREWEBVIEW2_DOWNLOAD_INTERRUPT_REASON reason;
                 op->get_InterruptReason(&reason);
                 wchar_t line[96];
-                swprintf_s(line, L"download %d interrupted: reason %d\n", id, (int)reason);
-                OutputDebugStringW(line);
-                std::string log = Utf8(line);
-                HANDLE f = CreateFileW((g.dataDir + L"\\exo.log").c_str(), FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, 0, nullptr);
-                if (f != INVALID_HANDLE_VALUE) { DWORD w; WriteFile(f, log.data(), (DWORD)log.size(), &w, nullptr); CloseHandle(f); }
+                swprintf_s(line, L"download %d interrupted: reason %d", id, (int)reason);
+                LogLine(line);
             }
             if (d->state != L"progress" && d->state != L"paused") {
                 d->op.Reset();
@@ -4737,6 +4915,9 @@ static void OnUiMessageSplitNew() { OnUiMessage(L"split\t0"); }
 
 static bool HandleKey(UINT vk, bool repeat, bool fromUi) {
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
+    // A sheet that waits for its own button: the Bar's keys (a new tab, Search, a tab switch) wait with everything else.
+    // Alt+F4 still closes the window, as its own buttons do.
+    if (g.modal) return (ctrl || alt || (vk >= VK_F1 && vk <= VK_F24)) && !(alt && !ctrl && vk == VK_F4);
     Tab* a = Active();
     if (g.peekId && !g.overlay) {
         if (vk == VK_ESCAPE && !ctrl && !alt) { ClosePeek(); return true; }
@@ -4762,7 +4943,7 @@ static bool HandleKey(UINT vk, bool repeat, bool fromUi) {
         case 'K': if (g.overlay && g.tabs.size()) UiPost(L"{\"t\":\"close\"}"); else OpenOverlay(L"palette"); return true;
         case 'W': case VK_F4: if (a) CloseTab(a->id); return true;
         case 'F': if (!shift && a) { LeaveFullscreen(); UiPost(L"{\"t\":\"find\"}"); FocusTarget(kUi); } return !shift;
-        case 'R': if (fromUi && a && a->core) a->core->Reload(); return fromUi;
+        case 'R': if (fromUi && a && a->core) ReloadTab(a); return fromUi;
         }
         if (vk >= '1' && vk <= '9') {
             // The tabs as the strip shows them: with side tabs, none inside a closed folder.
@@ -4797,7 +4978,7 @@ static bool HandleKey(UINT vk, bool repeat, bool fromUi) {
     switch (vk) {
     case VK_F6: OpenOverlay(L"edit"); return true;
     case VK_F11: if (!g.elementFullscreen) SetFullscreen(!g.fullscreen); return true;
-    case VK_F5: if (fromUi && a && a->core) { a->core->Reload(); return true; } return false;
+    case VK_F5: if (fromUi && a && a->core) { ReloadTab(a); return true; } return false;
     case VK_F3: if (a && a->find) { if (shift) a->find->FindPrevious(); else a->find->FindNext(); } return true;
     case VK_ESCAPE: if (g.fullscreen && !g.elementFullscreen && !fromUi) { SetFullscreen(false); return true; } return false;
     }
@@ -5160,7 +5341,7 @@ static const wchar_t kReleases[] = L"https://github.com/UhhErix/ExoBrowser/relea
 // Exo's update address (Exo Launcher's cloud/updates): it answers from GitHub's releases, or its own mirror when GitHub
 // can't, so a move of the downloads (an account renamed) never strands an installed copy again. GitHub itself is asked
 // only when it doesn't answer.
-static const wchar_t kUpdates[] = L"https://exo-updates.exo-erix.workers.dev/v1/browser";
+static const wchar_t kUpdates[] = L"https://updates.getexo.app/v1/browser";
 static const UINT WM_APP_UPDATE = WM_APP + 6;  // lParam: new UpdateNews*
 static const UINT kTimerUpdate = 12;
 static const UINT kUpdateEveryMs = 12 * 60 * 60 * 1000;
@@ -5168,7 +5349,8 @@ static const UINT kUpdateEveryMs = 12 * 60 * 60 * 1000;
 // What the page shows: idle, checking, current, available, downloading, installing or error.
 // notes: the newer release's whats-new.json (its What's New items, which the page checks before showing).
 // from: where the release's files come from, up to their tag ("<kUpdates>/download/v" or "<kReleases>/download/v").
-struct UpdateNews { std::wstring state, latest, message, file; int percent = -1; bool quiet = false; std::wstring notes, from; };
+// opening: found by the check as the window opened (the update sheet offers it); a later check only updates About.
+struct UpdateNews { std::wstring state, latest, message, file; int percent = -1; bool quiet = false; std::wstring notes, from; bool opening = false; };
 static UpdateNews g_update{L"idle"};
 static bool g_updateBusy = false;
 
@@ -5191,7 +5373,7 @@ static void SendUpdate() {
     UiPost(L"{\"t\":\"update\",\"state\":" + Json(g_update.state) + L",\"version\":" + Json(EXO_VERSION_W) + L",\"latest\":" +
            Json(g_update.latest) + L",\"message\":" + Json(g_update.message) + L",\"percent\":" + std::to_wstring(g_update.percent) +
            L",\"checked\":" + std::to_wstring(_wtoi64(Setting(L"updateChecked", L"0").c_str())) + L",\"installable\":" +
-           (InstalledCopy() ? L"true" : L"false") + L",\"notes\":" + Json(g_update.notes) + L"}");
+           (InstalledCopy() ? L"true" : L"false") + L",\"opening\":" + (g_update.opening ? L"true" : L"false") + L",\"notes\":" + Json(g_update.notes) + L"}");
 }
 
 static void PostUpdate(HWND hwnd, UpdateNews news) { PostMessageW(hwnd, WM_APP_UPDATE, 0, (LPARAM)new UpdateNews(std::move(news))); }
@@ -5283,9 +5465,9 @@ static std::string Sha256File(const std::wstring& path) {
     return hex;
 }
 
-// Asks GitHub which release is the newest (the address "latest" redirects to names its tag). quiet: the automatic
-// check, which shows nothing while it runs.
-static void UpdateCheck(bool quiet) {
+// Asks Exo's update address (GitHub when it doesn't answer) which release is the newest. quiet: an automatic check,
+// which shows nothing while it runs. opening: the one as the window opens, whose news the update sheet offers.
+static void UpdateCheck(bool quiet, bool opening = false) {
     if (g_updateBusy) return;
     g_updateBusy = true;
     if (!quiet) {
@@ -5293,9 +5475,10 @@ static void UpdateCheck(bool quiet) {
         SendUpdate();
     }
     HWND hwnd = g.hwnd;
-    std::thread([hwnd, quiet] {
+    std::thread([hwnd, quiet, opening] {
         UpdateNews news;
         news.quiet = quiet;
+        news.opening = opening;
         // A version is digits and dots, nothing else (it goes into the files' addresses).
         auto version = [](std::wstring tag) {
             if (!tag.empty() && (tag[0] == L'v' || tag[0] == L'V')) tag.erase(0, 1);
@@ -5320,7 +5503,9 @@ static void UpdateCheck(bool quiet) {
         if (tag.empty()) {
             news.state = L"error";
             news.message = L"Couldn't check for updates. Try again in a moment.";
+            LogLine(L"update check: neither Exo's update address nor GitHub answered");
         } else {
+            if (news.from.rfind(kUpdates, 0) != 0) LogLine(L"update check: Exo's update address didn't answer; GitHub did (" + tag + L")");
             news.latest = tag;
             news.state = Newer(tag) ? L"available" : L"current";
             // Its What's New, from beside its Setup (none on a release without one).
@@ -5334,7 +5519,8 @@ static void UpdateCheck(bool quiet) {
 
 // Downloads the release's Setup and its SHA-256, checks one against the other, and has it run.
 static void UpdateInstall() {
-    if (g_updateBusy || g_update.state != L"available" || g_update.latest.empty()) return;
+    // Available, or again after a download or install that failed (the update sheet's Try again).
+    if (g_updateBusy || (g_update.state != L"available" && g_update.state != L"error") || g_update.latest.empty()) return;
     if (!InstalledCopy()) {
         g_update.state = L"error";
         g_update.message = L"This copy of Exo Browser wasn't installed by its Setup, so it can't update itself.";
@@ -5365,6 +5551,7 @@ static void UpdateInstall() {
         }
         if (!summed) {
             news.message = L"Couldn't get the update's checksum. Try again in a moment.";
+            LogLine(L"update to " + version + L": no checksum from " + base + L".sha256");
             PostUpdate(hwnd, std::move(news));
             return;
         }
@@ -5377,14 +5564,18 @@ static void UpdateInstall() {
             PostUpdate(hwnd, std::move(step));
         });
         if (f != INVALID_HANDLE_VALUE) CloseHandle(f);
+        // What went wrong, with where the file came from (a public address), for Copy logs.
         if (!got) {
             DeleteFileW(part.c_str());
             news.message = L"The download didn't finish. Try again.";
+            LogLine(L"update to " + version + L": the download from " + base + L" didn't finish");
         } else if (Sha256File(part) != expected) {
             DeleteFileW(part.c_str());
             news.message = L"The download didn't match its checksum, so it wasn't installed. Try again.";
+            LogLine(L"update to " + version + L": the download from " + base + L" didn't match its checksum");
         } else if (!MoveFileExW(part.c_str(), file.c_str(), MOVEFILE_REPLACE_EXISTING)) {
             news.message = L"The update couldn't be saved. Try again.";
+            LogLine(L"update to " + version + L": saving the download failed (error " + std::to_wstring(GetLastError()) + L")");
         } else {
             news.state = L"installing";
             news.file = file;
@@ -5406,12 +5597,22 @@ static void OnUpdateNews(UpdateNews* raw) {
     }
     // A quiet check that failed leaves what was shown before (no network on the train is no news).
     if (news->quiet && news->state == L"error") return;
-    // Found by the automatic check: said once per version, then waiting in Settings > About.
-    if (news->quiet && news->state == L"available" && Setting(L"updateToldOf", L"") != news->latest) {
-        g.settings[L"updateToldOf"] = news->latest;
-        SaveSettings();
-        Toast(L"Exo Browser " + news->latest + L" is ready to install. Settings \x203A About");
+    // The update before this start didn't take (Setup ran, and here is the same version): said as a failure as the window
+    // opens, so the sheet offers Try again and Not now from the start, not Update now again and again.
+    if (news->opening) {
+        std::wstring tried = Setting(L"updateTried", L"");
+        if (!tried.empty() && !Newer(tried)) {
+            g.settings.erase(L"updateTried");
+            SaveSettings();
+        } else if (news->state == L"available" && !tried.empty() && tried == news->latest) {
+            news->state = L"error";
+            news->message = L"The last update didn't finish. Try again.";
+            LogLine(L"update to " + tried + L": Setup ran, but this start is still " EXO_VERSION_W);
+        }
     }
+    // Found by the automatic check: said once per version, then waiting in Settings > About.
+    // Found as the window opened, the update sheet offers it; found later, it waits in Settings > About (a release that
+    // comes out while the window is open never interrupts it: the next open offers it).
     // The install's own news keeps the notes its check brought.
     if (news->notes.empty() && !news->latest.empty() && news->latest == g_update.latest) news->notes = g_update.notes;
     g_update = *news;
@@ -5431,7 +5632,12 @@ static void OnUpdateNews(UpdateNews* raw) {
         if (CreateProcessW(news->file.c_str(), line.data(), nullptr, nullptr, FALSE, 0, nullptr, updates.c_str(), &si, &pi)) {
             CloseHandle(pi.hThread);
             CloseHandle(pi.hProcess);
+            // Should the next start come back on this version, the update didn't take: that start says so.
+            g.settings[L"updateTried"] = news->latest;
+            SaveSettings();
+            LogLine(L"update to " + news->latest + L": Setup started");
         } else {
+            LogLine(L"update to " + news->latest + L": Setup couldn't be started (error " + std::to_wstring(GetLastError()) + L")");
             g_update = {L"error", news->latest, L"Setup couldn't be started. Try again."};
         }
     }
@@ -5449,6 +5655,29 @@ static void UpdateTick() {
 }
 
 // Earlier updates' Setups, once they're done with (a Setup still running is in use and stays).
+// Copy logs, beside an error the page shows (the update sheet's): Exo Browser's version, Windows' and WebView2's, where it
+// happened, the error and exo.log's last 40 lines, on the clipboard for a report. Nothing personal: the log never
+// holds a page's address or a path on this PC.
+static void CopyLogs(const std::wstring& error, const std::wstring& area) {
+    const wchar_t* nt = L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion";
+    wchar_t build[32] = L"";
+    DWORD size = sizeof build, rev = 0;
+    RegGetValueW(HKEY_LOCAL_MACHINE, nt, L"CurrentBuild", RRF_RT_REG_SZ, nullptr, build, &size);
+    size = sizeof rev;
+    RegGetValueW(HKEY_LOCAL_MACHINE, nt, L"UBR", RRF_RT_REG_DWORD, nullptr, &rev, &size);
+    LPWSTR engine = nullptr;
+    GetAvailableCoreWebView2BrowserVersionString(nullptr, &engine);
+    std::wstring text = L"Exo Browser " EXO_VERSION_W L", Windows build " + std::wstring(build) + L"." + std::to_wstring(rev) +
+                        L", WebView2 " + Take(engine) + L"\r\n";
+    if (!area.empty()) text += L"Where: " + area + L"\r\n";
+    if (!error.empty()) text += L"Error: " + error + L"\r\n";
+    auto lines = Split(Wide(ReadFileUtf8(g.dataDir + L"\\exo.log")), L'\n');
+    while (!lines.empty() && lines.back().empty()) lines.pop_back();
+    text += L"\r\nexo.log, last " + std::to_wstring(std::min<size_t>(lines.size(), 40)) + L" lines:\r\n";
+    for (size_t i = lines.size() > 40 ? lines.size() - 40 : 0; i < lines.size(); i++) text += lines[i] + L"\r\n";
+    UiPost(std::wstring(L"{\"t\":\"logsCopied\",\"ok\":") + Bool(CopyText(text)) + L"}");
+}
+
 static void CleanUpdates() {
     std::wstring dir = g.dataDir + L"\\Updates";
     WIN32_FIND_DATAW d;
@@ -6254,6 +6483,7 @@ static void OnUiMessage(const std::wstring& msg) {
     if (v == L"hot") { SetUiHot(p.size() > 1 ? p[1] : std::wstring()); return; }
     if (v == L"pageMenuPick") { EndPageMenu(p.size() > 1 ? _wtoi(p[1].c_str()) : -1); return; }
     if (v == L"hideFromCapture") { HideFromCapture(p.size() > 1 && p[1] == L"1"); return; }
+    if (v == L"modal") { g.modal = p.size() > 1 && p[1] == L"1"; return; }
     auto arg = [&](size_t i) { return i < p.size() ? p[i] : std::wstring(); };
     auto argId = [&](size_t i) { return _wtoi(arg(i).c_str()); };
     Tab* a = Active();
@@ -6295,6 +6525,8 @@ static void OnUiMessage(const std::wstring& msg) {
         UpdateCheck(false);
     } else if (v == L"updateInstall") {
         UpdateInstall();
+    } else if (v == L"copyLogs") {
+        CopyLogs(arg(1), arg(2));
     } else if (v == L"makeDefault") {
         // Only you can choose the default browser: Windows' Default apps, open at Exo Browser once Setup registered it.
         ShellExecuteW(nullptr, L"open", IsRegistered() ? L"ms-settings:defaultapps?registeredAppUser=Exo%20Browser" : L"ms-settings:defaultapps",
@@ -6304,7 +6536,7 @@ static void OnUiMessage(const std::wstring& msg) {
     } else if (v == L"forward") {
         if (a && a->core) a->core->GoForward();
     } else if (v == L"reload") {
-        if (a && a->core) { if (a->loading) a->core->Stop(); else a->core->Reload(); }
+        if (a && a->core) { if (a->loading) a->core->Stop(); else ReloadTab(a); }
     } else if (v == L"min") {
         ShowWindow(g.hwnd, SW_MINIMIZE);
     } else if (v == L"max") {
@@ -6449,32 +6681,13 @@ static void OnUiMessage(const std::wstring& msg) {
     } else if (v == L"split") {
         // The tab given (none: a new tab page) joins the split of the tab on screen, beside it, at most 4.
         Tab* a2 = Active();
-        if (a2 && !a2->peek) {
-            if (!a2->split) a2->split = g.nextSplit++;
-            int group = a2->split;
-            if (std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 4) {
-                // Or an address (Search's row actions) in a new tab beside it.
-                Tab* t = FindTab(argId(1));
-                if (!t) t = AddTab(arg(2).empty() ? kNewTab : arg(2), false, IndexOf(a2->id) + 1);
-                if (t != a2 && !t->peek) {
-                    if (t->split && t->split != group)
-                        if (int old = t->split; std::count_if(g.tabs.begin(), g.tabs.end(), [old](auto& x) { return x->split == old; }) <= 2)
-                            for (auto& x : g.tabs) if (x->split == old) x->split = 0;
-                    t->split = group;
-                    t->space = a2->space ? a2->space : g.space;
-                    // Beside the last pane, so the split reads left to right as it shows.
-                    size_t from = IndexOf(t->id), after = IndexOf(a2->id);
-                    for (size_t j = 0; j < g.tabs.size(); j++) if (g.tabs[j]->split == group && j != from) after = j;
-                    auto up = std::move(g.tabs[from]);
-                    g.tabs.erase(g.tabs.begin() + from);
-                    if (from < after) after--;
-                    g.tabs.insert(g.tabs.begin() + std::min(after + 1, g.tabs.size()), std::move(up));
-                    g.activeId = t->id;
-                }
-            }
-            if (std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 2) a2->split = 0;
-            ShowActive();
-            if (Tab* now = Active(); now && now->ctl) FocusTarget(now->id);
+        int group = a2 ? a2->split : 0;
+        if (a2 && !a2->peek && (!group || std::count_if(g.tabs.begin(), g.tabs.end(), [group](auto& x) { return x->split == group; }) < 4)) {
+            // Or an address (Search's row actions) in a new tab beside it.
+            Tab* t = FindTab(argId(1));
+            if (!t) t = AddTab(arg(2).empty() ? kNewTab : arg(2), false, IndexOf(a2->id) + 1);
+            if (t && t != a2 && !t->peek && (!t->ctl || t->creating || t->suspended)) WakeForSplit(a2, t);
+            else if (t) JoinSplit(a2->id, t->id);
         }
     } else if (v == L"unsplit") {
         if (Tab* t = FindTab(argId(1)); t && t->split) {
@@ -6859,6 +7072,7 @@ static void CreateUi() {
                 if (FAILED(hr) || !comp) { EngineFailed(hr); return S_OK; }
                 g.uiComp = comp;
                 comp->QueryInterface(IID_PPV_ARGS(&g.uiCtl));
+                MediaRaster(g.uiCtl.Get());
                 g.uiCtl->get_CoreWebView2(&g.ui);
                 comp->put_RootVisualTarget(static_cast<::IUnknown*>(winrt::get_unknown(g.chromeVisual)));
                 if (ComPtr<ICoreWebView2Controller2> c2; SUCCEEDED(g.uiCtl.As(&c2))) c2->put_DefaultBackgroundColor({0, 0, 0, 0});
@@ -6933,6 +7147,13 @@ static void InitBrowser() {
     // Crash dumps stay on this PC instead of going to Microsoft.
     if (ComPtr<ICoreWebView2EnvironmentOptions3> o3; SUCCEEDED(options.As(&o3))) o3->put_IsCustomCrashReportingEnabled(TRUE);
     if (ComPtr<ICoreWebView2EnvironmentOptions6> o6; SUCCEEDED(options.As(&o6))) o6->put_AreBrowserExtensionsEnabled(TRUE);
+    // Pages' scrollbars as Windows 11 draws its own: thin, over the page instead of beside it, wider under the pointer,
+    // gone while you aren't scrolling, in the page's own light or dark (Edge's Fluent overlay scrollbars). Windows'
+    // contrast themes keep the classic ones, as Exo's own pages do.
+    HIGHCONTRASTW contrast{sizeof contrast};
+    bool highContrast = SystemParametersInfoW(SPI_GETHIGHCONTRAST, sizeof contrast, &contrast, 0) && (contrast.dwFlags & HCF_HIGHCONTRASTON);
+    if (ComPtr<ICoreWebView2EnvironmentOptions8> o8; !highContrast && SUCCEEDED(options.As(&o8)))
+        o8->put_ScrollBarStyle(COREWEBVIEW2_SCROLLBAR_STYLE_FLUENT_OVERLAY);
     std::wstring profile = g.dataDir + L"\\Profile";
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(nullptr, profile.c_str(), options.Get(),
         Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
@@ -7117,6 +7338,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         }
         return 0;
     case WM_DPICHANGED: {
+        if (MediaScale()) return 0;
         g.dpi = HIWORD(wp);
         auto* r = (RECT*)lp;
         SetWindowPos(hwnd, nullptr, r->left, r->top, r->right - r->left, r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -7131,6 +7353,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_GETMINMAXINFO: {
         auto* mm = (MINMAXINFO*)lp;
         mm->ptMinTrackSize = {Px(520), Px(360)};
+        // A picture build at twice the pixels is a window larger than the screens (Windows caps it at their size).
+        if (MediaScale()) mm->ptMaxTrackSize = {16384, 16384};
         return 0;
     }
     case WM_APP_STATE:
@@ -7247,6 +7471,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (wp == WM_APP_DOWNLOADS) {
             KillTimer(hwnd, WM_APP_DOWNLOADS);
             SendDownloads();
+        } else if (wp == kTimerSplit) {
+            TickPendingSplit();
         } else if (wp == kTimerUpdate) {
             UpdateTick();
         } else if (wp == kTimerIcons) {
@@ -7288,6 +7514,39 @@ static std::wstring ExeDir() {
     GetModuleFileNameW(nullptr, path, MAX_PATH);
     std::wstring s = path;
     return s.substr(0, s.find_last_of(L'\\'));
+}
+
+// Windows' Installed apps entry (HKCU Uninstall\ExoBrowser, or ExoBrowserTest for a walk-through install): its version,
+// publisher and links, kept to the running copy. Setup writes them on every install and update (tools/ExoBrowser.nsi,
+// the same values); a copy put in place another way left the entry on an older version and an old publisher, so these
+// few values are put right as it starts. Only the entry Setup made for this copy's folder is touched, never created.
+static void RefreshInstalledEntry() {
+    const std::pair<const wchar_t*, const wchar_t*> values[] = {
+        {L"DisplayVersion", EXO_VERSION_W},
+        {L"Publisher", L"Exo"},  // the family, as getexo.app names it, in every Exo app
+        {L"URLInfoAbout", L"https://getexo.app/browser"},
+        {L"URLUpdateInfo", L"https://getexo.app/browser"},
+        {L"HelpLink", L"https://discord.gg/44mXWhaHP4"},  // the Exo Discord
+    };
+    auto trimmed = [](std::wstring s) { while (!s.empty() && (s.back() == L'\\' || s.back() == L'/')) s.pop_back(); return s; };
+    for (const wchar_t* name : {L"ExoBrowser", L"ExoBrowserTest"}) {
+        HKEY key = nullptr;
+        if (RegOpenKeyExW(HKEY_CURRENT_USER, (std::wstring(L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\") + name).c_str(),
+                          0, KEY_QUERY_VALUE | KEY_SET_VALUE, &key) != ERROR_SUCCESS) continue;
+        auto read = [key](const wchar_t* value) {
+            wchar_t text[MAX_PATH * 2] = {};
+            DWORD size = sizeof text;
+            return RegGetValueW(key, nullptr, value, RRF_RT_REG_SZ, nullptr, text, &size) == ERROR_SUCCESS ? std::wstring(text) : L"";
+        };
+        // A build run from anywhere but the installed folder leaves the installed copy's entry alone.
+        std::wstring where = trimmed(read(L"InstallLocation")), here = trimmed(g.exeDir);
+        if (!read(L"UninstallString").empty() && !where.empty() &&
+            CompareStringOrdinal(where.c_str(), -1, here.c_str(), -1, TRUE) == CSTR_EQUAL)
+            for (auto& [value, text] : values)
+                if (read(value) != text)
+                    RegSetValueExW(key, value, 0, REG_SZ, (const BYTE*)text, (DWORD)((wcslen(text) + 1) * sizeof(wchar_t)));
+        RegCloseKey(key);
+    }
 }
 
 static std::wstring DataDir() {
@@ -7469,6 +7728,15 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     SetCurrentDirectoryW(g.dataDir.c_str());
     for (auto& row : ReadTable(L"settings.tsv"))
         if (row.size() >= 2) g.settings[row[0]] = row[1];
+    // A first start (first run not finished yet) sets Reduce motion as Windows has its animation effects (off: Reduce
+    // motion on); first run shows it, and from then on only the switch decides, as in every Exo app. A copy already set
+    // up keeps what its switch showed.
+    if (!g.settings.count(L"reduceMotion") && Setting(L"onboarded", L"") != L"1") {
+        BOOL animate = TRUE;
+        SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animate, 0);
+        g.settings[L"reduceMotion"] = animate ? L"off" : L"on";
+        SaveSettings();
+    }
     LoadSpaces();
     for (auto& row : ReadTable(L"archive.tsv"))
         if (row.size() >= 3 && !row[0].empty()) g.archive.push_back({row[0], row[1], _wtoi64(row[2].c_str()), row.size() > 3 ? _wtoi(row[3].c_str()) : 0});
@@ -7537,19 +7805,25 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
 
     g.hwnd = CreateWindowExW(0, kClassName, L"Exo Browser", WS_OVERLAPPEDWINDOW,
                              r.left, r.top, r.right - r.left, r.bottom - r.top, nullptr, nullptr, inst, nullptr);
-    g.dpi = GetDpiForWindow(g.hwnd);
+    g.dpi = MediaScale() ? (UINT)(96 * MediaScale()) : GetDpiForWindow(g.hwnd);
     ApplyTheme();
     InitComposition();
     ApplyBackdrop();
     RegisterDragDrop(g.hwnd, new DropTarget());
-    SetWindowPos(g.hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    // The frame applied, not the window activated: that's ShowWindow's, by how it was started (a start in the
+    // background, SW_SHOWNOACTIVATE, stays behind the app in front; this call alone brought it in front).
+    SetWindowPos(g.hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     ShowWindow(g.hwnd, maximized ? SW_SHOWMAXIMIZED : show);
     Layout();
+    // Once a launch, as the window opens and before the pages start: what's newest, for the update sheet (its answer
+    // waits for the chrome page's ready, which sends it).
+    UpdateCheck(true, true);
     // Its answer can come at once, inside this call (the window has to be there by then).
     InitBrowser();
-    SetTimer(g.hwnd, kTimerUpdate, 20 * 1000, nullptr);  // the first update check, once startup has settled
+    SetTimer(g.hwnd, kTimerUpdate, kUpdateEveryMs, nullptr);  // the next after the one as the window opens
     if (std::any_of(g.folders.begin(), g.folders.end(), [](auto& f) { return !f.feed.empty(); })) SetTimer(g.hwnd, kTimerFeeds, 15 * 1000, nullptr);
     CleanUpdates();
+    RefreshInstalledEntry();
     WTSRegisterSessionNotification(g.hwnd, NOTIFY_FOR_THIS_SESSION);
     vault::HelloAvailable([](bool yes) { g_helloReady = yes; if (g.uiReady) VaultState(); });
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { focusableSelector, trapTab } from './focusTrap'
+import { focusableSelector, focusWhenActive, trapTab } from './focusTrap'
 
 // Open dialogs and menus, the newest last: Escape and Tab belong to the top one only.
 const layers: object[] = []
@@ -22,7 +22,7 @@ export function useLayer(ref: RefObject<HTMLElement | null>, onEscape: () => voi
       if (!box || box.contains(document.activeElement)) return
       // A field that asks for it, else the dialog itself (Tab goes on from there), else a menu's first row.
       const first = box.querySelector<HTMLElement>('[autofocus], [data-autofocus]') ?? (box.tabIndex === -1 ? box : box.querySelector<HTMLElement>(focusableSelector))
-      ;(first ?? box).focus({ preventScroll: true })
+      focusWhenActive(first ?? box)
     })
     const key = (event: KeyboardEvent) => {
       if (layers.at(-1) !== me || !ref.current) return
@@ -37,7 +37,7 @@ export function useLayer(ref: RefObject<HTMLElement | null>, onEscape: () => voi
       window.cancelAnimationFrame(frame)
       window.removeEventListener('keydown', key, true)
       layers.splice(layers.indexOf(me), 1)
-      if (back?.isConnected) back.focus({ preventScroll: true })
+      if (back?.isConnected) focusWhenActive(back)
     }
   }, [ref, on])
 }
