@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1 — October 28, 2026
+
+Two fixes: your bookmarks are on the first new tab after an update, and a bookmark shows a site’s current icon, not the one it had when you first saved it.
+
+- **Bugs fixed.**
+  - The first start after an update could open on a new tab without your bookmarks, or with parts of a page missing. The update brings a new Exo Shield, and Exo Browser adds it again as it starts. What pages asked for in that moment failed, and the new tab never asked again. On such a start, pages now wait until Exo Shield is in, about a second; on any other start nothing waits. The new tab also asks again if its first try fails. _Verified on a throwaway profile: a start that added Exo Shield again showed the quote and all six bookmarks (none before), and the page began 1.2 s after the start against 0.3 to 0.5 s on a normal start._
+  - A bookmark kept a site's old icon after the site changed it: getexo.app's showed Exo Launcher's logo instead of Exo's. A site's large icon was fetched once and kept for good. It's now checked as you visit the site, once a session: fetched again when the page names a different icon or the one kept is over a week old, and dropped when the page offers none, so the site's own small icon shows. _Verified: with an old icon kept for getexo.app, one visit replaced it with the icon the site names now, and its bookmark card showed it._
+
 ## 1.3.0 — October 28, 2026
 
 Updates that find you as the window opens, Exo Shield’s count beside the address, tabs that give their memory back a minute after you leave them, Windows 11’s scrollbars, and a batch of fixes. Every number here was measured on the same PC.

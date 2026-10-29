@@ -1,5 +1,20 @@
 [
   {
+    "version": "1.3.1",
+    "items": [
+      {
+        "icon": "Star",
+        "title": "Your bookmarks, right after an update",
+        "detail": "The first new tab after an update shows your bookmarks again, and pages load whole as it starts."
+      },
+      {
+        "icon": "Globe",
+        "title": "Site icons that keep up",
+        "detail": "A bookmark shows a site’s current icon: when a site changes its own, yours changes on your next visit."
+      }
+    ]
+  },
+  {
     "version": "1.3.0",
     "items": [
       {

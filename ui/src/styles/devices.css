@@ -1,6 +1,6 @@
-/* Devices (DevicesRoom.tsx; DESIGN.md › Devices): the room is its devices. The cards stand in one band under the Bar,
-   each as tall as what it holds, never stretched to the room's height; a device's page has Devices at its top to go
-   back. Exo Mouse's frame stays loaded (and keeps its size) behind the grid. */
+/* Devices (DevicesRoom.tsx; DESIGN.md › Devices): the room is its devices. Their cards fill the room under the Bar,
+   laid out by how many there are; a device's page has Devices at its top to go back. Exo Mouse's frame stays loaded
+   (and keeps its size) behind the grid. */
 .exo-devices {
   position: relative;
   display: flex;
@@ -29,10 +29,12 @@
   overflow-y: auto;
 }
 
+/* The title line, then the cards taking the rest of the room (at least the room: more when their rows need it). */
 .exo-devices-overview {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   gap: 16px;
+  min-height: 100%;
   padding: 12px var(--exo-gutter) var(--exo-gutter);
 }
 
@@ -269,14 +271,49 @@
   background: var(--color-fg);
 }
 
-/* The cards: as many 400px-or-wider columns as the room holds, whatever the text size (four at 1920, three at 1440, two
-   at 1000, one in a narrow window), each card as tall as its picture and words. The rows stack from the top and stop there: a few
-   devices are one band, never stretched to the room's height; a long list scrolls. */
+/* The cards fill the room, laid out by how many there are, every row sharing the room's height so each picture is as
+   large as its card allows: one fills it; two side by side; three with the first (your mouse) the room's height beside
+   the other two; four two by two; five three over two; six three by two. An upright window stacks two and three and
+   gives five and six two columns; a very wide one sets three and four in one row. A room too short for rows of 160px
+   scrolls. Seven or more are a fuller grid that scrolls: as many 400px-or-wider columns as fit, each card as tall as
+   its picture and words. */
 .exo-devices-grid {
+  --cols: 2;
+  --rows: 2;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
-  align-content: start;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), minmax(160px, 1fr));
   gap: 12px;
+  min-height: 0;
+}
+
+.exo-devices-grid[data-count="1"] { --cols: 1; --rows: 1; }
+.exo-devices-grid[data-count="2"] { --rows: 1; }
+.exo-devices-grid[data-count="3"] > :first-child { grid-row: span 2; }
+.exo-devices-grid[data-count="5"] { --cols: 6; }
+.exo-devices-grid[data-count="5"] > * { grid-column: span 2; }
+.exo-devices-grid[data-count="5"] > :nth-child(n + 4) { grid-column: span 3; }
+.exo-devices-grid[data-count="6"] { --cols: 3; }
+
+@media (aspect-ratio < 1) {
+  .exo-devices-grid[data-count="2"] { --cols: 1; --rows: 2; }
+  .exo-devices-grid[data-count="3"] { --cols: 1; --rows: 3; }
+  .exo-devices-grid[data-count="3"] > :first-child { grid-row: auto; }
+  .exo-devices-grid:is([data-count="5"], [data-count="6"]) { --cols: 2; --rows: 3; }
+  .exo-devices-grid[data-count="5"] > * { grid-column: auto; }
+  .exo-devices-grid[data-count="5"] > :first-child { grid-column: span 2; }
+}
+
+@media (aspect-ratio >= 2.1) {
+  .exo-devices-grid[data-count="3"] { --cols: 3; --rows: 1; }
+  .exo-devices-grid[data-count="3"] > :first-child { grid-row: auto; }
+  .exo-devices-grid[data-count="4"] { --cols: 4; --rows: 1; }
+}
+
+.exo-devices-grid[data-count="many"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  grid-template-rows: none;
+  align-content: start;
 }
 
 .exo-device-card {
@@ -285,9 +322,10 @@
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
   padding: 16px 20px 18px;
   border: 0;
-  border-radius: var(--exo-card-radius);
+  border-radius: var(--exo-panel-radius);
   color: var(--color-fg);
   font: inherit;
   text-align: left;
@@ -352,9 +390,25 @@
   color: var(--color-bad);
 }
 
-/* The picture, the card's hero: official pictures share one 3:2 frame with the same margin, so they sit alike, and the
-   card's box is that frame at the card's width (never taller than 300px, so one card in a narrow window stays a card);
-   Exo's drawings fill the same box. A page's picture takes what its hero leaves under its name and readout. */
+/* The picture, the card's hero: official pictures share one 3:2 frame with the same margin, so they sit alike. The
+   card's picture is the largest such frame its stage (what the card's words leave) holds, centred, never past the
+   shots' own 1200 x 800; Exo's drawings fill the same frame, and the frame is what flies to the device's page. In the
+   fuller grid the stage is the frame at the card's width (never taller than 300px). A page's picture takes what its
+   hero leaves under its name and readout. */
+.exo-device-card-stage {
+  display: grid;
+  flex: 1 1 0;
+  place-items: center;
+  min-height: 0;
+  container-type: size;
+}
+
+.exo-devices-grid[data-count="many"] .exo-device-card-stage {
+  flex: none;
+  aspect-ratio: 3 / 2;
+  max-height: 300px;
+}
+
 .exo-device-card-art,
 .exo-device-hero-art {
   position: relative;
@@ -363,9 +417,8 @@
 }
 
 .exo-device-card-art {
-  flex: none;
+  width: min(100cqw, 150cqh, 1200px);
   aspect-ratio: 3 / 2;
-  max-height: 300px;
 }
 
 .exo-device-card-art > *,

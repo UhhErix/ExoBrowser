@@ -250,6 +250,18 @@ export type LucidChange = Partial<Omit<LucidSettings, 'headphone' | 'favorites' 
 }
 /** A headphone Lucid has a tuning for, as its picker lists it. */
 export type LucidHeadphone = { id: string; model: string; brand: string; category: string; grade: string; keywords: string }
+/**
+ * Exo updating Lucid: download (percent once its size is known), check, game or call (the swap waits for it to end),
+ * install, then done (message: what to do when it failed; version: what's installed when it worked).
+ */
+export type LucidUpdating = {
+  step: 'download' | 'check' | 'game' | 'call' | 'install' | 'done'
+  percent: number | null
+  message: string | null
+  version: string | null
+}
+/** A newer Lucid its own feed offers (null: none, or offline), the update Exo is running for it, and what to do when the last one failed. */
+export type LucidUpdate = { version: string | null; updating: LucidUpdating | null; failed: string | null }
 export type VoiceTuneWindows = { level: number | null; hardware: boolean; muted: boolean; ducking: number; processing: string | null }
 export type VoiceTuneResult = {
   ok: boolean; message?: string | null; cancelled?: boolean; kept: boolean; windows: VoiceTuneWindows; before?: string; after?: string
@@ -403,7 +415,8 @@ export type DisplayScreen = {
   /** Every format, depth and range the link takes at the current refresh rate, no deeper than the panel. */
   supported: OutputColor[]
   /** scaling: best includes No scaling on the GPU; over: and "Override the scaling set by games" on (both NVIDIA, where the driver says). */
-  best: { refresh: number; color: OutputColor | null; why: string | null; scaling: boolean; over: boolean }
+  /** videoHdr: the screen runs Windows HDR on an RTX card, so its best has RTX Video HDR on. */
+  best: { refresh: number; color: OutputColor | null; why: string | null; scaling: boolean; over: boolean; videoHdr?: boolean }
   /** Every part of best is what the screen runs now. */
   isBest: boolean
   /** Color sliders; nvidia is "Use NVIDIA color settings" (null on AMD, which has no such choice). Null when the driver has none. */
@@ -957,8 +970,16 @@ export interface StoreGifts {
 
 export interface StoreAccounts {
   ok: boolean
-  /** `remembered`: Steam keeps the sign-in; otherwise switching opens Steam's sign-in once. */
-  steam: { current: string | null; accounts: Array<{ key: string; name: string; current: boolean; remembered: boolean }> } | null
+  /**
+   * `remembered`: Steam keeps the sign-in; otherwise switching opens Steam's sign-in once. `offline`: Steam starts its
+   * account in its offline mode; `canOffline`: it can (a saved sign-in).
+   */
+  steam: {
+    current: string | null
+    offline: boolean
+    canOffline: boolean
+    accounts: Array<{ key: string; name: string; current: boolean; remembered: boolean }>
+  } | null
   /**
    * Riot accounts Exo saved, plus the Riot Client's signed-in one (`saved` false until Exo
    * first switches away from it). `lastIn`: the Riot games that last played as this account.
@@ -1396,6 +1417,8 @@ export interface HostEventMap {
   'store.exo.progress': ExoJob
   /** A step of a Steam or Riot account change ("Closing Steam…"), for the row that started it. */
   'accounts.progress': { store: SwitchStore; line: string }
+  /** A step of Exo's update of Lucid, done last. */
+  'lucid.updating': LucidUpdating
   /** A store's servers went down or came back (once per outage). */
   'stores.outage': StoreOutage
   /** Steam and Epic were read for gifts again, or one was accepted or declined. */
@@ -1804,6 +1827,8 @@ export const host = {
   storesOutages: () => rawCall<{ ok: boolean; outages: StoreOutage[] }>('stores.outages'),
   /** Restarts the store in its own offline mode (after the page's confirm). */
   storesPlayOffline: (store: StoreId) => rawCall<{ ok: boolean; message?: string | null }>('stores.playOffline', { store }),
+  /** Settings' Steam Offline mode: Steam restarts out of sight into it, or back online (a closed Steam takes it as it starts). */
+  steamSetOffline: (offline: boolean) => rawCall<{ ok: boolean; message?: string | null }>('steam.setOffline', { offline }, 3 * 60_000),
   /** Reports the Music room rect; the native host routes it to the hosted
       desktop client (Spotify) or the YouTube Music or Apple Music web surface. */
   musicSetBounds: (bounds: { visible: boolean; service?: MusicService; left?: number; top?: number; width?: number; height?: number; cutouts?: Cutout[] }) =>
@@ -2249,8 +2274,8 @@ export const host = {
     rawCall<{ ok: boolean; message?: string; more?: boolean; left?: number; right?: number }>('controller.calibrate', { id, step }, 30_000),
   /** Games read the controller themselves, always: how many installed Steam games do, and how many keep Steam Input. */
   steamInputState: () => rawCall<{ ok: boolean; steam: boolean; native: number; translated: number }>('steamInput.state'),
-  /** A newer Lucid its own feed offers (null: none, or offline). Lucid's window installs it. */
-  lucidUpdate: () => rawCall<{ version: string | null }>('lucid.update', {}, 30_000),
+  /** A newer Lucid its own feed offers and Exo's update for it; install downloads, checks and installs it (lucid.updating says each step). */
+  lucidUpdate: (action: 'state' | 'install' = 'state') => rawCall<LucidUpdate>('lucid.update', { action }, 30_000),
   /** Dictation: on, whether this PC runs it, whether its speech model is here (lib/dictation.ts). */
   dictationState: () => rawCall<DictationState>('dictation.state'),
   /** The speech model now, when the mic was pressed before Exo had it (dictation.progress as it comes). */

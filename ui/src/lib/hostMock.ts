@@ -1,7 +1,7 @@
 import { spotifyMock } from './spotifyMock'
 import { mockAdmin, mockAppMessages, mockApps, mockChannels, mockFriends, mockHome, mockMembers, mockMessages, mockProfile } from './discordMock'
 /** Browser development fixtures. Dynamically loaded only outside the packaged host. */
-import type { Game, GameProperties, LauncherSettings, InstallProgress, InstalledApp, ReplacedApp, RuntimeItem, StoreGift } from './host'
+import type { Game, GameProperties, LauncherSettings, InstallProgress, InstalledApp, LucidUpdating, ReplacedApp, RuntimeItem, StoreGift } from './host'
 import type { CaptureItem } from './capture'
 import type { NoteInfo } from './notes'
 import { emitHostEvent } from './host'
@@ -280,6 +280,31 @@ const mockUpdate = typeof location !== 'undefined' && new URLSearchParams(locati
 
 // ?folders: two Library folders to start with, Hades in both, one sorted by time played.
 const mockFolders = typeof location !== 'undefined' && new URLSearchParams(location.search).has('folders')
+// ?lucidupdate offers a newer Lucid, and Update runs its steps (=game waits for a game first, =fail ends in a failure).
+const mockLucidUpdate = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('lucidupdate') : null
+let mockLucidVersion = '6.0.3'
+let mockLucidUpdating: LucidUpdating | null = null
+let mockLucidGoNow: (() => void) | null = null
+const mockLucidStep = (step: LucidUpdating['step'], more: Partial<LucidUpdating> = {}) => {
+  const now: LucidUpdating = { step, percent: null, message: null, version: null, ...more }
+  mockLucidUpdating = step === 'done' ? null : now
+  emitHostEvent('lucid.updating', now)
+}
+async function mockLucidRun() {
+  const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+  for (let percent = 0; percent <= 100; percent += 10) { mockLucidStep('download', { percent }); await wait(250) }
+  mockLucidStep('check')
+  await wait(700)
+  if (mockLucidUpdate === 'game') {
+    mockLucidStep('game')
+    await new Promise<void>(resolve => { mockLucidGoNow = resolve })
+  }
+  mockLucidStep('install')
+  await wait(1500)
+  if (mockLucidUpdate === 'fail') { mockLucidStep('done', { message: "Lucid didn't close, so it wasn't updated. Restart your PC, then press Update again." }); return }
+  mockLucidVersion = '6.0.4'
+  mockLucidStep('done', { version: '6.0.4' })
+}
 
 const mockSettings: LauncherSettings = {
   onboardingComplete: !mockFirstRun,
@@ -448,6 +473,9 @@ function mockCancelInstall() {
   mockProgress = { ...mockProgress, phase: 'cancelled', isActive: false, canCancel: false, status: 'Canceled.' }
   return { ok: true, message: 'Cancel requested.' }
 }
+
+/** Settings' Steam Offline mode in the mock host. */
+let MOCK_STEAM_OFFLINE = false
 
 let MOCK_GIFTS: StoreGift[] = [
   { store: 'steam', id: '237160366753599703', title: 'Hollow Signal', image: null, sender: 'Rocket alt', message: null },
@@ -922,6 +950,12 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'stores.auth': () => ({ ok: false, message: 'Browser mock — auth requires host.', requiresUserAction: true }),
   'stores.outages': () => ({ ok: true, outages: [] }),
   'stores.playOffline': () => ({ ok: false, message: 'Mock: offline mode needs the Exo host.' }),
+  'steam.setOffline': async (params) => {
+    const offline = (params as { offline?: boolean } | undefined)?.offline === true
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    MOCK_STEAM_OFFLINE = offline
+    return { ok: true, message: offline ? 'Steam is in offline mode.' : 'Steam is online.' }
+  },
   'playtime.refresh': () => ({ ok: false, message: 'Hours are read in the app only.' }),
   'xbox.signIn': () => ({ ok: false, message: 'Xbox sign-in runs in the app only.' }),
   'xbox.signOut': () => ({ ...mockSettings, xboxSignedIn: false }),
@@ -1152,6 +1186,8 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     ok: true,
     steam: {
       current: 'Player One',
+      offline: MOCK_STEAM_OFFLINE,
+      canOffline: true,
       accounts: [
         { key: 'mock-steam-main', name: 'Player One', current: true, remembered: true },
         { key: 'mock-steam-alt', name: 'Rocket alt', current: false, remembered: true },
@@ -1209,9 +1245,9 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   'dlss.indicator': (params) => ({ ok: true, available: true, on: params?.on === true }),
   'shaders.status': mockShadersStatus,
   lucid: (p) => ({
-    ok: true, found: true, version: '6.0.3', running: true, voiceOn: false, startWithExo: p?.action === 'set' ? p.on === true : false, devices: true,
+    ok: true, found: true, version: mockLucidVersion, running: true, voiceOn: false, startWithExo: p?.action === 'set' ? p.on === true : false, devices: true,
     settings: {
-      headphone: { id: 'lucid_iems', name: 'Lucid IEMs', chosen: true }, favorites: [], gameMode: true, keepOnAltTab: false,
+      headphone: { id: 'ziigaat_lush', name: 'Lush', chosen: true }, favorites: [], gameMode: true, keepOnAltTab: false,
       onlyWhileGaming: false,
       nightShift: false, nightStart: '21:00', nightEnd: '06:00', nightSync: false, notifications: false, discord: false,
       hotkey: { modifiers: 0, key: 122 }, eqOn: true,
@@ -1220,7 +1256,14 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
   }),
   'devices.image': () => ({ ok: false, url: null }),
   'devices.openApp': mockOk,
-  'lucid.update': () => ({ version: null }),
+  'lucid.update': (p) => {
+    const offered = mockLucidUpdate !== null && mockLucidVersion !== '6.0.4'
+    if (offered && p?.action === 'install') {
+      if (mockLucidUpdating?.step === 'game') mockLucidGoNow?.()
+      else if (!mockLucidUpdating) { mockLucidUpdating = { step: 'download', percent: null, message: null, version: null }; void mockLucidRun() }
+    }
+    return { version: offered ? '6.0.4' : null, updating: mockLucidUpdating, failed: null }
+  },
   'dictation.state': mockDictationState,
   'dictation.prepare': mockOk,
   'dictation.start': mockDictationStart,
@@ -1232,7 +1275,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
       { id: 'usb-361d-0300-747353800033', kind: 'mouse', name: 'StarlightX Dongle', maker: 'Finalmouse', model: null, connection: 'wireless', role: null, battery: null, color: null, layout: null },
       { id: 'usb-31e3-1342-95be6909a013', kind: 'keyboard', name: 'Wooting 60HE v2', maker: 'Wooting', model: '60', connection: 'usb', role: null, battery: null, color: null, layout: 'ansi-split',
         port: { where: 'chipset', chips: 1, hubs: 0, interrupts: 'msi', better: 'free' }, app: { id: 'wootility', name: 'Wootility', where: 'web' } },
-      { id: 'usb-054c-0df2-5f24d70ab9bc', kind: 'controller', name: 'DualSense Edge Wireless Controller', maker: 'Sony', model: 'dualsense-edge', connection: 'usb', role: null, battery: null, color: 'Midnight Black', layout: null },
+      { id: 'usb-054c-0ce6-5f24d70ab9bc', kind: 'controller', name: 'DualSense Wireless Controller', maker: 'Sony', model: 'dualsense', connection: 'usb', role: null, battery: null, color: 'White', layout: null },
       { id: '{0.0.0.00000000}.{9709e4ab-6969-4817-ad38-1704eab1c079}', kind: 'audio', name: 'Headphones', maker: null, model: 'headphones', connection: 'jack', role: 'output', battery: null, color: null, layout: null },
       { id: '{0.0.1.00000000}.{0deb347c-90b6-43d6-b549-63e63b1b23a9}', kind: 'audio', name: 'fifine Microphone', maker: 'Fifine', model: 'microphone', connection: 'usb', role: 'input', battery: null, color: null, layout: null },
     ],
@@ -1242,6 +1285,7 @@ const MOCK_HANDLERS: Record<string, MockHandler> = {
     ok: true,
     headphones: [
       { id: 'lucid_iems', model: 'Lucid IEMs', brand: 'tekkusai', category: 'In-Ear Monitors', grade: 'Excellent', keywords: '' },
+      { id: 'ziigaat_lush', model: 'Lush', brand: 'ZiiGaat', category: 'In-Ear Monitors', grade: 'Excellent', keywords: '' },
       { id: 'astro_a50_x', model: 'A50 X', brand: 'Astro', category: 'Gaming Headsets', grade: 'Good', keywords: 'a50x' },
     ],
   }),

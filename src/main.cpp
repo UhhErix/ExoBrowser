@@ -577,17 +577,23 @@ static void SendHistory() {
 }
 
 // Sharp icons, for the new tab page's cards: a site's largest declared icon (or the
-// apple-touch-icon most sites keep at their root), fetched once and kept in icons.tsv. The tab
-// strip's small favicons stay in g.favicons.
-static const UINT WM_APP_ICON = WM_APP + 4;  // lParam: new std::pair<site, data: URL or "">*
+// apple-touch-icon most sites keep at their root), kept in icons.tsv with the address it came from and when, and
+// checked again as you visit the site (CheckIcon). The tab strip's small favicons stay in g.favicons.
+static const UINT WM_APP_ICON = WM_APP + 4;  // lParam: new IconDone*
 static const UINT kTimerIcons = 11;           // new icons: saved and shown together, a moment after the last
 static std::unordered_map<std::wstring, std::wstring> g_icons;
+struct IconFrom { std::wstring url; long long at = 0; };
+static std::unordered_map<std::wstring, IconFrom> g_iconFrom;  // site -> the address its icon came from, and when
+// A fetch's answer: the icon (empty: none found) and where from; drop: the page names none now, so one found nowhere
+// else means the kept one goes.
+struct IconDone { std::wstring site, data, from; bool drop = false; };
+struct IconJob { std::wstring site; std::vector<std::wstring> urls; bool drop = false; };
 static std::unordered_set<std::wstring> g_iconTried;
 static std::unordered_map<std::wstring, long long> g_iconMiss;  // site -> when none was found; asked again a week later
 static bool g_iconsDirty = false;
 // One fetch at a time, in order: an import can bring hundreds of bookmarks at once.
 static std::mutex g_iconLock;
-static std::deque<std::pair<std::wstring, std::vector<std::wstring>>> g_iconQueue;
+static std::deque<IconJob> g_iconQueue;
 static bool g_iconWorking = false;
 
 // A site's icon as the cards draw it: the largest picture in the file (an .ico holds several), at most 96 px (cards
@@ -685,11 +691,11 @@ static bool EgressAllowed(Egress why, const std::wstring& url) {
     return why == Egress::Icon || why == Egress::Feed;
 }
 
-static void FetchIcon(const std::wstring& site, const std::wstring& declared) {
+static void FetchIcon(const std::wstring& site, const std::wstring& declared, bool refresh = false, bool drop = false) {
     // Tried once per session each way: from the page's own choice, and by guessing the address. A site with
-    // none to guess is left alone for a week.
-    if (site.empty() || g_icons.count(site) || !g_iconTried.insert(site + (declared.empty() ? L"" : L"#page")).second) return;
-    if (declared.empty())
+    // none to guess is left alone for a week. A refresh (CheckIcon) asks again for a site that has one.
+    if (site.empty() || (g_icons.count(site) && !refresh) || !g_iconTried.insert(site + (declared.empty() ? L"" : L"#page")).second) return;
+    if (declared.empty() && !refresh)
         if (auto miss = g_iconMiss.find(site); miss != g_iconMiss.end() && NowSeconds() - miss->second < 7 * 86400) return;
     std::vector<std::wstring> urls;
     if (declared.rfind(L"https://", 0) == 0) urls.push_back(declared);
@@ -698,7 +704,7 @@ static void FetchIcon(const std::wstring& site, const std::wstring& declared) {
     // Last, the site's favicon.ico: often 32 or 48 px inside, enough for a card when nothing larger exists.
     urls.push_back(L"https://" + (site.rfind(L"www.", 0) == 0 ? site : L"www." + site) + L"/favicon.ico");
     std::lock_guard<std::mutex> lock(g_iconLock);
-    g_iconQueue.push_back({site, urls});
+    g_iconQueue.push_back({site, urls, drop});
     if (!g_iconWorking) {
         g_iconWorking = true;
         std::thread(IconWorker).detach();
@@ -709,25 +715,37 @@ static void IconWorker() {
     CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     HWND hwnd = g.hwnd;
     for (;;) {
-        std::pair<std::wstring, std::vector<std::wstring>> next;
+        IconJob next;
         {
             std::lock_guard<std::mutex> lock(g_iconLock);
             if (g_iconQueue.empty()) { g_iconWorking = false; break; }
             next = std::move(g_iconQueue.front());
             g_iconQueue.pop_front();
         }
-        std::wstring data;
-        for (auto& u : next.second) {
+        std::wstring data, from;
+        for (auto& u : next.urls) {
             wchar_t file[MAX_PATH];
             if (!EgressAllowed(Egress::Icon, u) || FAILED(URLDownloadToCacheFileW(nullptr, u.c_str(), file, MAX_PATH, 0, nullptr))) continue;
             std::string bytes = ReadFileUtf8(file);
             std::string png = ShrinkIcon(bytes);
             data = png.empty() ? IconDataUrl(bytes) : L"data:image/png;base64," + Base64((const BYTE*)png.data(), (DWORD)png.size());
-            if (!data.empty()) break;
+            if (!data.empty()) { from = u; break; }
         }
-        PostMessageW(hwnd, WM_APP_ICON, 0, (LPARAM)new std::pair<std::wstring, std::wstring>(next.first, data));
+        PostMessageW(hwnd, WM_APP_ICON, 0, (LPARAM)new IconDone{next.site, data, from, next.drop});
     }
     CoUninitialize();
+}
+
+// A visit, once a session for each site: the large icon kept for it is fetched again when its page names another one,
+// or it's a week old, and goes when the page names none and none is found where sites keep one, so the site's own
+// small icon shows. Kept for good, a site's old logo stayed on its bookmark after the site changed it.
+static void CheckIcon(const std::wstring& site, const std::wstring& named) {
+    if (!g_icons.count(site)) { FetchIcon(site, named); return; }
+    auto from = g_iconFrom.find(site);
+    std::wstring url = from == g_iconFrom.end() ? L"" : from->second.url;
+    bool guessed = url.ends_with(L"/apple-touch-icon.png") || url.ends_with(L"/favicon.ico");
+    bool old = url.empty() || NowSeconds() - from->second.at > 7 * 86400;
+    if (named.empty() ? !guessed || old : url != named || old) FetchIcon(site, named, true, named.empty());
 }
 
 // The page's own choice: its largest icon, an SVG one first.
@@ -741,7 +759,10 @@ static const wchar_t kIconScript[] =
 static void SaveIcons() {
     g_iconsDirty = false;
     std::string out, miss;
-    for (auto& [site, data] : g_icons) out += Utf8(site + L"\t" + data) + "\n";
+    for (auto& [site, data] : g_icons) {
+        auto from = g_iconFrom.find(site);
+        out += Utf8(site + L"\t" + data + (from == g_iconFrom.end() ? L"" : L"\t" + from->second.url + L"\t" + std::to_wstring(from->second.at))) + "\n";
+    }
     for (auto& [site, when] : g_iconMiss) miss += Utf8(site) + "\t" + std::to_string(when) + "\n";
     WriteFileUtf8(g.dataDir + L"\\iconmiss.tsv", miss);
     WriteFileUtf8(g.dataDir + L"\\icons.tsv", out);
@@ -758,6 +779,7 @@ static void PruneSiteIcons() {
     size_t before = g.favicons.size() + g_icons.size() + g_iconMiss.size();
     std::erase_if(g.favicons, [&](auto& x) { return !keep.count(x.first); });
     std::erase_if(g_icons, [&](auto& x) { return !keep.count(x.first); });
+    std::erase_if(g_iconFrom, [&](auto& x) { return !keep.count(x.first); });
     std::erase_if(g_iconMiss, [&](auto& x) { return !keep.count(x.first); });
     std::erase_if(g_iconTried, [&](auto& s) { return !keep.count(s.substr(0, s.find(L'#'))); });
     if (g.favicons.size() + g_icons.size() + g_iconMiss.size() == before) return;
@@ -2715,6 +2737,22 @@ static void ConfigurePrivate(ICoreWebView2* core) {
         }).Get());
 }
 
+// A start that adds Exo Shield (again, for a new build an update brought, or first, on a new profile) does it while the
+// first pages load, and what those pages asked for in that moment failed: a new tab came up without your bookmarks.
+// On such a start each page waits until Exo Shield is in (8 s at most); on any other start nothing waits.
+static const UINT kTimerShield = 17;
+static bool g_shieldSettling = false;
+static void ShieldSettled() {
+    if (!g_shieldSettling) return;
+    g_shieldSettling = false;
+    KillTimer(g.hwnd, kTimerShield);
+    for (auto& t : g.tabs)
+        if (t->core && !t->pendingNav.empty()) {
+            t->core->Navigate(t->pendingNav.c_str());
+            t->pendingNav.clear();
+        }
+}
+
 static void ConfigureProfile(ICoreWebView2* core) {
     if (g.profileReady) return;
     g.profileReady = true;
@@ -2740,6 +2778,16 @@ static void ConfigureProfile(ICoreWebView2* core) {
     // failed with "Internal error while parsing rules").
     struct Shipped { const wchar_t* folder; const wchar_t* name; };
     static const Shipped shipped[] = {{L"exo-shield", L"Exo Shield"}};
+    // Whether this start adds one, known from this PC's files before the engine is asked (the check below is async).
+    for (auto& s : shipped) {
+        std::wstring folder = g.dataDir + L"\\Builtin\\" + s.folder;
+        bool known = std::any_of(g_extFolders.begin(), g_extFolders.end(), [&](auto& e) { return e.second == folder; });
+        if (GetFileAttributesW((folder + L"\\manifest.json").c_str()) != INVALID_FILE_ATTRIBUTES &&
+            (!known || Setting((std::wstring(L"builtin.") + s.folder).c_str(), L"") != ManifestVersion(folder))) {
+            g_shieldSettling = true;
+            SetTimer(g.hwnd, kTimerShield, 8000, nullptr);
+        }
+    }
     p7->GetBrowserExtensions(Callback<ICoreWebView2ProfileGetBrowserExtensionsCompletedHandler>(
         [p7](HRESULT hr, ICoreWebView2BrowserExtensionList* list) -> HRESULT {
             auto stale = std::make_shared<std::vector<ComPtr<ICoreWebView2BrowserExtension>>>();
@@ -2815,6 +2863,7 @@ static void ConfigureProfile(ICoreWebView2* core) {
                 }
                 if (missing->empty()) {
                     SendExtensions();
+                    ShieldSettled();
                     return;
                 }
                 std::wstring folder = missing->front();
@@ -3397,13 +3446,13 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
                 a->get_IsSuccess(&ok);
                 if (ok) RecordVisit(t);
                 std::wstring site = SiteOf(t->url);
-                if (ok && !t->priv && t->url.rfind(L"https://", 0) == 0 && !IsNewTab(t->url) && !g_icons.count(site) && !g_iconTried.count(site + L"#page"))
+                if (ok && !t->priv && t->url.rfind(L"https://", 0) == 0 && !IsNewTab(t->url) && g_iconTried.insert(site + L"#check").second)
                     t->core->ExecuteScript(kIconScript, Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
                         [site](HRESULT hr, LPCWSTR result) -> HRESULT {
                             std::wstring href = SUCCEEDED(hr) && result ? result : L"";
                             if (href.size() >= 2 && href.front() == L'"') href = href.substr(1, href.size() - 2);
                             if (href.find(L'\\') != std::wstring::npos) href.clear();
-                            FetchIcon(site, href);
+                            CheckIcon(site, href);
                             return S_OK;
                         }).Get());
                 QueueState();
@@ -3532,7 +3581,8 @@ static void SetupTab(Tab* t, ICoreWebView2CompositionController* comp) {
 
     t->ctl->put_Bounds(g.contentRect);
     t->ctl->put_IsVisible(id == g.activeId && !g.minimized);
-    if (!t->pendingNav.empty()) {
+    // Exo Shield being added as the browser starts: the page goes once it's in (ShieldSettled).
+    if (!t->pendingNav.empty() && !g_shieldSettling) {
         t->core->Navigate(t->pendingNav.c_str());
         t->pendingNav.clear();
     }
@@ -7396,9 +7446,18 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     }
     case WM_APP_ICON: {
-        std::unique_ptr<std::pair<std::wstring, std::wstring>> icon((std::pair<std::wstring, std::wstring>*)lp);
-        if (icon->second.empty()) g_iconMiss[icon->first] = NowSeconds();
-        else { g_icons[icon->first] = icon->second; g_iconMiss.erase(icon->first); }
+        std::unique_ptr<IconDone> icon((IconDone*)lp);
+        if (!icon->data.empty()) {
+            g_icons[icon->site] = icon->data;
+            // A shrunk copy of one kept (no address) keeps where it came from.
+            if (!icon->from.empty() || !g_iconFrom.count(icon->site)) g_iconFrom[icon->site] = {icon->from, NowSeconds()};
+            g_iconMiss.erase(icon->site);
+        } else if (icon->drop) {
+            g_icons.erase(icon->site);
+            g_iconFrom.erase(icon->site);
+        } else if (!g_icons.count(icon->site)) {
+            g_iconMiss[icon->site] = NowSeconds();
+        }
         g_iconsDirty = true;
         SetTimer(hwnd, kTimerIcons, 400, nullptr);
         return 0;
@@ -7473,6 +7532,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             SendDownloads();
         } else if (wp == kTimerSplit) {
             TickPendingSplit();
+        } else if (wp == kTimerShield) {
+            ShieldSettled();
         } else if (wp == kTimerUpdate) {
             UpdateTick();
         } else if (wp == kTimerIcons) {
@@ -7746,7 +7807,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
     for (auto& row : ReadTable(L"favicons.tsv"))
         if (row.size() >= 2) g.favicons[row[0]] = row[1];
     for (auto& row : ReadTable(L"icons.tsv"))
-        if (row.size() >= 2) g_icons[row[0]] = row[1];
+        if (row.size() >= 2) {
+            g_icons[row[0]] = row[1];
+            if (row.size() >= 4) g_iconFrom[row[0]] = {row[2], _wtoi64(row[3].c_str())};
+        }
     for (auto& row : ReadTable(L"iconmiss.tsv"))
         if (row.size() >= 2) g_iconMiss[row[0]] = _wtoi64(row[1].c_str());
     // Icons saved full size by an earlier version shrink once, off the UI thread.
@@ -7764,8 +7828,8 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int show) {
                     size_t comma = data.find(L',');
                     std::string png = comma == std::wstring::npos ? std::string() : ShrinkIcon(FromB64(data.substr(comma + 1)));
                     if (!png.empty())
-                        PostMessageW(hwnd, WM_APP_ICON, 0, (LPARAM)new std::pair<std::wstring, std::wstring>(
-                            site, L"data:image/png;base64," + Base64((const BYTE*)png.data(), (DWORD)png.size())));
+                        PostMessageW(hwnd, WM_APP_ICON, 0, (LPARAM)new IconDone{
+                            site, L"data:image/png;base64," + Base64((const BYTE*)png.data(), (DWORD)png.size()), L""});
                 }
                 CoUninitialize();
             }).detach();

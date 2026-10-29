@@ -185,12 +185,15 @@ function Page() {
   useEffect(() => {
     // Only the newest answer counts (two loads can cross), and a page in a tab you can't see waits until it's shown.
     let asked = 0
-    const load = async () => {
+    const load = async (tries = 0) => {
       const n = ++asked
       try {
         const next = await readData()
         if (next && n === asked) setData(next)
-      } catch { /* the host isn't there */ }
+      } catch {
+        // The host couldn't answer just then: asked again shortly, so your bookmarks never stay away.
+        if (tries < 4 && n === asked) setTimeout(() => void load(tries + 1), 250 * 2 ** tries)
+      }
     }
     void load()
     let stale = false
