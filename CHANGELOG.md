@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.4.2 — October 31, 2026
+
+- **Bugs fixed.**
+  - **A page's own connect or sign-in window opens while protection starts.** A page that opens its own window (Factory's connect flow, a sign-in) had that window's first page held for Exo Shield like any other, and the window could never open, showing "Can't reach …" instead. Its first page isn't held now; Exo Shield covers every page after it as before. _Checked in code only._
+- **The update mirror is part of the release.** tools\Publish-Updates.ps1 uploads the installer, its checksum and What's New to the update mirror and only then points the newest-version answer at them, so an update can't be offered before its files are there (1.4.1's mirror step was missed). _Checked: the 1.4.1 files uploaded with the same commands._
+
 ## 1.4.1 — October 31, 2026
 
 - **Protection before the first page.** Pages wait until Exo Shield is ready, including private tabs and Little Exo. If protection takes longer, Exo says "Protection is starting" and lets you choose "Open anyway" instead of silently loading without it. _Verified: end-to-end for missing Shield, a delayed start and a timeout; private tabs and Little Exo checked in code only._
