@@ -36,7 +36,7 @@ When you choose Import (or Bring in on first run), Exo Browser reads that browse
 
 ### The sites you visit
 
-The sites you open, and what they load, minus what Exo Shield blocks. They see what any browser sends them. Exo Browser turns on Microsoft Edge's balanced tracking prevention, and does not send the "pings" some links ask for.
+The sites you open, and what they load, minus what Exo Shield blocks. They see what any browser sends them. Exo Browser turns on Microsoft Edge's balanced tracking prevention, and does not send the "pings" some links ask for. Notifications are off, with no setting: sites can't show them, ask to, or sign up for push messages.
 
 ### Cloudflare (secure DNS)
 

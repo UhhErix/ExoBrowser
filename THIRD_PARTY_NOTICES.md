@@ -24,6 +24,9 @@ uBlock Origin Lite carries the filter lists it was built with (EasyList, EasyPri
 | clsx, by Luke Edwards | MIT | <https://github.com/lukeed/clsx> |
 | Tabler Icons, by Paweł Kuna | MIT | <https://github.com/tabler/tabler-icons> |
 | Inter, by Rasmus Andersson | SIL Open Font License 1.1 (`ui\fonts\LICENSE-Inter.txt`) | <https://github.com/rsms/inter> |
+| The Exo Profile's name fonts (`ui\fonts\profile`, each with its license beside it): Bebas Neue by Dharma Type; Orbitron by The Orbitron Project Authors; Press Start 2P by The Press Start 2P Project Authors; Pacifico by The Pacifico Project Authors; Monoton by Vernon Adams | SIL Open Font License 1.1 | <https://fonts.google.com> |
+| Permanent Marker, by Font Diner (the Exo Profile's marker font) | Apache-2.0 (`ui\fonts\profile\marker-LICENSE.txt`) | <https://fonts.google.com/specimen/Permanent+Marker> |
+| qrcode-generator, by Kazuhiko Arase (the Exo Profile's link code) | MIT | <https://github.com/kazuhikoarase/qrcode-generator> |
 
 The installer is made with NSIS (zlib/libpng license, <https://nsis.sourceforge.io>).
 
