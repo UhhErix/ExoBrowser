@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.2">What's new in 1.4.2</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.3">What's new in 1.4.3</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.2/ExoBrowser-Setup.exe) | 1.4.2 | `fb69396b5bec0afbd99c2ba43c0ae2efd06ef3e53d5c7cc5b47fd8f991d06fbd` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.3/ExoBrowser-Setup.exe) | 1.4.3 | `9792b0c6b89c26bff2dc8001e325f00e4ad155cc4ea6362a304d4ff1f27528fa` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.2):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.3):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256

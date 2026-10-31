@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.4.3 — October 31, 2026
+
+- **A page on screen takes clicks again.** Putting a tab to sleep could finish in the moment you switched to it, and the page then drew but ignored every click until Exo Browser was closed. Coming back to a tab now resumes it, and a sleep that finishes on the tab you're looking at is undone. _Checked in code only._
+- **Reopening starts clean.** Closing hid the window and kept the single-instance lock while it saved and closed its pages, so opening it again during that handed the new start to a window that was leaving and then exited. A start during close now waits for the previous one to let go and opens on its own, and the close log says how long the save and the pages took. _Checked in code only._
+
 ## 1.4.2 — October 31, 2026
 
 - **Bugs fixed.**
