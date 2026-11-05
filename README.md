@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.3">What's new in 1.4.3</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.4">What's new in 1.4.4</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,7 +17,7 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.3/ExoBrowser-Setup.exe) | 1.4.3 | `9792b0c6b89c26bff2dc8001e325f00e4ad155cc4ea6362a304d4ff1f27528fa` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.4/ExoBrowser-Setup.exe) | 1.4.4 | `b40265de177bc5b4e5e16750eb8c3b9780655c398f20901c8be2b42b88dfd42d` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 

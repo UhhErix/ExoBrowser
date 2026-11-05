@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 1.4.4 — November 5, 2026
+
+- **A loaded page is never covered by "Can't reach".** The card over a tab now follows only that tab's main document: it shows when that navigation failed and none of its own page came in, and never for a navigation a newer one replaced, one that turned into a download, or a certificate error of a script or picture from another host (those used to be counted against the page). The card also fills exactly the page's place, so it no longer leaves a strip of the page showing or covers the Bar. _Checked in code only: the decision's tests. Not yet seen on screen, and the owner's failing case was not reproduced._
+- **Exo Vault stays out of the way.** An icon sits inside the sign-in field you click or Tab into, and a compact dropdown opens right under it: your logins for the site (the first few, the rest by a search), a strong password on a sign-up form, a 2FA code. A field the page focuses on its own at load shows nothing, and nothing opens on load or navigation. Esc or the dropdown's close keeps it away for that site until Exo Browser closes (the icon still opens it on a click); "Not now" on the save offer does the same for that site. A save is offered only after a sign-in you submitted, never a page's script. _Checked in code only: the decisions' tests and the interface's tests. Not yet seen on screen._
 
 ## 1.4.3 — October 31, 2026
 
