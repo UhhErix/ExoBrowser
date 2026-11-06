@@ -1,8 +1,8 @@
 # Exo Browser privacy statement
 
-**Exo Browser is local-first. It has no Exo account, no ads, no analytics and no telemetry.**
+**Exo Browser is local-first. It has no Exo account, no ads, no analytics and no usage tracking.**
 
-Exo Browser has no server of its own. Nothing you do in it is sent to Exo or its developer.
+Nothing you do in it is sent to Exo or its developer: not the sites you visit, not what you search, not how you use it. The one thing that goes to Exo is a diagnostic report when Exo Browser crashes or freezes (see **Diagnostic reports**), on by default, so a crash or a freeze on your PC gets fixed for everyone.
 
 ## What stays on this PC
 
@@ -12,7 +12,8 @@ Exo Browser keeps its data in `%LocalAppData%\ExoBrowser`, beside the app (in `a
 - the browser profile (`Profile`): cookies and sign-ins, site data, the cache, and your extensions' own data, kept by Microsoft Edge WebView2 as Edge keeps them;
 - Exo Vault (`vault.exovault`, and `vault.exovault.bak` from the save before): your logins, cards, notes and identities, encrypted (see **Exo Vault**);
 - a working copy of Exo Shield (`Builtin`);
-- a short log of what went wrong (`exo.log`: an update or download that failed, and where its file came from), never a page's address or a path on this PC. Copy logs, beside an error, puts it on your clipboard with Exo Browser's, Windows' and WebView2's versions, for you to paste into a report; it's never sent anywhere by itself.
+- a short log of what went wrong (`exo.log`, and the last run's as `exo-previous.log`, each at most 128 KB: an update or download that failed, a freeze and what was running, a crash), never a page's address or a path on this PC. Copy logs, beside an error, puts it on your clipboard with Exo Browser's, Windows' and WebView2's versions, for you to paste into a report;
+- which diagnostic reports went today (`reports.tsv`), and a crash's few details until the next start reports it (`crash.tsv`).
 
 A private tab (Ctrl+Shift+N) runs on a profile kept in memory only: its cookies, sign-ins and site data stay apart from your other tabs and go when the last private tab closes, and what it visits never reaches your history or saved tabs.
 
@@ -44,7 +45,9 @@ Every address lookup (a site's name, like `github.com`) goes encrypted over HTTP
 
 ### Your search engine
 
-What you type in the Bar when it isn't an address goes to the search engine you pick in Settings > General (Brave Search unless you change it; Google, DuckDuckGo, Startpage, Kagi and Bing are the others), as a normal search. A site search (a keyword such as yt, or a site's address and Tab) sends what you type to that site's own search instead, as a normal visit. Nothing is sent while you type: the Bar's suggestions come from your tabs, bookmarks and history on this PC.
+What you type in the Bar when it isn't an address goes to the search engine you pick in Settings > Search (Brave Search unless you change it; Google, DuckDuckGo, Startpage, Kagi and Bing are the others), as a normal search, with the language and region of Windows and no tracking parameters. A site search (a keyword such as yt, or a site's address and Tab) sends what you type to that site's own search instead, as a normal visit.
+
+While you type in the Bar, Exo Browser asks that same engine for suggestions, as other browsers do: what you've typed so far (once you pause for a moment, from the second letter) goes to the engine's own suggestion address (`search.brave.com`, `duckduckgo.com`, `www.google.com`, `www.bing.com` or `kagi.com`; Startpage has none, so nothing is asked), through Windows' own internet service, with none of your cookies. Never what looks like an address, a site search's words, or anything typed while a private tab is on screen. Your own tabs, bookmarks and history show first and are matched on this PC. Settings > Search > Suggestions as you type turns it off.
 
 ### Site icons
 
@@ -71,6 +74,14 @@ Exo Browser runs on Microsoft Edge WebView2, part of Windows. WebView2 updates i
 Exo Shield's filter lists are built into each release. It downloads no lists and sends nothing about the pages you visit.
 
 The count beside the address (how many requests Exo Shield blocked on the page) is worked out on this PC and kept nowhere. Exo Shield hands the number to Exo Browser through the page itself, so that page's own scripts could read how many of its requests were blocked. Any page can tell much the same from what failed to load.
+
+## Diagnostic reports
+
+When Exo Browser crashes, when its window or its Bar stops answering for more than 5 seconds, or when the Bar's own process fails, it sends a short report to Exo's report service (`reports.getexo.app`, on Exo's own domain, a Cloudflare Worker run for Exo). This is on by default, with no switch, so the problem can be found and fixed.
+
+A report holds exactly five things: that it's Exo Browser, its version, the Windows build, the kind of error (such as `Hang.UiThread` or `Crash.AccessViolation`) and the last lines of `exo.log` (at most 8192 characters). Before anything leaves your PC, Exo Browser takes out of those lines every web address, file path, email address, IP address and host name, long number, id or token, and your Windows user and PC names; a line that still looks personal is removed whole, and the service refuses a report that holds any of them anyway. A report never holds a page's content or title, what you typed, your history, bookmarks, Exo Vault or anything about your sign-ins, and has no install id: two reports can't be tied to one PC.
+
+The same error is sent at most once a day, and no more than five reports a day. The service sees your IP address while it answers, as any server does, and doesn't store it. Reports are deleted after 30 days.
 
 ## Updates
 

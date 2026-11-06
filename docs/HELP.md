@@ -18,7 +18,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 
 ## The Bar
 
-- **Search or go:** click the address, or press **Ctrl+L** or **F6**, and type. An address opens; anything else is searched with your search engine (**Settings > General > Search engine**). Suggestions come from your open tabs, bookmarks and history.
+- **Search or go:** just type. When Exo Browser opens and on every new tab the address already has the keyboard; elsewhere click it, or press **Ctrl+L** or **F6**. An address opens; anything else is searched with your search engine (**Settings > Search > Search engine**, with a line about each). Your open tabs, bookmarks and history show first; your search engine's suggestions come under them (**Settings > Search > Suggestions as you type** turns them off; never in a private tab).
 - **Search one site:** type its keyword and a space ("yt cats" searches YouTube, "wp" Wikipedia, "gh" GitHub), "@" and its name, or its address and **Tab**. It shows as a chip in the field, with that site's pages from your history under it; **Backspace** in the empty field takes it off. **Settings > Search** keeps the list and adds your own with a %s address.
 - **Everything at once:** **Ctrl+K** finds a tab, bookmark, page from your history or action.
 - **Actions on a result:** right-click it, or press **Tab** (after anything but a site's keyword), **→** at the end of the line or the menu key: open it in a new tab, beside this tab, in Peek or in a private tab, copy its link without trackers, switch to, mute or close an open tab, or remove a page from your history or the archive. Under what you type, the first three sites in **Settings > Search** offer to search it.
@@ -34,7 +34,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 - **Favorites** show in every space; right-click a tab and choose **Add to Favorites**. A **pinned tab** remembers its page: its icon takes it back when it wanders, and closing it only puts it to sleep.
 - **Folders:** with tabs down the side, pinned tabs can sit in folders, folders inside folders too. Drop a tab on a folder, or right-click it and choose one; a folder's row opens and closes it, and right-click renames it.
 - **Live folders:** right-click a site's tab and choose **Follow this site in a live folder**. Its newest posts show in the folder, checked every 30 minutes, and open in a new tab. Delete the folder to stop following.
-- **Archive tabs** (**Settings > General**, off by default) closes tabs you haven't opened in a while, from an hour to 30 days, into an archive. Each space keeps its five newest tabs, and a tab you right-click and choose **Keep this tab** is never archived or put to sleep. **Settings > Archive** lists what was archived to open again or remove; Search finds it too, and **Ctrl+Shift+T** brings back the last one. Each comes back in the space it left.
+- **Archive tabs** (**Settings > General**, off by default) closes tabs you haven't opened in a while, from an hour to 30 days, into an archive. Each space keeps its five newest tabs, and a tab you right-click and choose **Keep this tab** is never archived or put to sleep. **Settings > History > Archive** lists what was archived to open again or remove; Search finds it too, and **Ctrl+Shift+T** brings back the last one. Each comes back in the space it left.
 - **From Arc:** **Settings > Import** brings Arc's spaces, colors, favorites, pinned tabs with their folders and Today tabs from its files, even after Arc stops opening.
 
 ## Split view, Peek and private tabs
@@ -47,7 +47,7 @@ To uninstall, open **Windows Settings > Apps > Installed apps**, choose **Exo Br
 
 ## The new tab page
 
-Your bookmarks as glass cards (drag one to rearrange them) and, under them, the sites you visit most; a card's × forgets a most-visited site. **Settings > New tab** shows bookmarks as cards, a bar, icons only or not at all, and turns Most visited off.
+Your bookmarks as glass cards (drag one to rearrange them) and, under them, the sites you visit most; a card's × forgets a most-visited site. **Settings > General > New tab** shows bookmarks as cards, a bar, icons only or not at all, and turns Most visited off.
 
 ## Exo Shield
 
@@ -82,13 +82,16 @@ Open the [Chrome Web Store](https://chromewebstore.google.com) from **Settings >
 ## Look and feel
 
 - **Settings > Look:** **Appearance** (Match Windows, Light, Dark or Void, pure black for OLED screens), **Material** (Liquid Glass, See-through or solid), tabs across the top or down the side, the accent color, a compact Bar, tab size, text size and reduced motion.
-- **Settings > Mods:** eight themes that set the look in one click, small tweaks (tab numbers, calm icons, no new tab button, square corners, the accent on the Bar) and your own CSS for Exo Browser itself. Your CSS never reaches Settings, so you can always undo it there.
-- **Boosts:** right-click a tab and choose **Zap things on this page** to click away things on a site's pages for good, or **Boost this site** to give it a style of your own. **Settings > Boosts** lists them, each with a switch.
+- **Mods** (a lab: **Settings > About > Labs** turns it on, then it is in **Settings > Look**): eight themes that set the look in one click, small tweaks (tab numbers, calm icons, no new tab button, square corners, the accent on the Bar) and your own CSS for Exo Browser itself. Your CSS never reaches Settings, so you can always undo it there.
+- **Boosts** (a lab, off until **Settings > About > Labs** turns it on): right-click a tab and choose **Zap things on this page** to click away things on a site's pages for good, or **Boost this site** to give it a style of your own. **Settings > Boosts** lists them, each with a switch.
 
 ## Privacy
 
-Exo Browser has no account and sends nothing to Exo. **Settings > Privacy > Cookies, site data and cache > Clear** signs you out of every site. The [privacy policy](../PRIVACY.md) lists everything that leaves your PC.
+Exo Browser has no account and doesn't track how you use it. The one thing it sends Exo is a short diagnostic report when it crashes or freezes, on by default: the version, your Windows build, the kind of error and the last lines of its log with every address, path, name and id taken out. The same error goes at most once a day, five reports a day at most, and Exo deletes them after 30 days. **Settings > Privacy > Cookies, site data and cache > Clear** signs you out of every site. The [privacy policy](../PRIVACY.md) lists everything that leaves your PC.
 
 ## Something wrong?
 
-[Report a problem or suggest a feature](https://github.com/UhhErix/ExoBrowser/issues/new/choose). Issues are public: leave out passwords, addresses you'd rather keep private and personal details.
+[Report a problem or suggest a feature](https://github.com/UhhErix/ExoBrowser/issues/new/choose). Issues are public: leave out passwords, addresses you'd rather keep private and personal details. A crash or a freeze is reported to Exo by itself (see **Privacy**); an issue with what you were doing still helps.
+
+- **A page stopped responding:** its card says so; **Try again** starts it afresh. Other tabs, even of the same site, keep working.
+- **A site's alert in a tab you weren't looking at** is answered Cancel, as in Chrome, so it can't hold up your other tabs.

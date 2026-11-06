@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/UhhErix/ExoBrowser/releases/latest/download/ExoBrowser-Setup.exe"><strong>Download for Windows 11</strong></a>
-  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.4">What's new in 1.4.4</a>
+  · <a href="https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.5">What's new in 1.4.5</a>
   · <a href="CHANGELOG.md">Changelog</a>
   · <a href="PRIVACY.md">Privacy</a>
   · <a href="SECURITY.md">Security</a>
@@ -17,11 +17,11 @@
 
 | File | Version | SHA-256 |
 | --- | --- | --- |
-| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.4/ExoBrowser-Setup.exe) | 1.4.4 | `b40265de177bc5b4e5e16750eb8c3b9780655c398f20901c8be2b42b88dfd42d` |
+| [ExoBrowser-Setup.exe](https://github.com/UhhErix/ExoBrowser/releases/download/v1.4.5/ExoBrowser-Setup.exe) | 1.4.5 | `55dfed89d5cdfe0ee1c8ccdb584b3fb56d3be169bc9bce8ec583af847d626fea` |
 
 **Requirements:** Windows 11 x64 with WebView2 (built into Windows 11; Setup installs it if it's missing). Installs for your Windows user only, in `%LOCALAPPDATA%\ExoBrowser\app`, with no administrator rights.
 
-**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.3):
+**Check your download.** The installer isn't code-signed yet, so Windows SmartScreen may warn the first time (choose **More info**, then **Run anyway**). Before you run it, check that its hash matches the one above and on the [release page](https://github.com/UhhErix/ExoBrowser/releases/tag/v1.4.5):
 
 ```powershell
 Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
@@ -40,7 +40,7 @@ Get-FileHash .\ExoBrowser-Setup.exe -Algorithm SHA256
 - **Exo Shield:** ads, trackers, malware, cookie notices and pop-ups blocked before they load, on every site, always on, with how many it blocked on the page beside the address. YouTube ads are blocked like any other; for Twitch, which puts ads inside the stream, Exo Shield asks for each stream from a country Twitch shows no ads in, and the video still comes straight from Twitch.
 - **Exo Vault:** logins, cards, notes and identities encrypted on this PC, with no account and no cloud. It fills sign-in forms, makes strong passwords, shows 2FA codes and opens with Windows Hello.
 - **Tabs that stay in order:** spaces, favorites, pinned tabs in folders, live folders and an optional archive.
-- **Private by default:** address lookups go encrypted to Cloudflare, Microsoft Edge's balanced tracking prevention is on, sites can't show notifications or ask to, private tabs keep nothing, and there's no Exo account, no ads and no telemetry.
+- **Private by default:** address lookups go encrypted to Cloudflare, Microsoft Edge's balanced tracking prevention is on, sites can't show notifications or ask to, private tabs keep nothing, and there's no Exo account, no ads and no usage tracking (only a crash or freeze report, stripped of anything personal).
 - **Exo Launcher's look:** Light, Dark or Void (pure black, for OLED), Liquid Glass or solid, one-click themes, and tabs across the top or down the side.
 - **Easy to move in:** one click brings bookmarks, history, sign-ins, extensions and passwords from the other browsers on this PC, and Arc's spaces, favorites and folders from its files.
 
@@ -105,11 +105,11 @@ One field for everything: an address opens, anything else goes to your search en
 
 ## Make it yours
 
-![Settings > Mods: themes, small tweaks and your own CSS](docs/media/mods.jpg)
+![Mods, a lab: themes, small tweaks and your own CSS](docs/media/mods.jpg)
 
 - **Look:** Light, Dark or Void, Liquid Glass or solid, an accent color, a compact Bar, tab size, text size and reduced motion.
-- **Mods:** eight one-click themes, small tweaks (tab numbers, calm icons, no new tab button, square corners, the accent on the Bar) and your own CSS for Exo Browser itself.
-- **Boosts:** right-click a tab to zap things off a site's pages for good, or give a site your own style. **Settings > Boosts** lists them, each with a switch.
+- **Mods** (a lab, off until **Settings > About > Labs** turns it on): eight one-click themes, small tweaks (tab numbers, calm icons, no new tab button, square corners, the accent on the Bar) and your own CSS for Exo Browser itself.
+- **Boosts** (a lab, off until **Settings > About > Labs** turns it on): right-click a tab to zap things off a site's pages for good, or give a site your own style. **Settings > Boosts** lists them, each with a switch.
 
 ## How it works
 
@@ -120,7 +120,7 @@ Exo Browser is a native Windows app (C++) built on Microsoft Edge WebView2, the 
 
 ## Privacy and safety
 
-- **No Exo account, no ads, no analytics, no telemetry.** Exo Browser has no server of its own. Your history, bookmarks, spaces, settings and vault stay in `%LocalAppData%\ExoBrowser`.
+- **No Exo account, no ads, no analytics, no usage tracking.** Your history, bookmarks, spaces, settings and vault stay in `%LocalAppData%\ExoBrowser`. When it crashes or freezes, Exo Browser sends Exo a short diagnostic report with anything personal taken out ([PRIVACY.md](PRIVACY.md#diagnostic-reports)).
 - **What leaves your PC** is what browsing needs: the sites you open, your address lookups (to Cloudflare), your searches (to the engine or site you pick), the feeds of sites you follow in live folders, the Twitch playlist requests Exo Shield routes, Chrome Web Store downloads when you add an extension, and the update check to Exo's update address (GitHub when it doesn't answer). The [privacy policy](PRIVACY.md) lists every destination and what is sent.
 - **Your passwords never leave this PC** unless you export them, and an export is encrypted with a password you choose.
 - **Found a security problem?** Please [report it privately](https://github.com/UhhErix/ExoBrowser/security/advisories/new), not in a public issue. See [SECURITY.md](SECURITY.md).

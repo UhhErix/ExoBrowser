@@ -23,7 +23,7 @@ By sending an issue, a suggestion, a translation or any other contribution you c
 
 An idea that crosses one of these won't ship.
 
-- **No ads, analytics, telemetry or Exo account.** Every place Exo Browser connects to is listed in [PRIVACY.md](PRIVACY.md).
+- **No ads, analytics, usage tracking or Exo account.** Diagnostic reports of crashes and freezes, stripped of anything personal, are the one thing sent to Exo. Every place Exo Browser connects to is listed in [PRIVACY.md](PRIVACY.md).
 - **Exo Shield stays locked on.** No setting, page or extension may turn it off or remove it.
 - **The interface has no web.** The Bar, new tab page, Settings and Exo Vault stay in their own profile with no extensions and no access to the web.
 - **Vault secrets stay on this PC.** Nothing in Exo Vault leaves the PC except in an export the user makes, and an export is always encrypted.
